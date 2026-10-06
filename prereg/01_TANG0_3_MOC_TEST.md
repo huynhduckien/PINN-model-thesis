@@ -166,3 +166,9 @@ Mã: `smoke/tier1.py`, `lock.py` (khóa GPU); kết quả `runs/tier1/report.jso
 **Chấm dự đoán:** S1.1 ≤ 0.25 s/bước (90%): đúng (0.140). S1.3 đạo hàm bậc hai > 50% (60%): đúng (86%, xấp xỉ).
 
 **Quy tắc đã khóa (§5 S1.3):** "chỉ làm tối ưu tốc độ nếu đạo hàm bậc hai chiếm > 50% thời gian bước" → điều kiện **thỏa**. Việc tối ưu (truyền thuận Laplacian) cần một đăng ký riêng và được người dùng đồng ý; chưa làm.
+
+### Sửa đổi 01b (2026-10-06 13:02, sau lượt chạy đầu của `tier1c_fastpde.py`, trước khi chạy lại)
+
+Lượt đầu: **E1 đạt** (max|r_nhanh − r_cũ|/RMS = 1.80e-13 trên 28,859 điểm), **E2 đạt** (gradient theo trọng số, sai 4.68e-15), **E3 trượt**: loss PDE float32 trên 364,544 điểm là 0.33156 cho **cả** `fast_residual` và `pde` cũ (lệch 0.0e+00), nhưng so với tham chiếu S1.2 viết là "0.3316" thì lệch 1.1e-4 > 1e-4. Nguyên nhân là **lỗi của chính tiêu chí**: tôi làm tròn tham chiếu S1.2 xuống 4 chữ số; giá trị thật trong `runs/tier1/report.json` là **0.33156269788742065** (L_top 8.812782471068203e-05). Với giá trị đúng, lệch là 8.1e-6.
+
+Sửa (không đổi ngưỡng 1e-4): tham chiếu S1.2 trong E3 và E5 là giá trị **không làm tròn** đọc từ `runs/tier1/report.json`. Chạy lại toàn bộ E1–E5 (E1, E2 không phụ thuộc). Lỗi làm tròn của tôi được ghi để bạn thấy: nó không che một sai khác nào, vì phép so thực chất (mới so với cũ, cùng điểm, cùng trọng số) là 0.0.
