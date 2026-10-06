@@ -256,3 +256,24 @@ Thời gian GPU tầng 2 tổng ba lượt: khoảng 5 + 3 + 1 phút (trần 15)
 ## 16. Cách hiểu cố định của S3.1 (2026-10-06 13:45, trước khi chạy tầng 3)
 
 Mã `smoke/tier3.py`, giữ khóa GPU, không lưu trọng số. B3W0 (nêm y_a = 0), khởi động từ `B3_84d0289e`, Adam 500 bước lr 1e-4 qua DeepXDE (năm lần `train(100)` liên tiếp, một lần `compile`), cổng nhẹ (`gates.light_gate`) trước khi huấn luyện và sau mỗi 100 bước. "Tổng loss" = L_PDE + L_top theo lịch sử loss của DeepXDE (trọng số 1 mỗi số hạng); "loss khởi điểm" = tổng ở bước 0 của lượt Adam (trước bước cập nhật đầu), "loss ở bước 500" = tổng ở bước cuối. "Không NaN/Inf" = mọi loss và mọi số đo cổng đều hữu hạn. Giây/bước = tổng thời gian các lần `train(100)` (không tính cổng) chia 500. Đạt khi: hữu hạn, loss bước 500 ≤ 0.7 × loss khởi điểm, ≤ 0.25 s/bước; E_res và T_min chỉ ghi nhận. Ngưỡng 0.7 là [ĐỀ XUẤT] từ đăng ký gốc (mục 7), chưa được xác nhận bằng số đo nào. Dự đoán (ghi trước): đạt 70% như mục 9; loss khởi điểm khoảng 0.33 (S1.2), nên 0.7× là khoảng 0.23. Tham khảo: ở tầng 2, 20 Adam + 15 vòng L-BFGS đưa loss từ 0.33 xuống 0.2075 (tỉ lệ 0.63) mà chưa kể tiến Adam dài.
+
+## 17. Kết quả tầng 3 (13:47, mã `2ebf15c`): **ĐẠT** S3.1
+
+Mã `smoke/tier3.py`; kết quả máy đọc `runs/tier3/report.json` (không commit); `legacy/ckpt` không đổi (kiểm hash). Bậc B3W0 khởi động từ `B3_84d0289e`, Adam 500 bước lr 1e-4, cổng nhẹ mỗi 100 bước.
+
+| Bước | L_PDE | L_top | tổng | E_res (mJ) | T_min (K) | (tích + bay hơi)/nạp | gate a/b/c |
+|---|---|---|---|---|---|---|---|
+| 0 (loss) | 0.3316 | 8.8e-5 | 0.3317 | +101.9 (tầng 2, sau 35 bước) | — | 0.947 | không/đạt/đạt |
+| 100 | 6.82e-2 | 3.17e-4 | 6.85e-2 | +61.3 | 282.0 | 0.870 | không/đạt/đạt |
+| 200 | 2.79e-2 | 3.47e-4 | 2.83e-2 | +15.8 | 259.2 | 0.803 | không/đạt/đạt |
+| 300 | 1.85e-2 | 3.10e-4 | 1.88e-2 | +7.7 | 257.4 | 0.792 | đạt/đạt/đạt |
+| 400 | 1.47e-2 | 2.53e-4 | 1.49e-2 | +5.9 | 253.3 | 0.792 | đạt/đạt/đạt |
+| 500 | 1.27e-2 | 2.20e-4 | 1.29e-2 | +7.7 | 248.8 | 0.798 | đạt/đạt/đạt |
+
+Đạt: mọi số hữu hạn; loss tổng 0.3317 → 0.01294 (tỉ lệ **0.039**, ngưỡng ≤ 0.7); **0.135 s/bước** (≤ 0.25). Chấm dự đoán: S3.1 đạt (70%): đúng.
+
+Điều rút ra (số đo, không phải kết luận về overhang): (1) ngưỡng 0.7 [ĐỀ XUẤT] rất lỏng so với số đo (0.039), nên không phải ràng buộc thực; đăng ký 02 nên chọn ngưỡng loss dựa trên đường cong này. (2) Gate (a) (|E_res| ≤ 10 mJ) từ +102 mJ về +7.7 mJ chỉ trong 300–500 bước Adam, tức B3 chuyển sang nêm không bị kẹt như B1k (+100 mJ, L-BFGS không tiến). (3) E_res không đơn điệu (5.9 ở bước 400, 7.7 ở bước 500), nên một cổng dừng đo ở một thời điểm sẽ nhiễu cỡ 2 mJ. (4) Cổng nhẹ chỉ đo trên mạng chưa hội tụ ở bước 500 (loss 1.3e-2, B3 gốc kết thúc ở 1.05e-3); bể chảy và cổng vật lý của nêm thật cần huấn luyện dài hơn, thuộc M2 (đăng ký 02). (5) S3.1 không kiểm hình dạng bể chảy hay độ xuyên dưới đáy lớp bột.
+
+## 18. Tổng kết tầng 0–3 (số đo đã chọn làm đầu vào cho đăng ký 02, theo mục 8)
+
+Tầng 0, 1, 2, 3 đều **ĐẠT**; S0.8 (bảng số thực nghiệm cho M5) **chưa làm**. Đầu vào cho đăng ký 02: S1.1: 0.140 s/bước Adam toàn lô qua DeepXDE, bộ nhớ đỉnh 6.7 GB; S1.2: loss khởi điểm của B3 trên nêm 0.332 + 8.8e-5; S1.3: đạo hàm bậc hai ≈ 86% bước, nhưng `fastpde` (01a–c) không nhanh hơn (1.01×), bỏ; DeepXDE chiếm tối đa 17% bước (mục 12a); S3.1: 0.135 s/bước, loss 0.332 → 0.0129 sau 500 Adam, E_res +102 → +7.7 mJ. L-BFGS float64 cần tiến trình bắt đầu ở float64 hoặc giải phóng bộ nhớ (01f), ~0.4 s/lần tính hàm. Thời gian GPU thực tế: tầng 0 27 s, tầng 1 và các lần thử `fastpde` vài phút, tầng 2 ≈ 9 phút (ba lượt), tầng 3 ≈ 2 phút. Việc kế tiếp theo mục 8: viết đăng ký 02 (M2 `B3W0`: ngân sách, cổng dừng, tiêu chí, dự đoán; trần 75 phút; M3, M4, M5) **trước** khi chạy M2.
