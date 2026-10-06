@@ -147,3 +147,28 @@ Chấm dự đoán (mục 9): H_s không được ủng hộ (35%) → **xảy r
 Ở nêm, vùng "bột" gồm lớp 60 µm trên cùng **và** vùng dưới phần nhô (tam giác y < 180 − z); phần rắn chỉ còn là góc nêm (19.8% thể tích). Nguồn âm của M2′ nằm chủ yếu ở vùng bột/dưới phần nhô, trong dải 298–1000 K, với RMS residual 0.024 (nhỏ so với 0.073 ở vùng nóng) trên 73% thể tích; ở B3 vệt thường nó nằm ở nền rắn.
 
 **Giả thuyết còn lại (chưa kiểm):** E_res là hàm tuyến tính của phần dư (trung bình của r), còn loss là bình phương (trung bình r²). Sai số có dấu hệ thống nhỏ (|r| ~ 0.02–0.03) trên thể tích lớn bị loss bình phương phạt yếu (0.024² so với 0.073² ở vùng nóng) nhưng cộng thành −12 mJ trong E_res. Nếu đúng, lấy thêm điểm (A1) không đủ, cần thêm số hạng loss theo cân bằng năng lượng (trung bình phần dư), một điều kiện vật lý chính xác của PDE; đánh đổi: cổng E_res khi đó là một phần của mục tiêu huấn luyện, nên mất vai trò kiểm độc lập.
+
+## 11. Sửa đổi 03b (16:51, trước khi viết mã và chạy): hướng B1 — số hạng cân bằng năng lượng trong loss
+
+Người dùng chọn B1 sau mục 10. Giả thuyết **H_c:** E_res là trung bình tuyến tính của phần dư r, còn loss PDE là trung bình r²; sai số hệ thống nhỏ (|r| khoảng 0.02) trên thể tích lớn ở vùng bột/dưới phần nhô bị loss phạt yếu nhưng cộng thành −12…−16 mJ. Nếu đúng, thêm một số hạng loss phạt **phần dư trung bình theo vùng** sẽ đưa E_res về trong ±10 mJ trên điểm độc lập, mà không làm xấu vùng nóng hay bể chảy.
+
+**Đánh đổi phải khai trước.** Số hạng này huấn luyện trực tiếp lên đại lượng mà cổng (gate a) đo, nên gate (a) không còn là kiểm **độc lập** của "không có nguồn giả" nếu chỉ đo trên điểm huấn luyện. Biện pháp: (i) số hạng dùng **mẫu đều mới ở mỗi bước** (không phải tập cố định), (ii) đánh giá trên các tập điểm độc lập (`probe`, seed 101; chẩn đoán 2^18 điểm, seed 777) không dính tới huấn luyện, (iii) tiêu chí thêm: cân bằng theo từng loại vật liệu trên điểm độc lập (chống triệt tiêu giữa các vùng), (iv) bể chảy, RMS vùng nóng và `check_physics` phải không xấu đi. Số hạng này là hệ quả chính xác của PDE (tích phân PDE trên một vùng cho cân bằng năng lượng vùng), không phải dữ liệu.
+
+**Số hạng (mới, thêm vào loss của bậc `B3W0c`; mã `energy.py`):**
+L_E = Σ_c e_c², với e_c = E_c / E_in, c chạy trên 6 lớp = {rắn (s < 0.01), mặt phân cách (0.01 ≤ s ≤ 0.99), bột (s > 0.99)} × {t < t_end/2, t ≥ t_end/2}; E_c = (1/N) Σ_{i thuộc c} r_i · E_r (E_r = ρ c_p T_c L_c³ L_x L_y L_z t_end [J], như `probe`); N = 2^15 điểm đều trong hộp (x, y, z, t), **lấy mới mỗi bước**; E_in = 0.18999 J (laser nạp). Loss tổng: L_PDE + L_top + λ·L_E (gắn qua `loss_weights` của DeepXDE, lớp con `TimePDE` thêm một số hạng loss; giá trị L_PDE và L_top không đổi so với `make_data` — kiểm ở mốc S2.12(a)). Khi M2′ ở bước 0: E_bột/E_in ≈ −0.064, nên L_E ≈ 0.005 cùng bậc L_PDE (6.3e-3) ở λ = 1.
+
+**Mốc kiểm trước khi chạy (S2.12).** (a) Lớp con `TimePDE` với λ = 0 cho L_PDE và L_top ở bước 0 trùng `L.make_data` (sai ≤ 1e-6 tương đối: M2′ cho [6.32e-3, 1.04e-4]); (b) L_E tại trọng số M2′ cho Σ_c E_c tổng khớp E_res đo bằng `probe` trong 3 mJ (ước lượng độc lập, cùng dấu) và gradient trọng số hữu hạn; (c) 10 bước Adam λ = 1 chạy hết, loss hữu hạn, không NaN. Trượt thì dừng, báo cáo.
+
+**Thí nghiệm B1 (chẩn đoán, giống A1: không phải lượt M2).** Khởi động từ trọng số M2′ (`runs/M2c/B3W0c_e90da666.pt`), bậc `B3W0c` (đầu ra cắt), Adam **1,000 bước** lr 1e-4 toàn lô, hai nhánh **λ = 1** và **λ = 10**; đối chứng là nhánh C của A1 (không số hạng; E_full −17.2 mJ ở 1,000 bước) vì cùng điểm khởi đầu, cùng số bước, cùng lr. Đo ở cuối: `probe` đầy đủ (E_res, T_min, tỉ lệ), E_res theo vùng (dx, t, y, z, dải T) và theo vật liệu s (2^18 điểm, seed 777), RMS vùng > 1000 K, bể chảy và chỉ báo ở 50/70/90%, `check_physics` (không có ý nghĩa như cổng ở đây nhưng ghi số [WARN]); cổng nhẹ mỗi 250 bước. Mã `experiments/b1_energy.py`, kết quả `runs/B1/report.json`, trần GPU 15 phút (dừng ở 22.5).
+
+**Quy tắc quyết định (khóa trước khi chạy).** Một nhánh λ **thành công** khi đạt **tất cả**, trên điểm độc lập:
+1. |E_res| của `probe` đầy đủ ≤ **10 mJ** (gate a).
+2. Mỗi lớp vật liệu (rắn, mặt phân cách, bột; gộp hai nửa thời gian), E_res theo chẩn đoán 2^18 điểm: |E_c| ≤ **7 mJ**.
+3. RMS vùng > 1000 K ≤ **1.2 × bước 0** (0.0734 → ≤ 0.0881).
+4. Bể chảy ở 70% (rộng, sâu, dài, lưới 2.5 µm) lệch ≤ **5 µm** so với bước 0 (164/98/512 µm theo lưới 2 µm; so cùng chỉ báo 2.5 µm: 166.3 / 97.9 / 511.9).
+5. Gate (c) vẫn đạt (tỉ lệ ≤ 1); loss hữu hạn.
+**B1 được ủng hộ** nếu ít nhất một nhánh thành công; khi cả hai thành công chọn λ **nhỏ hơn** làm λ* (ít can thiệp hơn). **B1 không được ủng hộ** nếu không nhánh nào đạt tiêu chí 1. Nếu đạt 1 nhưng trượt 2–4: **không kết luận** (báo số, thảo luận; không suy diễn). Ngưỡng 7 mJ, 1.2×, 5 µm là **[ĐỀ XUẤT]**.
+
+**Bước sau (không chạy tự động):** nếu B1 được ủng hộ, viết đăng ký 03c cho M2″ (chạy lại từ B3 với số hạng và λ*, cùng tiêu chí M2) — lưu ý ở M2′ L-BFGS không tiến khi có cắt nên M2″ dự kiến chỉ dùng Adam; hỏi người dùng trước. Nếu không được ủng hộ: dừng, thảo luận B2 (hướng 4 trên vệt thường).
+
+**Dự đoán (ghi trước):** S2.12 đạt cả ba lượt đầu 80%. B1 được ủng hộ 50% (λ = 10 đạt 45%, λ = 1 đạt 25%). Rủi ro chính: 1,000 bước Adam lr 1e-4 đủ để dời E_res về 0 (A1 nhánh C chỉ đổi −1.1 mJ không có số hạng, nên chưa rõ tốc độ); và số hạng có thể đẩy sai số sang chỗ khác (lớp thời gian, vùng nóng). Gate (a) về trong ±10 mJ 60% (ít nhất một nhánh); tiêu chí 2 đạt khi đã đạt 1: 80%; vùng nóng không xấu quá 1.2×: 70%. Tổng GPU khoảng 12 phút.
