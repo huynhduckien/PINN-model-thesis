@@ -107,21 +107,9 @@ Mã: `config.py`, `indicator.py`, `smoke/tier0.py`; kết quả máy đọc `run
 
 ---
 
-## 11. Kết quả tầng 0 (2026-10-06 12:56): **ĐẠT** cả bảy mốc, 27 giây
+## 11. Ghi chú nguồn gốc (sửa 2026-10-06 13:00; thay một bản sao trùng của bảng kết quả tầng 0)
 
-Mã: `config.py`, `indicator.py`, `smoke/tier0.py`; kết quả `runs/tier0/report.json`; `legacy/ckpt/` không đổi (hash trước/sau trùng).
-
-| ID | Kết quả |
-|---|---|
-| S0.1 | torch 2.5.1+cu121, deepxde 1.15.0, GPU 381/16,376 MiB, không tiến trình liên quan khác |
-| S0.2 | hash `legacy/lpbf_pinn.py` = `b0f5955a2385e79c`; tag tính lại `A1s_f831590d`, `B1_8ff624dd`, `B2_d610497f`, `B3_84d0289e` đúng; file `.pt` có |
-| S0.3 (canary) | B3: rộng 166.0, sâu 90.0, dài 516.0 µm; (tích + bay hơi)/nạp 0.805; E_res −7.4 mJ; T_peak 5,555 K, T_min 263.1 K |
-| S0.4 | `indicator.py` trên giải tích R0: 520.15 / 121.99 / 85.95 µm (lệch 0.00 cả ba); độ xuyên 25.95 µm |
-| S0.5 | nêm y_a = 0: s = 0.5 tại z = 60 µm ở y = 120.0 µm; diện tích vùng đặc 26,877 µm² (−0.46%); s(200, 60) = 7.9e-14; s(−100, 60) = 1.0000; s ≥ 0.9997 ở z = 195 µm |
-| S0.6 | MMS có nêm (ẩn nhiệt + k lỏng + bay hơi): 1.28e-14 |
-| S0.7 | `check_config`, `check_source`, `check_density`, `check_data` cho nêm B3W0: 0 cảnh báo; 364,544 điểm neo, 37,079 điểm mặt trên |
-
-Chấm dự đoán: tầng 0 đạt ngay lượt đầu (60%): **đúng**. S0.3 đạt (75%): đúng. Một điều cần ghi: S0.4 cho lệch đúng 0.00 µm vì `indicator.py` dùng cùng lưới và cùng phép nội suy với R0; mốc này chỉ chứng minh không có lỗi lập trình, không chứng minh tính độc lập của phép đo.
+Trong cùng thư mục có **hai phiên làm việc Claude chạy song song** (tiến trình VS Code mở lúc 12:55 và phiên chính). Phiên viết mã và **chạy tầng 0 (12:56:24) rồi tầng 1 (12:57)** là phiên đang ghi các mục 12–13; phiên còn lại đọc kết quả, commit `11e2f22` và thêm bảng "Kết quả tầng 0" ở trên (số liệu trùng với `runs/tier0/report.json`; nó ghi rằng không biết phiên nào viết mã, thông tin đó là sai: `config.py`, `indicator.py`, `lock.py`, `smoke/tier0.py`, `smoke/tier1.py`, `legacy/overhang_r0.py` do phiên chạy tầng 0 viết). Bản sao trùng của bảng ở đây đã bị xóa; không số liệu nào bị đổi. Hai phiên dùng chung GPU 16 GB; khóa `lock.py` ngăn hai tiến trình GPU chạy cùng lúc, nhưng không ngăn hai phiên cùng sửa file và commit. Quyết định để một phiên duy nhất làm việc trên thư mục này thuộc về người dùng.
 
 ## 12. Kết quả tầng 1 (2026-10-06 12:57): **ĐẠT** (S1.1 đạt; S1.2 và S1.3 chỉ ghi nhận)
 
