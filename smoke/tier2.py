@@ -84,7 +84,7 @@ def s21():
 def s23():
     d = OUT/"s23"
     shutil.rmtree(d, ignore_errors=True)
-    p = runner(base_args(d, 3, 12), d, wait=False)
+    p = runner(base_args(d, 5, 12), d, wait=False)
     last = d/"last.pt"
     saved = 0
     t_wait = time.time()
