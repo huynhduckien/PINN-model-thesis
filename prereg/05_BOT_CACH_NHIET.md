@@ -141,3 +141,9 @@ Trần GPU 15 phút (dừng ở 22.5). Không có canary tối ưu hóa riêng (
 **Dự đoán (ghi trước, có thể sai).** Vệt thường vòng 0 qua cổng 30%; cải thiện ≥ 2 lần về L_PDE cuối (kể cả không qua cổng) 55%; nêm qua cổng, nếu vệt thường qua: 55%; mặt nạ hội tụ ≤ 3 lần huấn luyện lại, nếu cả hai qua cổng: 40%; ΔD cách nhiệt > +9.0 µm, nếu cả hai qua cổng: 85%. Lý do giữ thận trọng: 40% loss ở mục 9 nằm ở vùng trơn (RMS 0.047) và Adam kẹt theo bước^−0.15, hai điều S3 không trực tiếp xử lý.
 
 **Giới hạn thêm (khóa).** Độ dày chuyển tiếp 30 µm là giả định cỡ hạt, không đo cho IN718 ở dự án này; kết quả cách nhiệt phụ thuộc nó. Nếu lượt đầy đủ qua cổng, độ nhạy theo độ dày (ví dụ 15 và 45 µm) là bước kiểm sau và hỏi người dùng; bản thân mô hình mềm không chứng minh bột cách nhiệt đúng.
+
+## 11. Sửa đổi 05c (01:51, sau lượt chạy đầu của S2.18, trước khi chạy lại): lỗi đặc tả điểm kiểm (a) về tâm mép bao
+
+Lượt đầu (01:50): độ rộng chuyển tiếp **đúng**: mặt phân cách lớp bột 30.00 µm (tâm 180.00 µm), mép bao 29.87 µm. Mục (a) trượt ở **tâm mép bao**: 85.0 µm so với "nửa rộng bao 83.0 ± 2". Nguyên nhân là **lỗi đặc tả của điểm kiểm**, không phải của mã: bao bể chảy trên mặt trải từ −82 đến +84 µm (lệch tâm +1 µm), nên "nửa rộng" (max − min)/2 = 83 µm không phải vị trí của mép phía +y; mép +y nằm giữa pixel nóng cuối (84 µm, sd = −2) và pixel lạnh đầu (86 µm, sd = +2), tức đúng ở **85.0 µm**, đúng như mã đo.
+
+**Sửa (chỉ điểm kiểm (a); chặt hơn trước):** tâm mép bao phía +y so với **trung điểm giữa pixel nóng cuối và pixel lạnh đầu của bảng T_max trên hàng mặt trên**, dung sai ± 1 µm (thay vì so với nửa rộng trung bình, ±2 µm). Độ rộng 10–90% (30 ± 1.5 và 30 ± 2.5 µm) giữ nguyên. Điểm kiểm (b) và (e) dùng `envelope_stats` / nửa rộng và có cùng khả năng nhạy với độ lệch tâm 1 µm: (b) dung sai ± 2 µm vẫn đủ; (e) điểm mép bao có dung sai 0.08 trong κ_s (tương đương ± 2 µm ở độ dốc của mép), nên tôi giữ nguyên và ghi kết quả đo.

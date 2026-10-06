@@ -11,6 +11,7 @@ import hashlib
 import numpy as np
 import torch
 import torch.nn.functional as F
+from scipy import ndimage
 
 import config as C
 
@@ -23,31 +24,48 @@ _ORIG = {}
 _STATE = None
 
 
-class Envelope:
-    """Tmax(y, z) [K] tren luoi; toa do scaled (don vi L_c). tab[iz, iy]."""
+def signed_distance_um(hot, cell_um):
+    """Khoang cach co dau [um] toi duong bao cua `hot`: am ben trong, duong ben ngoai (prereg 05b)."""
+    if not hot.any():
+        return np.full(hot.shape, 1e4)
+    if hot.all():
+        return np.full(hot.shape, -1e4)
+    return ndimage.distance_transform_edt(~hot, sampling=(cell_um, cell_um)) - ndimage.distance_transform_edt(hot, sampling=(cell_um, cell_um))
 
-    def __init__(self, tab, y0, y1, z0, z1, Tsol):
-        self.tab, self.y0, self.y1, self.z0, self.z1, self.Tsol = tab, y0, y1, z0, z1, Tsol
+
+class Envelope:
+    """Tmax(y, z) [K] tren luoi; toa do scaled (don vi L_c). tab[iz, iy].
+    soft_um = None: e = sigmoid((Tmax - Tsol)/WT_K) (mep sac theo nhiet do, prereg 05).
+    soft_um = w_e [um]: e = sigmoid(-sd/w_e) voi sd la khoang cach co dau toi duong bao Tmax = Tsol (prereg 05b); do rong 10-90% = 4.394 w_e."""
+
+    def __init__(self, tab, y0, y1, z0, z1, Tsol, soft_um=None, cell_um=GRID_UM):
+        self.tab, self.y0, self.y1, self.z0, self.z1, self.Tsol, self.soft_um = tab, y0, y1, z0, z1, Tsol, soft_um
+        self.field = signed_distance_um(tab >= Tsol, cell_um).astype(np.float32) if soft_um else tab
         self._cache = {}
 
     def sha(self):
-        return hashlib.sha256(np.ascontiguousarray(self.tab, dtype=np.float32).tobytes()).hexdigest()[:8]
+        h = hashlib.sha256(np.ascontiguousarray(self.tab, dtype=np.float32).tobytes())
+        if self.soft_um:
+            h.update(f"|soft{self.soft_um}".encode())
+        return h.hexdigest()[:8]
 
     def __call__(self, y, z):
         key = (y.dtype, y.device)
         if key not in self._cache:
-            self._cache[key] = torch.as_tensor(self.tab, dtype=y.dtype, device=y.device)[None, None]
+            self._cache[key] = torch.as_tensor(self.field, dtype=y.dtype, device=y.device)[None, None]
         g = torch.stack([2.0*(y[:, 0] - self.y0)/(self.y1 - self.y0) - 1.0, 2.0*(z[:, 0] - self.z0)/(self.z1 - self.z0) - 1.0], dim=-1)[None, None]
         Ti = F.grid_sample(self._cache[key], g, mode="bilinear", padding_mode="border", align_corners=True)[0, 0, 0]
+        if self.soft_um:
+            return torch.sigmoid(-Ti/self.soft_um)[:, None]
         return torch.sigmoid((Ti - self.Tsol)/WT_K)[:, None]
 
     def save(self, path):
         torch.save(dict(tab=torch.as_tensor(self.tab), y0=self.y0, y1=self.y1, z0=self.z0, z1=self.z1, Tsol=self.Tsol), path)
 
 
-def load_envelope(path):
+def load_envelope(path, soft_um=None):
     d = torch.load(path, map_location="cpu", weights_only=False)
-    return Envelope(d["tab"].numpy(), d["y0"], d["y1"], d["z0"], d["z1"], d["Tsol"])
+    return Envelope(d["tab"].numpy(), d["y0"], d["y1"], d["z0"], d["z1"], d["Tsol"], soft_um=soft_um)
 
 
 def build_envelope(net, sc, path):
@@ -100,7 +118,7 @@ def kappa_static(x, sc, path):
     """kappa_s (N, 1); x (N, 4) [x*, y*, z*, t*] tensor (khong can grad)."""
     st = _STATE
     xx, y, z, t = x[:, 0:1], x[:, 1:2], x[:, 2:3], x[:, 3:4]
-    s = L.powder_index(z, sc, y)
+    s = L.powder_index(z, st["sck"], y)
     front = path["x0_s"] + path["Pe"]*t + X_NOSE_UM/(sc["L_c"]*1e6)
     M = torch.sigmoid((front - xx)/(WX_UM/(sc["L_c"]*1e6)))*st["env"](y, z)
     return 1.0 + (st["r"] - 1.0)*s*(1.0 - M)
@@ -144,12 +162,14 @@ def top_res_masked(x, th, sc):
     return g + L.q_evap(th, sc)/(kap*K)
 
 
-def install(sc, path, env, r=None):
-    """Cai mat na vao `L` cho tien trinh nay. r mac dinh = sc['pw']['k_ratio']."""
+def install(sc, path, env, r=None, a_iface_um=None):
+    """Cai mat na vao `L` cho tien trinh nay. r mac dinh = sc['pw']['k_ratio']. a_iface_um: thang tanh cua mat phan cach lop bot CHI trong kappa_s (prereg 05b);
+    mac dinh = gia tri cu (iface_delta/4). Nhiet dung C* luon dung ban do vat lieu cu."""
     global _STATE
     uninstall()
     _ORIG.update(pde=L.pde, top_res=L.top_res)
-    _STATE = dict(env=env, r=float(sc["pw"]["k_ratio"] if r is None else r), path=path)
+    sck = sc if a_iface_um is None else dict(sc, dlt_s=4.0*a_iface_um/(sc["L_c"]*1e6))
+    _STATE = dict(env=env, r=float(sc["pw"]["k_ratio"] if r is None else r), path=path, sck=sck)
     L.pde = pde_masked
     L.top_res = top_res_masked
 

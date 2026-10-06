@@ -95,8 +95,8 @@ def check_a(sc, path, net, env0):
     return record("S2.17a", ok, "tuong duong (float64, 2^14 diem; pde, top_res): " + "; ".join(f"{k}: pde {a:.1e}, top {b:.1e}" for k, (a, b) in out.items()) + " (<= 1e-10)")
 
 
-def check_bc(sc, path, net, env):
-    maskphys.install(sc, path, env)
+def check_bc(sc, path, net, env, a_iface_um=None):
+    maskphys.install(sc, path, env, a_iface_um=a_iface_um)
     X = rand_points(sc, path, 2**12, 2, next(net.parameters()).device, near_pool=True)
     h = 1e-3*UM/sc["L_c"]
     kap, gk = maskphys._grad_kappa(X, sc, path)

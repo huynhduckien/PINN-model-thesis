@@ -44,6 +44,10 @@ RUNS["B3r"] = dict(init="B3", geometry=GEOMETRY, physics=_P_B3)
 # prereg 05: bot cach nhiet co lich su nong chay (mat na "da chay"); can --envelope (bao be chay cua vong truoc)
 RUNS["B3i"] = dict(init="B3", geometry=GEOMETRY, physics=_P_B3, insulated=True)
 RUNS["B3W0i"] = dict(init="B3", geometry=GEOMETRY_WEDGE, physics=_P_B3, insulated=True)
+# prereg 05b (S3): mep he so dan nhiet mem ve co hat D50 = 30 um (do rong 10-90% = 30 um): a_I = 30/2.197 um (tanh), w_e = 30/4.394 um (sigmoid theo khoang cach)
+_SOFT = dict(a_iface_um=30.0/2.197, w_e_um=30.0/4.394)
+RUNS["B3s"] = dict(init="B3", geometry=GEOMETRY, physics=_P_B3, insulated=True, soft=_SOFT)
+RUNS["B3W0s"] = dict(init="B3", geometry=GEOMETRY_WEDGE, physics=_P_B3, insulated=True, soft=_SOFT)
 for _a in (30, 45, 60):
     RUNS[f"B3_a{_a}"] = dict(init="B3", geometry=GEOMETRY, physics=_P_B3, powder=dict(alpha_s=_a/100))
     RUNS[f"B3W0_a{_a}"] = dict(init="B3", geometry=GEOMETRY_WEDGE, physics=_P_B3, powder=dict(alpha_s=_a/100))
@@ -97,7 +101,8 @@ def build(run, sobol_offset=0, envelope=None):
     if RUNS[run].get("insulated"):
         if envelope is None:
             raise ValueError(f"bac {run} can envelope (bao be chay cua vong truoc)")
-        maskphys.install(sc, path, maskphys.load_envelope(envelope))
+        soft = RUNS[run].get("soft")
+        maskphys.install(sc, path, maskphys.load_envelope(envelope, soft_um=soft["w_e_um"] if soft else None), a_iface_um=soft["a_iface_um"] if soft else None)
     else:
         maskphys.uninstall()
     return sc, trk, path, net, anchors, group
