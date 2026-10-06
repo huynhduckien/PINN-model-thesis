@@ -176,3 +176,33 @@ L_E = Σ_c e_c², với e_c = E_c / E_in, c chạy trên 6 lớp = {rắn (s < 0
 ## 12. Kết quả S2.12 (6 s, mã `energy.py`, `smoke/tier2d.py`): **ĐẠT** cả ba mục; ghi lúc 16:53
 
 (a) lớp con `TimePDE` với λ = 0 cho [L_PDE, L_top] = [0.0063181, 0.00010414] trùng `L.make_data` (lệch 0); (b) ước lượng E_res của số hạng (2^17 điểm đều mới) = −17.09 mJ so với `probe` −16.09 mJ (lệch 1.0, cùng dấu); sáu lớp (rắn, phân cách, bột × nửa đầu, nửa sau): +1.16, −2.61, −0.44, −2.72, −0.19, **−12.29** mJ (bột, nửa sau thời gian chiếm phần lớn); L_E = 5.17e-3, gradient hữu hạn; (c) 10 bước Adam λ = 1: loss hữu hạn, ba số hạng (buổi đầu [6.32e-3, 1.04e-4, 4.50e-3], cuối [1.20e-2, 5.1e-4, 9.3e-4]). Chạy thử đường ống B1 với 8 bước (không dùng kết quả) cho thấy E_res đổi nhanh theo số hạng (−16 → −1…−5 mJ chỉ sau 8 bước) và RMS vùng nóng nhảy tạm 0.10–0.12 vì Adam khởi động lại (như ở A1: loss tăng ở vài bước đầu); tiêu chí 3 chỉ được tính ở bước 1,000. Chạy B1 chính thức ngay.
+
+## 13. Kết quả B1 (16:53–16:59, 6 phút GPU, `experiments/b1_energy.py`, `runs/B1/report.json`): theo quy tắc khóa **KHÔNG KẾT LUẬN**; ghi lúc 17:00
+
+`legacy/ckpt` không đổi. Adam 1,000 bước từ trọng số M2′ (bước 0 = M2′), đo trên điểm độc lập (`probe` seed 101; chẩn đoán 2^18 điểm seed 777; chỉ báo lưới 2.5 µm).
+
+| | Bước 0 (M2′) | λ = 1 | λ = 10 |
+|---|---|---|---|
+| E_res `probe` (mJ, ± sai số chuẩn ≈ 1.0) | −16.1 | **+0.2** | **+3.1** |
+| gate a / b / c | trượt / đạt / đạt | đạt / đạt / đạt | đạt / đạt / đạt |
+| tỉ lệ (tích + bay hơi)/nạp | 0.706 | 0.774 | 0.785 |
+| E_res theo vật liệu: rắn / phân cách / bột (mJ) | −1.4 / −3.3 / −12.1 | +1.1 / −1.1 / −0.4 | +0.9 / −0.1 / +1.3 |
+| E_res dải T: 298–1000 K / ≥ 1000 K (mJ) | −14.8 / −1.4 | −1.9 / +2.2 | −4.4 / **+7.2** |
+| E_res vùng đuôi dx < −600 µm (mJ) | −11.1 | +0.7 | −0.4 |
+| RMS residual vùng > 1000 K | 0.0734 | 0.0722 | 0.0764 |
+| `check_physics` [WARN] | 0 | 0 | 0 |
+| chỉ báo ở 70%: dài / rộng (W₊ + W₋) / sâu (µm) | 511.9 / 166.3 / 97.9 | 517.1 / 166.5 / 98.0 | **535.0** / 167.1 / 98.4 |
+| tốc độ nguội tại đáy lớp bột (K/s) | 1.267e6 | 1.206e6 | 1.057e6 |
+| bể chảy dài (lưới 2 µm) | 512 | 516 | 534 |
+| thời gian huấn luyện | | 174 s | 172 s |
+
+Tiêu chí (mục 11): λ = 1: (1) đạt, (2) đạt (|E_c| ≤ 1.1), (3) đạt (0.0722 ≤ 0.0881), **(4) trượt: dài lệch +5.2 µm (> 5)**, rộng +0.2, sâu +0.1, (5) đạt. λ = 10: (1) đạt, (2) đạt, (3) đạt, **(4) trượt: dài lệch +23.1 µm**, (5) đạt. **Quy tắc khóa:** đạt (1) nhưng trượt (4) → **không kết luận** (báo số, thảo luận, không suy diễn). Cả hai nhánh trượt (4) nên không có λ* theo quy tắc.
+
+Chấm dự đoán (mục 11): B1 được ủng hộ 50% → **không** (theo quy tắc, "không kết luận"); gate (a) về ±10 mJ ở ít nhất một nhánh 60% → **đúng (cả hai)**; λ = 10 thành công 45% → sai (dài +23 µm); λ = 1 thành công 25% → sai, trượt 0.2 µm; (2) đạt khi (1) đạt 80% → đúng; vùng nóng không xấu quá 1.2× 70% → đúng. Thời gian dự báo 12 phút, thực tế 6.
+
+**Số đo cần ghi, không suy diễn ngoài số liệu.**
+1. H_c được ủng hộ cho phần E_res: số hạng cân bằng năng lượng đưa E_res từ −16.1 về +0.2 mJ (λ = 1) và cân bằng theo từng vật liệu trên điểm **độc lập** (không dùng trong huấn luyện), nên không chỉ là khớp lên mẫu; loss PDE trên điểm huấn luyện gần như không đổi (6.3e-3 → 6.25e-3 ở λ = 1), nghĩa là E_res là hệ quả của sai số hệ thống nhỏ mà loss bình phương phạt yếu.
+2. Chiều dài bể chảy đổi theo: +5.2 µm (λ = 1), +23 µm (λ = 10). Với λ = 1 chiều dài 517.1 µm gần B3 vệt thường (517.7 µm), còn M2 525.5 µm và M2′ 511.9 µm (hai lượt huấn luyện cùng cấu hình khác nhau 13.6 µm). Dài là đại lượng nhạy: biên đuôi bể nằm ở nơi T ≈ T_sol với gradient nhẹ. Tiêu chí (4) (≤ 5 µm so với bước 0) trượt λ = 1 chỉ 0.2 µm, nhưng giá trị đó nằm trong khoảng dao động đã thấy giữa các lượt huấn luyện (13.6 µm). **Quy tắc không bị sửa.**
+3. λ = 10 quá mạnh: E_res dải ≥ 1000 K +7.2 mJ (nguồn dương ở vùng nóng), chiều dài +23 µm, tốc độ nguội −16%, RMS vùng nóng 0.0764 (cao nhất); loss L_PDE tăng 6.3e-3 → 7.0e-3. λ = 1 cân bằng hơn: ≥ 1000 K +2.2 mJ, RMS 0.0722.
+4. ΔD sâu so với vệt thường B3 (M1: 90.8 µm): +7.2 µm (λ = 1), +7.6 (λ = 10), khớp ước lượng trước (+5…+20 µm); **chưa phải chỉ báo** vì chưa có lượt qua cổng chính thức (M2″) và chưa có M3.
+5. Phạm vi: đây là tinh chỉnh 1,000 bước từ trọng số M2′, không phải lượt huấn luyện đầy đủ từ B3; cổng (a) đạt ở đây không thay thế M2″.
