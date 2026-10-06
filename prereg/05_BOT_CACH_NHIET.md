@@ -80,3 +80,28 @@ Diễn biến: cổng đầy đủ ở mọi điểm kiểm: gate (a) trượt (
 **Chấm dự đoán (mục 4):** vệt thường cách nhiệt qua cổng 55% → **sai**; mặt nạ hội tụ trong ≤ 3 vòng, cho cả hai hình học (45%): không đánh giá được; ΔD cách nhiệt > +9.0 µm: **không đo được** (nêm chưa chạy, vệt thường không đạt). Thời gian dự báo 40–100 phút, thực tế 17 phút (dừng sớm theo quy tắc).
 
 **Phạm vi của kết luận (số đo, không suy diễn).** Kết quả này là âm cho **công thức tối ưu hóa** (khởi động từ trọng số cũ, Adam 6,000 bước, mạng 6 × 24, độ mềm w_x = 8 µm), **không** là kết quả về vật lý của bột cách nhiệt: chiều dài bể 293 µm và rộng 139 µm của B3i không đáng tin vì trường không thỏa PDE (L_PDE 2.6e-2). Chưa kiểm được liệu khó khăn nằm ở bước nhảy r (43 lần), ở độ mềm của mặt nạ, hay ở sức chứa mạng.
+
+## 9. Phân tích nguyên nhân sau lượt F (22:34; chẩn đoán không huấn luyện, **không đổi phán quyết ở mục 8**)
+
+Trọng số B3i vòng 0 (`runs/F/B3i_it0`), 2^18 điểm đều (seed 777), mặt nạ vòng 0.
+
+**1. Sai số nằm ở đâu (theo nguồn biến thiên của κ_s; ngưỡng |∇κ_s| > 0.005 /µm):**
+| Vùng | thể tích | RMS phần dư | phần loss |
+|---|---|---|---|
+| không biến thiên κ_s | 92.6% | 0.047 | 39.8% |
+| **mặt phân cách lớp bột tĩnh (z = 180 ± 25 µm)** | 6.4% | 0.173 | **37.4%** |
+| **mép bao bể chảy (y, z), ngoài lớp z = 180** | 0.65% | **0.409** | 21.3% |
+| mép trước mặt nạ (x), di chuyển | 0.29% | 0.153 | **1.3%** |
+Hệ quả: **mặt nạ di chuyển không phải là khó khăn** (nỗi lo ban đầu về κ phụ thuộc t không có cơ sở). Khó khăn nằm ở các mép tĩnh theo (y, z), và còn 40% loss ở vùng trơn với RMS 0.047, gấp khoảng hai lần B3 (≈ 0.02): mạng chưa hội tụ nói chung.
+
+**2. Điều kiện biên mặt trên** (L_top 2.3e-3, B3: 7.6e-5, 30 lần): 90.7% nằm ở vùng κ_s > 0.9 (trong bể, mặt trên nóng) và 52% ở |dx| < 100 µm; **không** do lớp bột cách nhiệt trên mặt (κ < 0.1: 3.8%). Nghĩa là điều kiện bay hơi ở mặt bể cũng bị ảnh hưởng, như một phần của việc nghiệm chưa hội tụ.
+
+**3. Tốc độ giảm loss.** L_PDE theo bước Adam (500…5,500): 3.77e-2, 3.18e-2, 3.01e-2, 2.87e-2, 2.79e-2, 2.63e-2: giảm như bước^−0.15. Để về 1e-2 cần khoảng **650 lần** số bước hiện có: **Adam không thể đưa bài toán này về hội tụ**; đây là kẹt tối ưu hóa, không phải thiếu vài nghìn bước. Tiền lệ trong dự án: B3 sau Adam ở 8.5e-3 và **L-BFGS** đưa về 1.05e-3 (8 lần); M2 không cắt: L-BFGS 6.4e-3 → 4.3e-3. Công thức M2″ **bỏ L-BFGS** (vì số hạng cân bằng năng lượng và phạt dương lấy mẫu ngẫu nhiên mỗi bước, mục 17 của đăng ký 03, hạn chế 5); với vật lý cũ điều đó không hại vì M2″ khởi đầu thấp (1.4e-2 sau 500 bước) và đạt cổng ở 2,000 bước; với bột cách nhiệt, nó loại bỏ đúng công cụ đã làm nên bước tối ưu cuối.
+
+**4. Sức chứa mạng không phải nghi phạm chính.** A.1 (bột cách nhiệt tĩnh, k_s/k_p = 42.6, mạng 6 × 24) từng đạt L_PDE/L_top cuối **2.63e-4 / 1.73e-5** sau 60 phút (Adam 10,000 + L-BFGS 15,000; `coding/PROGRESS.md` mục 4.1; vật lý đơn giản hơn: không ẩn nhiệt, bay hơi, k lỏng). Sự tương phản 43 lần ở mặt phân cách tĩnh biểu diễn được bằng mạng này; thất bại hiện nay là của công thức tối ưu.
+
+**5. Mật độ điểm huấn luyện không phải nghi phạm.** Mật độ tương đối (tỉ lệ điểm / tỉ lệ thể tích) trên các vùng khó: mặt phân cách lớp bột **1.6×** (36,732 điểm), mép bao **5.0×** (11,915 điểm), mép trước mặt nạ **33×**. Các vùng khó đã được lấy mẫu dày; thêm điểm không phải lối thoát (khớp với kết quả âm của A1).
+
+**6. Gate E_id đã phát hiện trường không đạt.** E_res −2.2 mJ là triệt tiêu giữa dải T ≤ 1000 K (+29.6 mJ) và dải nóng (−25.5 mJ); E_id −32.1 mJ (17% năng lượng nạp).
+
+**Giả thuyết còn lại và cách kiểm (chưa chạy):** (H1) nhảy r = 1 → 0.02346 một lần quá lớn cho Adam; (H2) thiếu L-BFGS (không thể dùng cùng số hạng ngẫu nhiên); (H3) độ sắc của các mép: thang chuyển tiếp mặt phân cách lớp bột `iface_delta` 15 µm → tanh trên thang 3.75 µm; w_T = 50 K ↔ vài µm; trong khi cỡ hạt D50 = 30 µm (độ mềm cỡ 15–30 µm có cơ sở vật lý hơn). Mỗi giả thuyết cần một thí nghiệm có đăng ký riêng (05b).
