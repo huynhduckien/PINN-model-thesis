@@ -80,7 +80,7 @@ def build(a, dtype):
     torch.cuda.empty_cache()
     dde.config.set_default_float(dtype)
     dde.config.set_random_seed(a.get("seed", 42))
-    sc, trk, path, net, anc, _ = C.build(a["run"], a.get("sobol_offset", 0))
+    sc, trk, path, net, anc, _ = C.build(a["run"], a.get("sobol_offset", 0), a.get("envelope"))
     exp = captured(L.check_process, sc, trk)
     if a.get("energy_lam") or a.get("pos_lam"):                         # prereg 03 muc 15, 18: so hang can bang nang luong + phat duong (mau ngau nhien moi buoc)
         import energy
@@ -234,6 +234,14 @@ def eval_stage(a, out, st, t0):
                check_physics=dict(warnings=phys.count("[WARN]"), text=phys), indicator=analysis.net_indicator(net, sc, path),
                band_diag=gates.band_diag(net, sc, path),
                seconds=time.time() - t0)
+    if a.get("envelope"):                                                # bao be chay cua vong nay + do hoi tu so voi bao da dung de huan luyen (prereg 05 muc 2)
+        import maskphys
+        env_new = maskphys.build_envelope(net, sc, path)
+        env_new.save(out/"envelope_next.pt")
+        env_old = maskphys.load_envelope(a["envelope"])
+        diff = maskphys.envelope_diff(env_old, env_new, sc)
+        res["envelope"] = dict(used=a["envelope"], used_sha=env_old.sha(), next_sha=env_new.sha(), stats_used=maskphys.envelope_stats(env_old, sc),
+                               stats_next=maskphys.envelope_stats(env_new, sc), diff=diff, converged=bool(maskphys.converged(diff)))
     (out/"run.json").write_text(json.dumps(res, indent=2, default=float), encoding="utf-8")
     log(out, f"run.json: dung vi {st['stopped']}; cong day du {res['gate_full']['ok']}, check_physics {res['check_physics']['warnings']} canh bao, "
              f"rong/sau/dai {melt.get('width', 0)*1e6:.0f}/{melt.get('depth', 0)*1e6:.0f}/{melt.get('length', 0)*1e6:.0f} um")
@@ -266,13 +274,16 @@ def run(args):
             train.update(energy_lam=args.energy_lam, pos_lam=args.pos_lam)
         if args.sobol_offset:
             train["sobol_offset"] = args.sobol_offset                  # tag khac khi doi tap diem
+        if args.envelope:
+            import maskphys
+            train["envelope"] = maskphys.load_envelope(args.envelope).sha()      # tag co bam bao be chay
         if args.seed != 42:
             train["seed"] = args.seed                                  # tag khac khi doi hat giong (prereg 02b, M3c)
         if args.init:
             train["init"] = Path(args.init).stem                       # tag khac khi khoi dong tu trong so khac (M3a)
         a = dict(run=args.run, adam_iters=args.adam_iters, adam_lr=args.adam_lr, chunk=args.chunk, max_iters=args.max_iters, init=init,
                  tag=C.tag_of(args.run, train), monitor_every=args.monitor_every, stop_gates=args.stop_gates, time_cap_s=args.time_cap_s,
-                 sobol_offset=args.sobol_offset, energy_lam=args.energy_lam, pos_lam=args.pos_lam, min_steps=args.min_steps, seed=args.seed)
+                 sobol_offset=args.sobol_offset, energy_lam=args.energy_lam, pos_lam=args.pos_lam, min_steps=args.min_steps, seed=args.seed, envelope=args.envelope)
         st = dict(args=a, phase="adam")
         log(out, f"bat dau {a['run']} tag {a['tag']} (tag that {C.tag_of(a['run'])}), khoi dong am tu {init}")
     t0 = time.time() - st.get("elapsed", 0.0)                           # dong ho cong don qua cac lan resume
@@ -338,6 +349,7 @@ def add_run_args(r):
     r.add_argument("--pos-lam", type=float, default=0.0)
     r.add_argument("--min-steps", type=int, default=0)
     r.add_argument("--seed", type=int, default=42)
+    r.add_argument("--envelope")
 
 
 if __name__ == "__main__":

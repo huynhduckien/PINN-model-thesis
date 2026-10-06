@@ -13,6 +13,7 @@ import torch
 from scipy.special import erf
 
 import config as C
+import maskphys
 
 L = C.L
 E_RES_MAX = 10e-3                       # J
@@ -38,7 +39,7 @@ def energy_identity(net, sc, path, E_stored, E_ev, n_in=2**20, n_face=2**17, del
         x = torch.tensor(X, dtype=torch.float32, device=dev, requires_grad=True)
         th = net(x)
         g = torch.autograd.grad(th.sum(), x)[0][:, ax]
-        kap = L.mat_fields(x[:, 2:3].detach(), sc, x[:, 1:2].detach())[0][:, 0]
+        kap = (maskphys.kappa_static(x.detach(), sc, path)[:, 0] if maskphys.active() else L.mat_fields(x[:, 2:3].detach(), sc, x[:, 1:2].detach())[0][:, 0])
         km = L.k_melt(th.detach(), sc)
         km = km[:, 0] if torch.is_tensor(km) and km.ndim > 1 else km
         q = -sc["k"]*kap*km*(sc["T_c"]/sc["L_c"])*(sgn*g)                # W/m2, dong chay RA

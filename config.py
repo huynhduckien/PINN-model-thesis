@@ -41,6 +41,9 @@ RUNS = {
 # prereg 04 (huong 4): do nhay theo hap thu bot alpha_s. B3r = doi chung cong thuc (cung vat ly B3, alpha_s = 0.35); cac bac con lai ghi de alpha_s qua "powder"
 _P_B3 = dict(_F, latent=True, evap=True, melt_k=2.8)
 RUNS["B3r"] = dict(init="B3", geometry=GEOMETRY, physics=_P_B3)
+# prereg 05: bot cach nhiet co lich su nong chay (mat na "da chay"); can --envelope (bao be chay cua vong truoc)
+RUNS["B3i"] = dict(init="B3", geometry=GEOMETRY, physics=_P_B3, insulated=True)
+RUNS["B3W0i"] = dict(init="B3", geometry=GEOMETRY_WEDGE, physics=_P_B3, insulated=True)
 for _a in (30, 45, 60):
     RUNS[f"B3_a{_a}"] = dict(init="B3", geometry=GEOMETRY, physics=_P_B3, powder=dict(alpha_s=_a/100))
     RUNS[f"B3W0_a{_a}"] = dict(init="B3", geometry=GEOMETRY_WEDGE, physics=_P_B3, powder=dict(alpha_s=_a/100))
@@ -80,7 +83,7 @@ def clamp_output(net):
     return net
 
 
-def build(run, sobol_offset=0):
+def build(run, sobol_offset=0, envelope=None):
     """sc, trk, path, net, anchors, group (chua dung DeepXDE data; make_data goi rieng khi can). sobol_offset > 0: tap diem khac (prereg 02, M3b)."""
     import anchors as A
     sc = scales(run)
@@ -90,4 +93,11 @@ def build(run, sobol_offset=0):
     net = L.build_net(sc, path, NETWORK)
     if RUNS[run].get("clamp"):
         clamp_output(net)
+    import maskphys
+    if RUNS[run].get("insulated"):
+        if envelope is None:
+            raise ValueError(f"bac {run} can envelope (bao be chay cua vong truoc)")
+        maskphys.install(sc, path, maskphys.load_envelope(envelope))
+    else:
+        maskphys.uninstall()
     return sc, trk, path, net, anchors, group

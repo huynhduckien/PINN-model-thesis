@@ -45,3 +45,9 @@ Vệt thường `B3i` và nêm `B3W0i` theo vòng lặp mặt nạ ở mục 2, 
 ## 5. Giới hạn (khóa)
 
 Mặt nạ là xấp xỉ **tĩnh theo bao bể chảy cực đại** (không theo dõi lịch sử nóng chảy từng điểm; vệt một đường, bể gần ổn định); nhiệt dung bột không đổi sau khi chảy; k bột lấy từ tương quan ngoại suy cho bột kim loại sáng (không đo cho IN718 ở dự án này; ±11% của bài gốc chưa tính); lớp bột dưới phần nhô được coi là bột khô ở mọi nhiệt độ (không có thiêu kết); vẫn một điều kiện (300 W, 0.8 m/s), một góc (45°), α_s = 0.35; không có dữ liệu thực nghiệm; kết quả là **trong mô hình này**. Cờ `sc['pm']` (k theo nhiệt độ) không dùng.
+
+## 6. Sửa đổi 05a (19:57, sau lượt chạy đầu của S2.17, trước khi chạy lại): lỗi đặc tả điểm kiểm (e) cho nêm
+
+Lượt đầu (19:57): (a), (b), (c), (d) và (e) cho vệt thường **đạt** (a: sai tương đối 0 và 9.3e-15; b: 2.2e-7; c: 5.2e-7; d: bao từ B3 sâu 90.0 µm, rộng 166.0 µm; e vệt thường: 1.000 / 0.023 / 0.023 / 1.000). **(e) cho nêm trượt ở một điểm**: "nền rắn, độ sâu 150 µm tại y = 0" cho κ_s = 0.023 thay vì 1.000. Nguyên nhân là **lỗi của chính điểm kiểm**, không phải của mã: ở nêm y_a = 0, nền rắn nằm ở y ≥ y_a + z_pow − z; tại z = 90 µm (độ sâu 150 µm so với mặt trên 240 µm) điều kiện là y ≥ 90 µm, nên điểm y = 0 là **bột dưới phần nhô**, và κ_s = r là đúng (nó nằm ngoài bao, sâu hơn bao 98 µm). Các điểm nêm khác đạt (dưới phần nhô y = −100 µm: 0.023; nêm rắn y = +100 µm, z = 150 µm: 1.000).
+
+**Sửa (chỉ điểm kiểm; ngưỡng ±0.05 không đổi):** với nêm, điểm "nền rắn sâu 150 µm" lấy tại **y = +200 µm** (rắn vì y ≥ 90 µm), kỳ vọng 1.0; điểm (y = 0, độ sâu 150 µm) chuyển thành điểm kiểm **bột dưới phần nhô**, kỳ vọng r. Vệt thường giữ nguyên. Ghi nhận: dưới tâm chùm, nêm y_a = 0 chỉ có bột dưới độ sâu 60 µm của lớp, và vì bao bể chảy chỉ sâu 98 µm nên vùng bột còn lại từ 98 µm trở xuống vẫn cách nhiệt; đây là đúng cơ chế cần thể hiện.
