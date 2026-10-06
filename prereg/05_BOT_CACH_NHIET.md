@@ -57,3 +57,26 @@ Lượt đầu (19:57): (a), (b), (c), (d) và (e) cho vệt thường **đạt*
 `legacy/ckpt` không đổi. (a) tương đương: r = 1: sai 0 (phần dư PDE và `top_res`); e ≡ 0 và r = 0.02346: 9.3e-15 / 0 (≤ 1e-10). (b) `∇κ_s` autograd so với sai phân trung tâm: phân vị 99% sai số 2.2e-7 (≤ 1e-4; 1,393 thành phần không tầm thường). (c) `div(κ_s K ∇θ)` so với sai phân thông lượng trực tiếp: 5.2e-7 (≤ 1e-5). (d) bao bể chảy từ B3 (iter0): độ sâu tại y = 0 **90.0 µm** (cần 90.8 ± 3), rộng trên mặt **166.0 µm** (167 ± 4), sha `20034cb6`; bao từ M2″ (iter0): sâu 98.0 µm, nửa rộng 84.0 µm, sha `f2ecb131`. (e) bản đồ κ_s: vệt thường 1.000 / 0.023 / 0.023 / 1.000; nêm 1.000 / 0.023 / 0.023 / 1.000 (nền rắn y = +200 µm) / 0.023 (bột dưới phần nhô y = 0) / 0.023 / 1.000 (sai ≤ 0.05). (f) E_id của M2″: −4.61 mJ không mặt nạ; −4.61 mJ với mặt nạ r = 1 (lệch 0.00). (g) khói `runner.py B3W0i` 40 bước: thoát 0, tag `B3W0i_77e4b83d` (khác tag không băm), loss hữu hạn, có bao kế tiếp. (h) canary 500 bước Adam: **vệt thường**: tổng loss 9.11e-2 → 4.02e-2 (tỉ lệ 0.441 ≤ 0.7), 0.170 s/bước, E_res −0.6, E_id **−22.1** mJ, hụt T_min 0.86%, tỉ lệ năng lượng 0.769; **nêm** (từ M2″): 1.153e-1 → 5.25e-2 (0.455), 0.175 s/bước, E_res +5.5, E_id −10.0 mJ, hụt 0.86%, tỉ lệ 0.902. (i) hồi quy: tầng 2, S2.13, S2.16 đạt (114 s). Chấm dự đoán (mục 3): (a)–(g) đạt cả lượt đầu 70% → **sai một phần** (một lỗi đặc tả điểm kiểm ở (e) cho nêm, mục 6, mã đúng); (h) vệt thường đạt 75% → đúng; nêm đạt 55% → đúng; (i) 85% → đúng.
 
 **Ghi nhận cho lượt đầy đủ (không phải tiêu chí của mốc test):** (1) loss khởi điểm khi bật mặt nạ (khởi động từ trọng số không cách nhiệt): [L_PDE, L_top] = [0.091, 7.4e-5] (vệt thường) và [0.115, 1.3e-4] (nêm), cỡ 100× giá trị hội tụ của B3 và M2″ (1e-3 đến 8e-3) nhưng thấp hơn nhiều so với 0.33 của B3 trên nêm lúc đầu (S1.2); không dùng liên tục hóa theo r. (2) Sau 500 bước, vệt thường có |E_res| nhỏ (−0.6) nhưng E_id **−22.1 mJ**: hai thước đo lệch nhau 21 mJ khi trường chưa hội tụ (số hạng cân bằng năng lượng huấn luyện E_res, không huấn luyện E_id); E_res ≈ E_id chỉ đúng với trường đủ hội tụ, nên quy tắc dừng cần cả hai (đúng như cổng đã đăng ký). (3) Chạy đầy đủ ngay theo mục 4.
+
+## 8. Kết quả lượt đầy đủ F (20:04–20:21, 17 phút GPU, `experiments/f_insul.py`, `runs/F/B3i_it0/run.json`): vệt thường cách nhiệt vòng 0 **KHÔNG ĐẠT cổng**; theo mục 4 **dừng, báo cáo, không chạy lại, nêm chưa chạy**; ghi lúc 20:22
+
+Chạy đúng đăng ký (`supervise`, không sập, `legacy/ckpt` không đổi). **Dùng hết 6,000 bước Adam, không có hai điểm kiểm liên tiếp đạt** (`iteration_budget`).
+
+| | B3 (bột như đặc) | B3i vòng 0 (bột cách nhiệt) |
+|---|---|---|
+| E_res `probe` / E_id (mJ) | −7.4 / −5.6 | **−2.2 / −32.1** (a_res đạt, **a_id trượt**) |
+| hụt T_min (ngưỡng 1%) | 0.67% | **1.00%** (trượt sát ngưỡng; T_min 245.8 K) |
+| tỉ lệ (tích + bay hơi)/nạp | 0.805 | 0.726 |
+| `check_physics` | 0 | **1 cảnh báo** (phép 1, hụt T_min) |
+| L_PDE cuối | 1.05e-3 | **2.6e-2** (25 lần) |
+| RMS vùng > 1000 K | 0.0398 | **0.2608** (6.5 lần) |
+| bể chảy dài / rộng / sâu ở 70% (µm) | 517.7 / 167.2 / 90.8 | **293.1 / 138.9 / 87.6** |
+| bao kế tiếp so với bao dùng | | độ sâu −4.0 µm, nửa rộng **−14.0 µm**, hiệu đối xứng 13.5% → **không hội tụ** |
+
+Diễn biến: cổng đầy đủ ở mọi điểm kiểm: gate (a) trượt (a_id) từ bước 500 (E_id −22.6 → −34.0 → −32.1 mJ, không tiến); gate (b) 0.84–1.02%; loss L_PDE 3.8e-2 → 2.6e-2 (giảm 31% trong 6,000 bước). E_res nhỏ (−2.2 mJ) **nhưng là kết quả triệt tiêu**: chẩn đoán (2^18 điểm, `runs/F`): dải T ≤ 1000 K (96% thể tích) +29.6 mJ, dải 1000–T_sol −13.9 mJ, dải ≥ T_sol −11.6 mJ. E_id (không phụ thuộc đạo hàm bậc hai) vạch ra −32 mJ, tức 17% năng lượng nạp. Gate E_id đã làm đúng việc nó được thêm vào.
+
+**Chẩn đoán vị trí sai số PDE (không huấn luyện, không phải mốc):** lớp chuyển tiếp κ_s ∈ (0.1, 0.9) chiếm **3.7%** thể tích nhưng **53.6%** loss (RMS 0.27, so với 0.05 ở vùng rắn và 0.043 ở bột cách nhiệt); theo vị trí so với laser: |dx| < 300 µm (24% thể tích) chiếm **81%** loss (RMS 0.12 và 0.16 so với 0.045 và 0.026 xa laser). Sai số tập trung ở nơi hệ số dẫn nhiệt đổi 43 lần trong vài chục µm, cạnh bể chảy, đúng chỗ gradient nhiệt độ lớn nhất.
+
+**Chấm dự đoán (mục 4):** vệt thường cách nhiệt qua cổng 55% → **sai**; mặt nạ hội tụ trong ≤ 3 vòng, cho cả hai hình học (45%): không đánh giá được; ΔD cách nhiệt > +9.0 µm: **không đo được** (nêm chưa chạy, vệt thường không đạt). Thời gian dự báo 40–100 phút, thực tế 17 phút (dừng sớm theo quy tắc).
+
+**Phạm vi của kết luận (số đo, không suy diễn).** Kết quả này là âm cho **công thức tối ưu hóa** (khởi động từ trọng số cũ, Adam 6,000 bước, mạng 6 × 24, độ mềm w_x = 8 µm), **không** là kết quả về vật lý của bột cách nhiệt: chiều dài bể 293 µm và rộng 139 µm của B3i không đáng tin vì trường không thỏa PDE (L_PDE 2.6e-2). Chưa kiểm được liệu khó khăn nằm ở bước nhảy r (43 lần), ở độ mềm của mặt nạ, hay ở sức chứa mạng.
