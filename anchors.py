@@ -4,7 +4,9 @@ K = 0 tra dung tap diem cua `legacy/lpbf_pinn.py`. Chi doi toa do, khong doi so 
 """
 import contextlib
 
-import lpbf_pinn as L                       # legacy/ da nam trong sys.path (config.py)
+import config as C
+
+L = C.L                                      # config.py dat sys.path cho legacy/ va nap ban dong bang
 
 
 @contextlib.contextmanager
