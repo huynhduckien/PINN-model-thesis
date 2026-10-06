@@ -206,3 +206,25 @@ Chấm dự đoán (mục 11): B1 được ủng hộ 50% → **không** (theo q
 3. λ = 10 quá mạnh: E_res dải ≥ 1000 K +7.2 mJ (nguồn dương ở vùng nóng), chiều dài +23 µm, tốc độ nguội −16%, RMS vùng nóng 0.0764 (cao nhất); loss L_PDE tăng 6.3e-3 → 7.0e-3. λ = 1 cân bằng hơn: ≥ 1000 K +2.2 mJ, RMS 0.0722.
 4. ΔD sâu so với vệt thường B3 (M1: 90.8 µm): +7.2 µm (λ = 1), +7.6 (λ = 10), khớp ước lượng trước (+5…+20 µm); **chưa phải chỉ báo** vì chưa có lượt qua cổng chính thức (M2″) và chưa có M3.
 5. Phạm vi: đây là tinh chỉnh 1,000 bước từ trọng số M2′, không phải lượt huấn luyện đầy đủ từ B3; cổng (a) đạt ở đây không thay thế M2″.
+
+## 14. Kiểm toán cân bằng năng lượng độc lập và **đính chính** các kết luận ở mục 1, 2, 8, 13 (17:07; chẩn đoán không huấn luyện, không phải mốc)
+
+**Phép đo.** Đồng nhất thức E_id = E_lưu_trữ(t_end) + E_qua_5_vách + E_bay_hơi − E_nạp (E_nạp = ∫∫ q bằng Monte Carlo 2^20 điểm: 186.9–187.3 mJ so với 190.0 mJ của `check_process`). Thông lượng qua vách đo bằng đạo hàm bậc một tại 2^17 điểm mỗi mặt, lùi vào trong 2 µm (kiểm 8 µm: khác ≤ 1.1 mJ). Với trường **không có điểm gãy**, E_id phải bằng E_res (tích phân phần dư PDE) theo định lý phân kỳ. Script thử nghiệm trong thư mục tạm của phiên (không vào kho); số đo ở dưới.
+
+| Trường | E_res trực tiếp (`probe`, mJ) | E_id (mJ) | lệch | lưu trữ / qua vách / bay hơi (mJ) |
+|---|---|---|---|---|
+| B3 @ B3, không cắt | −7.4 | −5.6 | +1.8 | 117.0 / 28.7 / 36.0 |
+| M2 @ nêm, không cắt | −23.5 | **−25.0** | −1.5 | 107.6 / 18.3 / 36.1 |
+| B3 @ B3, **cắt** sau huấn luyện | +0.3 | −3.2 | −3.5 | |
+| M2 (**cùng trọng số**), **cắt** | **+1.3** | **−14.7** | **−16.0** | 108.0 / 28.0 / 36.1 |
+| M2′ (huấn luyện có cắt) | −16.1 | **−34.8** | −18.7 | 98.3 / 18.1 / 35.7 |
+| B1 λ = 1 | +0.2 | **−18.4** | −18.6 | 111.5 / 21.4 / 35.6 |
+| B1 λ = 10 | +3.1 | **−19.5** | −22.6 | 113.4 / 18.3 / 35.7 |
+
+**Kết luận của kiểm toán (số đo):**
+1. Với trường không cắt, phép đo trực tiếp E_res **đúng** (khớp E_id trong 2 mJ, ở B3 và M2). Nguồn âm của M2 là thật: −25 mJ, 13% năng lượng nạp.
+2. **Phép cắt θ ≥ 0 che lỗi chứ không sửa lỗi.** Trên **cùng trọng số M2**, cắt làm E_res trực tiếp từ −23.5 xuống +1.3 mJ nhưng E_id chỉ đổi −25.0 → −14.7 mJ. Phần chênh (khoảng −16 mJ) là một **nguồn âm phân bố trên mặt gãy** của max(·, 0): đạo hàm bậc hai của hàm cắt bằng 0 hầu như mọi nơi, nên phần dư theo điểm (và vì vậy cổng E_res lẫn loss) **không thấy** bước nhảy thông lượng ở đó, trong khi năng lượng thực bị mất ở bề mặt đó. M2′ và B1 mang cùng khiếm khuyết (lệch −18.6 đến −22.6 mJ).
+3. Hệ quả: **"B1 đưa E_res về +0.2 mJ" chủ yếu là khớp đại lượng đo, không phải khôi phục bảo toàn năng lượng**: E_id của B1 λ = 1 vẫn −18.4 mJ (10% nạp). Thứ tự theo E_id (trung thực): B3 vệt thường −5.6 (đạt ±10); B1 λ = 1 −18.4; B1 λ = 10 −19.5; M2 −25.0; M2′ −34.8. **Không trường nào trên nêm đạt ±10 mJ theo E_id.**
+4. **Đính chính phát biểu của tôi.** (a) Mục 2: "đạo hàm bậc hai của max bằng 0 gần như mọi nơi nên phần dư không thấy điểm gãy" được viết như một ưu điểm; thực ra đó là khuyết điểm (không thấy = không phạt). (b) Mục 1 và mục 8: "cổng (a) và (b) gần như chỉ đo lỗi nhiệt độ âm", "cắt là tính chất đúng của nghiệm" chỉ đúng nửa: nhiệt độ âm là lỗi thật, nhưng cắt không bảo toàn thông lượng nên không phải cách sửa. (c) Mục 13: B1 không phải bằng chứng cho H_c theo nghĩa bảo toàn năng lượng; nó chỉ cho thấy phần dư trung bình theo điểm có thể bị ép về 0 mà loss PDE không đổi. Các kết luận TRƯỢT của M2 và M2′ **không đổi** (E_id còn xấu hơn); không kết quả nào được sửa thành đạt.
+
+**Quan sát bổ sung (từ số đã có, chưa phải mốc).** Mức |E_id| (hoặc E_res không cắt) tỉ lệ gần tuyến tính với loss PDE huấn luyện cuối cùng trong sáu checkpoint khác nhau về vật lý: B3 L_PDE 1.05e-3 → 7.4 mJ; B1f1.4 1.82e-3 → 15.3; B1kc 4.62e-3 → 31.4; B1k 1.68e-2 → 100.2; M2 4.30e-3 → 25.0 (E_id); M2′ 6.32e-3 → 34.8 (E_id); tức khoảng **6–8 mJ cho mỗi 1e-3** (B1 λ = 1: 2.9 mJ cho mỗi 1e-3, nhờ số hạng năng lượng). Gate (a) ±10 mJ tương ứng L_PDE khoảng 1.4e-3 theo quan hệ này. Đây là quan hệ thực nghiệm trên 6 điểm, chưa kiểm nhân quả; nếu đúng, khiếm khuyết bảo toàn là hệ quả của mức hội tụ của loss (ở nêm, M2 dừng ở 4.3e-3 sau 5,500 bước, B3 dừng ở 1.05e-3 sau 21,500 bước) chứ không phải lỗi riêng của hình học hay đầu ra.
