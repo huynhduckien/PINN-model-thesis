@@ -263,3 +263,10 @@ Dự đoán S2.13 đạt cả sáu 65% (rủi ro: (a), (b) lệch quá 2–3 mJ 
 **Đính chính tiêu chí chiều dài (03b, tiêu chí 4).** Ở B1 tôi đặt "dài lệch ≤ 5 µm so với bước 0" làm điều kiện thành công. Sai về thiết kế: chiều dài là đại lượng nhạy (M2 và M2′, hai lượt cùng cấu hình, khác nhau 13.6 µm; B3 vệt thường 517.7 µm giữa các thời điểm 482–530 µm), và khi sửa đúng cân bằng năng lượng thì đuôi bể **phải** đổi (B1 λ = 1: +5.2 µm). Điều kiện đó loại trừ đúng điều ta muốn đạt. Từ C1 trở đi, chỉ báo chính (sâu, rộng) bị chặn ≤ 5 µm, dài chỉ được ghi. Thay đổi này **không áp dụng ngược** để đổi kết luận "không kết luận" của B1 (đã khóa).
 
 **Dự đoán (ghi trước, có thể sai).** C1 được ủng hộ 30%: (1) đạt ở ít nhất một nhánh 65% (E_id theo kịp E_res khi trường trơn); (2) hụt T_min ≤ 1% ở C1b 55%, ở C1a 25%; (4)–(7) đạt khi (1), (2) đạt 70%. C0 giữ hụt T_min > 1% (90%) và |E_id| > 10 (85%). Ba nhánh khoảng 18 phút.
+
+## 16. Kết quả S2.13 (17:15–17:20, 249 s, mã `gates.energy_identity`, `energy.positivity_term`, `smoke/tier2e.py`): **ĐẠT** cả sáu mục; ghi lúc 17:21
+
+`legacy/ckpt` không đổi.
+(a) E_id: B3 **−5.6** mJ (cần −5.6 ± 2; lùi vào 8 µm −4.5); M2 **−25.0** mJ (cần −25.0 ± 2; 8 µm −23.8). (b) trường không có điểm gãy: |E_res − E_id| ≤ 3 mJ: B3 −7.4 / −5.6; M2 −23.5 / −25.0. (c) **M2 cùng trọng số, cắt:** E_res +1.3 mJ (qua theo điểm) nhưng E_id −14.7 mJ, nên cổng (a) mới **TRƯỢT** (a_res đạt, a_id trượt): cổng mới phát hiện nguồn ẩn mà cổng cũ bỏ sót. (d) bốn checkpoint cũ theo cổng (a) mới: B3 đạt; B1k (E_res +100.2, E_id +96.5), B1kc (+31.4, +37.8), B1f1.4 (+15.3, +18.7) trượt, cùng chiều và cùng cỡ với E_res cũ. (e) L_P(M2) = 6.95e-6 (8 mẫu 2^15) so với 6.89e-6 độc lập (tỉ lệ 1.01), gradient hữu hạn, λ = 0 trả [L_PDE, L_top] giống `make_data` (lệch 0) và hai số hạng phụ bằng 0. (f) hồi quy: tầng 2 (S2.1–S2.4) và S2.12 chạy lại **đạt** (ma thoát 0) với mã mới (`light_gate` nay có E_id; `runner.py` đo E_id sau mỗi khối và ghi vào `run.json`). Chấm dự đoán: đạt cả sáu 65%: **đúng**. L_P(M2) = 7e-6 khớp ước lượng 1e-5 của mục 15 (λ_P = 100 cho 7e-4, λ_P = 1000 cho 7e-3).
+
+Chạy C1 ngay theo mục 15.

@@ -86,7 +86,7 @@ def build(a, dtype):
 
 
 def gate_row(g):
-    return {k: g[k] for k in ("a", "b", "c", "ok", "E_res", "T_min", "under_frac", "ratio")}
+    return {k: g[k] for k in ("a", "b", "c", "ok", "E_res", "T_min", "under_frac", "ratio") + (("E_id",) if "E_id" in g else ())}
 
 
 def full_gate(net, sc, path, exp):
@@ -97,6 +97,7 @@ def full_gate(net, sc, path, exp):
         T3, XS, YS, ZS, XC, _ = L.box(net32, sc, path)
         melt = L.melt_pool(T3, XS, YS, ZS, XC, sc)
         pr = L.probe(net32, sc, path, melt)
+        pr["E_id"] = gates.energy_identity(net32, sc, path, pr["E_stored"], pr.get("E_ev", 0.0))["E_id"]
     finally:
         dde.config.set_default_float("float64")
         gc.collect()
@@ -154,7 +155,7 @@ def lbfgs_stage(a, out, st, t0):
         secs = time.time() - tb
         pr, v = full_gate(net, sc, path, exp)
         done += n
-        st["blocks"].append(dict(n=n, loss=loss, seconds=secs, gate=dict(gate_row(v | dict(E_res=pr["E_res"], T_min=pr["T_min"])), T_max=pr["T_max"])))
+        st["blocks"].append(dict(n=n, loss=loss, seconds=secs, gate=dict(gate_row(v | dict(E_res=pr["E_res"], T_min=pr["T_min"], E_id=pr["E_id"])), T_max=pr["T_max"])))
         st["weights"] = cpu_state(net)
         save(out, st, t0)
         log(out, f"khoi {len(st['blocks'])}: +{n} vong (tong {done}/{a['max_iters']}), loss [{loss[0]:.4e}, {loss[1]:.4e}], {secs:.0f} s; "
@@ -176,6 +177,7 @@ def eval_stage(a, out, st, t0):
     T3, XS, YS, ZS, XC, _ = L.box(net, sc, path)
     melt = L.melt_pool(T3, XS, YS, ZS, XC, sc)
     full = L.probe(net, sc, path, melt)
+    full["E_id"] = gates.energy_identity(net, sc, path, full["E_stored"], full.get("E_ev", 0.0))["E_id"]
     light = gates.light_gate(net, sc, path, exp["E_total"])
     loss_pde = st["blocks"][-1]["loss"][0] if st["blocks"] else st["adam"]["loss"][-1][0]
     buf = io.StringIO()
@@ -186,7 +188,7 @@ def eval_stage(a, out, st, t0):
     res = dict(status="DONE", run=a["run"], tag=a["tag"], args=a, adam=st["adam"], blocks=st["blocks"], stopped=st["stopped"],
                lbfgs_iters=sum(b["n"] for b in st["blocks"]), resumed_from_block=st.get("resumed_from_block", 0),
                melt={k: (float(v) if np.isscalar(v) else v) for k, v in melt.items()}, E_in=exp["E_total"],
-               probe={k: float(full[k]) for k in ("T_min", "T_max", "E_stored", "E_res") + (("E_ev",) if "E_ev" in full else ())},
+               probe={k: float(full[k]) for k in ("T_min", "T_max", "E_stored", "E_res", "E_id") + (("E_ev",) if "E_ev" in full else ())},
                gate_full=gates.verdict(full, exp["E_total"], sc), gate_light=light,
                check_physics=dict(warnings=phys.count("[WARN]"), text=phys), indicator=analysis.net_indicator(net, sc, path),
                band_diag=gates.band_diag(net, sc, path),

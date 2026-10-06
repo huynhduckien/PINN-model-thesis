@@ -1,6 +1,6 @@
 """Cong vat ly nhe (prereg 01 muc 6, S2.2): ba gate cua `probe` day du tren it diem hon, de chay giua luc huan luyen.
 
-    (a) |nang luong do residual| <= 10 mJ     E_res tren 2^16 diem co dinh (seed 101, CUNG tap diem voi `L.probe`)
+    (a) |nang luong do residual| <= 10 mJ     E_res tren 2^16 diem co dinh (seed 101, CUNG tap diem voi `L.probe`) VA |E_id| <= 10 mJ (prereg 03 muc 15)
     (b) T hut duoi T_amb <= 1% bien do        T_min, T_max tren 2^18 diem (probe day du: 2^21)
     (c) (tich + bay hoi) / nap <= 1           E_stored, E_ev tren 2^18 diem (probe day du: 2^21), diem rieng seed 102
 
@@ -19,13 +19,43 @@ E_RES_MAX = 10e-3                       # J
 UNDER_MAX = 0.01                        # phan bien do (T_max - T_amb)
 
 
+def energy_identity(net, sc, path, E_stored, E_ev, n_in=2**20, n_face=2**17, delta_um=2.0):
+    """E_id [J] = E_luu_tru + E_qua_5_vach + E_bay_hoi - E_nap (prereg 03 muc 14, 15). Chi dung dao ham bac mot tai cac diem cach vach delta_um va gia tri truong,
+    nen KHONG bi danh lua boi diem gay (khac voi E_res theo diem). E_nap = tich phan q Monte Carlo. Tra dict (E_id, E_in_q, E_walls, walls)."""
+    dev = next(net.parameters()).device
+    Lx, Ly, Lz, te = sc["Lx_s"], sc["Ly_s"], sc["Lz_s"], path["t_end_s"]
+    rng = np.random.default_rng(9)
+    Xq = torch.tensor(np.column_stack([rng.uniform(-Lx/2, Lx/2, n_in), rng.uniform(-Ly/2, Ly/2, n_in), rng.uniform(0, Lz, n_in), rng.uniform(0, te, n_in)]), dtype=torch.float32, device=dev)
+    Er = sc["rho"]*sc["Cp"]*sc["T_c"]*sc["L_c"]**3*Lx*Ly*Lz*te
+    E_in = float(L.q_volume(Xq, sc, path).mean())*Er
+    d = delta_um*1e-6/sc["L_c"]
+    walls = {}
+    for name, ax, sgn in (("z0", 2, -1), ("y-", 1, -1), ("y+", 1, 1), ("x-", 0, -1), ("x+", 0, 1)):
+        rng = np.random.default_rng(55)
+        X = np.column_stack([rng.uniform(-Lx/2, Lx/2, n_face), rng.uniform(-Ly/2, Ly/2, n_face), rng.uniform(0, Lz, n_face), rng.uniform(0, te, n_face)])
+        X[:, ax] = {0: sgn*(Lx/2 - d), 1: sgn*(Ly/2 - d), 2: (d if sgn < 0 else Lz - d)}[ax]
+        area = {0: Ly*Lz, 1: Lx*Lz, 2: Lx*Ly}[ax]
+        x = torch.tensor(X, dtype=torch.float32, device=dev, requires_grad=True)
+        th = net(x)
+        g = torch.autograd.grad(th.sum(), x)[0][:, ax]
+        kap = L.mat_fields(x[:, 2:3].detach(), sc, x[:, 1:2].detach())[0][:, 0]
+        km = L.k_melt(th.detach(), sc)
+        km = km[:, 0] if torch.is_tensor(km) and km.ndim > 1 else km
+        q = -sc["k"]*kap*km*(sc["T_c"]/sc["L_c"])*(sgn*g)                # W/m2, dong chay RA
+        walls[name] = float(q.mean())*area*sc["L_c"]**2*te*sc["t_c"]
+    E_w = sum(walls.values())
+    return dict(E_id=E_stored + E_w + E_ev - E_in, E_in_q=E_in, E_walls=E_w, walls=walls)
+
+
 def verdict(pr, E_in, sc):
-    """pr co T_min, T_max, E_stored, E_res (J) va E_ev neu co bay hoi. Tra a, b, c va ok."""
+    """pr co T_min, T_max, E_stored, E_res (J), E_ev neu co bay hoi, va E_id neu co. Tra a, b, c va ok (a can ca |E_res| va |E_id| <= 10 mJ neu co E_id)."""
     rng = pr["T_max"] - sc["Tamb"]
-    a = abs(pr["E_res"]) <= E_RES_MAX
+    a_res = abs(pr["E_res"]) <= E_RES_MAX
+    a_id = abs(pr["E_id"]) <= E_RES_MAX if "E_id" in pr else True
+    a = a_res and a_id
     b = (sc["Tamb"] - pr["T_min"]) <= UNDER_MAX*rng
     c = pr["E_stored"] + pr.get("E_ev", 0.0) <= E_in
-    return dict(a=bool(a), b=bool(b), c=bool(c), ok=bool(a and b and c),
+    return dict(a=bool(a), a_res=bool(a_res), a_id=bool(a_id), b=bool(b), c=bool(c), ok=bool(a and b and c),
                 under_frac=float((sc["Tamb"] - pr["T_min"])/rng), ratio=float((pr["E_stored"] + pr.get("E_ev", 0.0))/E_in))
 
 
@@ -59,6 +89,7 @@ def light_gate(net, sc, path, E_in, n_t=2**18, n_e=2**18, n_res=2**16):
         Ts = L.field(net, sc, np.column_stack([xs, U(-3.0, 3.0, n_e), np.full(n_e, Lz), ts]))
         qs = L.q_evap((Ts - sc["Tamb"])/sc["T_c"], sc)*sc["k"]*sc["T_c"]/sc["L_c"]
         out["E_ev"] = float((qs*inn).mean())*11.0*6.0*sc["L_c"]**2*te*sc["t_c"]
+    out["E_id"] = energy_identity(net, sc, path, out["E_stored"], out.get("E_ev", 0.0), n_in=2**18, n_face=2**15)["E_id"]
     out.update(verdict(out, E_in, sc), seconds=time.perf_counter() - t0)
     return out
 
