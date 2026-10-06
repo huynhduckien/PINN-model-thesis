@@ -270,3 +270,34 @@ Dự đoán S2.13 đạt cả sáu 65% (rủi ro: (a), (b) lệch quá 2–3 mJ 
 (a) E_id: B3 **−5.6** mJ (cần −5.6 ± 2; lùi vào 8 µm −4.5); M2 **−25.0** mJ (cần −25.0 ± 2; 8 µm −23.8). (b) trường không có điểm gãy: |E_res − E_id| ≤ 3 mJ: B3 −7.4 / −5.6; M2 −23.5 / −25.0. (c) **M2 cùng trọng số, cắt:** E_res +1.3 mJ (qua theo điểm) nhưng E_id −14.7 mJ, nên cổng (a) mới **TRƯỢT** (a_res đạt, a_id trượt): cổng mới phát hiện nguồn ẩn mà cổng cũ bỏ sót. (d) bốn checkpoint cũ theo cổng (a) mới: B3 đạt; B1k (E_res +100.2, E_id +96.5), B1kc (+31.4, +37.8), B1f1.4 (+15.3, +18.7) trượt, cùng chiều và cùng cỡ với E_res cũ. (e) L_P(M2) = 6.95e-6 (8 mẫu 2^15) so với 6.89e-6 độc lập (tỉ lệ 1.01), gradient hữu hạn, λ = 0 trả [L_PDE, L_top] giống `make_data` (lệch 0) và hai số hạng phụ bằng 0. (f) hồi quy: tầng 2 (S2.1–S2.4) và S2.12 chạy lại **đạt** (ma thoát 0) với mã mới (`light_gate` nay có E_id; `runner.py` đo E_id sau mỗi khối và ghi vào `run.json`). Chấm dự đoán: đạt cả sáu 65%: **đúng**. L_P(M2) = 7e-6 khớp ước lượng 1e-5 của mục 15 (λ_P = 100 cho 7e-4, λ_P = 1000 cho 7e-3).
 
 Chạy C1 ngay theo mục 15.
+
+## 17. Kết quả C1 (17:21–17:34, 13 phút GPU, `experiments/c1_positivity.py`, `runs/C1/report.json`): **C1 ĐƯỢC ỦNG HỘ** theo quy tắc khóa; ghi lúc 17:35
+
+`legacy/ckpt` không đổi. Điểm khởi đầu = M2 (tái lập chính xác: E_res −23.5, E_id −25.0 mJ, hụt T_min 1.48%, bể chảy 525.5 / 166.7 / 98.2 µm). Adam 1,500 bước lr 1e-4; mọi số đo trên điểm độc lập.
+
+| | Bước 0 (M2) | C0 (đối chứng) | C1a (λ_P = 100) | **C1b (λ_P = 1000)** |
+|---|---|---|---|---|
+| E_res `probe` (mJ) | −23.5 | −25.5 | −0.1 | **+1.1** |
+| E_id (mJ) | −25.0 | −26.3 | −2.2 | **−1.1** |
+| T_min (K), hụt biên độ | 220.2 K, 1.48% | 221.2 K, 1.46% | 234.7 K, **1.20%** | **251.5 K, 0.88%** |
+| tỉ lệ (tích + bay hơi)/nạp | 0.756 | 0.754 | 0.824 | 0.812 |
+| gate a / b / c | trượt / trượt / đạt | trượt / trượt / đạt | đạt / **trượt** / đạt | **đạt / đạt / đạt** |
+| E_res theo vật liệu: rắn / phân cách / bột (mJ) | −1.6 / −3.0 / −20.4 | −2.6 / −3.3 / −21.0 | +0.3 / −0.9 / −0.8 | +0.9 / −0.8 / −0.3 |
+| RMS vùng > 1000 K | 0.0635 | 0.0616 | 0.0660 | 0.0680 |
+| `check_physics` [WARN] | 1 | 1 | 1 | **0** |
+| chỉ báo 70%: dài / rộng / sâu (µm) | 525.5 / 166.7 / 98.2 | 533.3 / 166.7 / 98.2 | 531.6 / 168.0 / 98.8 | 522.9 / 168.6 / 99.1 |
+| tốc độ nguội đáy lớp bột (K/s); T_pk (K) | 1.134e6; 2,962 | 1.145e6; 2,961 | 1.108e6; 2,975 | 1.153e6; 2,980 |
+
+Tiêu chí (mục 15): **C1b đạt cả bảy** (1: |E_res| 1.1, |E_id| 1.1 ≤ 10; 2: hụt T_min 0.88% ≤ 1%; 3: tỉ lệ 0.812 ≤ 1; 4: |E_c| ≤ 0.9 ≤ 7; 5: RMS 0.0680 ≤ 0.0762; 6: sâu +0.9, rộng +1.9 µm ≤ 5; 7: 0 cảnh báo). C1a đạt (1), (3)–(6) nhưng trượt (2) (hụt 1.20%) và (7). C0 trượt (1), (2), (4), (7). **C1 được ủng hộ**: có nhánh đạt tất cả và C0 trượt (1) và (2); λ* = C1b (λ_E = 1, λ_P = 1000).
+
+Chấm dự đoán (mục 15): C1 được ủng hộ 30% → **xảy ra**; (1) đạt ở ít nhất một nhánh 65% → đúng (cả hai); hụt T_min ≤ 1% ở C1b 55% → đúng, ở C1a 25% → đúng (không); C0 giữ hụt > 1% (90%) và |E_id| > 10 (85%) → đúng cả hai. Thời gian dự báo 18 phút, thực tế 13.
+
+**Hạn chế phải ghi cùng kết quả (không cắt bớt):**
+1. **Dao động giữa các điểm kiểm.** Cổng nhẹ ở bước 500 / 1000 / 1500 cho C1b: E_res +5.0 / −4.5 / +1.1 mJ, E_id +0.9 / −8.5 / −3.2 mJ; C1a: E_res +4.5 / −3.7 / −0.1, E_id −0.1 / −7.7 / −4.4. Biên độ ±5–9 mJ gần ngưỡng 10 mJ; kết quả cuối nằm ở phía thuận lợi và **có thể là may mắn một phần** (một lần chạy, một điểm cuối). Một lượt chính thức cần quy tắc dừng yêu cầu **hai điểm kiểm liên tiếp** đạt (như M2).
+2. **Biên của gate (b) hẹp:** 0.88% so với ngưỡng 1% (cải thiện đều: 1.05 → 0.98 → 0.89 qua ba điểm kiểm); λ_P = 100 chưa đủ (1.20%).
+3. **λ_P chọn từ hai giá trị** (100 và 1000) bằng chính các kết quả này (quy tắc mục 15 cho phép), nên chưa độc lập; chưa kiểm khả năng tổng quát hóa sang lượt đầy đủ từ B3.
+4. Đây là tinh chỉnh 1,500 bước từ trọng số M2, **không** phải lượt M2 đầy đủ từ B3: M2 và M2′ vẫn TRƯỢT (không đổi).
+5. Số hạng phụ lấy **mẫu ngẫu nhiên mới ở mỗi bước** nên mục tiêu không tất định; **không dùng được với L-BFGS** (tìm kiếm đường cần hàm mục tiêu cố định). Lượt chính thức vì vậy chỉ có Adam, hoặc phải dùng mẫu cố định cho L-BFGS (chưa thiết kế, chưa kiểm).
+6. RMS vùng nóng tăng nhẹ so với C0 (0.0680 so với 0.0616, +10%): chi phí nhỏ của hai số hạng phụ.
+
+**Số đo bể chảy (chưa phải chỉ báo, vì chưa có lượt chính thức qua cổng).** Độ sâu 70% của mọi biến thể trên nêm: M2 98.2, M2′ 97.9, B1 λ = 1 98.0, B1 λ = 10 98.4, C0 98.2, C1a 98.8, C1b 99.1 µm, tức khoảng dao động **1.2 µm** (ΔD so với B3, 90.8 µm: +7.1 đến +8.3 µm); độ rộng 166–169 µm (khoảng 3 µm). Chiều dài 512–535 µm (khoảng 23 µm) và tốc độ nguội 1.06–1.27e6 K/s vẫn nhạy với cách huấn luyện. Tỉ lệ (tích + bay hơi)/nạp của C1b là 0.812, gần B3 vệt thường (0.805), còn M2 là 0.756.
