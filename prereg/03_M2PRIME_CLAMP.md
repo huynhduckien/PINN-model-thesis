@@ -49,7 +49,7 @@ Cùng quy trình và ngân sách M2: bậc `B3W0c`, khởi động từ `B3_84d0
 ## 6. Giới hạn (khóa)
 Cắt θ ≥ 0 sửa lỗi nhiệt độ âm ở vùng lạnh; nó **không** sửa lỗi trong vùng nóng, không thêm tính cách nhiệt của bột (hướng khác) và không phải hiệu chỉnh. Các giới hạn của 02 (mục 1, 11) giữ nguyên: chỉ báo là cận dưới, tương đối, một điều kiện, không có nghiệm đúng để so.
 
-## 7. Kết quả tầng 2c (15:19–15:20, 30 s, mã `@@C@@`): **ĐẠT** cả bảy mục; ghi lúc 15:20
+## 7. Kết quả tầng 2c (15:19–15:20, 30 s, mã `e3217ba`): **ĐẠT** cả bảy mục; ghi lúc 15:20
 
 `legacy/ckpt` không đổi. Mã: `config.py` (`B3W0c`, `clamp_output`), `gates.py` (`band_diag`), `runner.py` (ghi `band_diag` vào `run.json`), `smoke/tier2c.py`.
 
