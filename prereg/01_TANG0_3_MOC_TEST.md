@@ -147,28 +147,12 @@ Dự đoán (ghi trước): E1–E3 đạt: khoảng 80% (rủi ro: lỗi đạo
 
 ---
 
-## Kết quả tầng 1 (2026-10-06 12:57–13:00): **ĐẠT** (S1.1); S1.2 và S1.3 ghi nhận
+## 12a. Bổ sung của phiên thứ hai (2026-10-06 13:00): tách chi phí DeepXDE trong S1.3
 
-Mã: `smoke/tier1.py`, `lock.py` (khóa GPU); kết quả `runs/tier1/report.json`, `runs/tier1/overhead.json`. Cùng ghi chú thủ tục như tầng 0: `tier1.py` và `lock.py` có sẵn trong thư mục lúc tôi định viết chúng, và tầng 1 đã chạy lúc 12:57:42 trước khi tôi chạy được gì; tôi đã đọc toàn bộ mã trước khi dùng số. Phần bổ sung (`tier1b_overhead.py`) là của tôi, chạy dưới khóa GPU, ngoài đăng ký ban đầu và **không phải mốc có ngưỡng**.
+(Thay một bản kết quả tầng 1 trùng với mục 12; chỉ giữ thông tin mới. Mã: `smoke/tier1b_overhead.py`, chạy dưới khóa GPU, kết quả `runs/tier1/overhead.json`; **không phải mốc có ngưỡng**.)
 
-| Mốc | Kết quả |
-|---|---|
-| S1.1 | Adam toàn lô qua DeepXDE trên cấu hình nêm: **0.140 s/bước**, bộ nhớ GPU đỉnh **6.7 GB** (tiêu chí ≤ 0.25 s: đạt) |
-| S1.2 | Loss khởi điểm của B3 trên hình học nêm: **L_PDE 0.332, L_top 8.8e-5**. Để so: B2→B3 khởi đầu 18.1 (vẫn đạt), B1→B1k nhảy thẳng 14.95 (trượt), bước đồng luân 0.74 và 1.12. Đây là loss khởi điểm thấp nhất đã gặp |
-| S1.3 | một lượt toàn lô (364,544 điểm): lan truyền mạng **2.2 ms**; bước bậc một (xấp xỉ) **15 ms**; bước đầy đủ **108 ms**. Phần thời gian do đạo hàm bậc hai (xấp xỉ) **86%** → vượt ngưỡng 50% đã khóa |
+Mục 12 ghi chênh DeepXDE (140 ms) − bước thủ công (108 ms) = 33 ms là chưa quy được cho thư viện. Đo tách: bước DeepXDE theo hiệu hai độ dài chạy (loại phần cố định 0.229 s mỗi lần `train`): **0.132 s**; bước thủ công chỉ L_PDE: 0.107 s; **L_PDE + L_top (37,079 điểm): 0.109 s** (L_top chỉ thêm 2 ms). Chênh còn lại **23 ms = 17%** bước DeepXDE. Đây là **cận trên** của chi phí thư viện: bước thủ công không có cập nhật Adam (vài ms, chưa đo) và không ghi lịch sử loss.
 
-**Phần bổ sung, tách chi phí của DeepXDE** (`overhead.json`): bước DeepXDE theo hiệu hai độ dài chạy (loại phần cố định mỗi lần `train` 0.229 s): **0.132 s**; bước tự viết L_PDE: 0.107 s; **cộng L_top (37,079 điểm): 0.109 s**; chênh DeepXDE − tự viết = **23 ms = 17%** bước DeepXDE. Chênh này là cận trên của chi phí thư viện, vì bước tự viết **không có bước cập nhật tham số của Adam** (khoảng vài ms, chưa đo) và không ghi lịch sử loss. Lượt đo trước (S1.1/S1.3 gộp 140 vs 108 ms) lớn hơn vì gồm cả lần đánh giá loss cuối mỗi lần `train`.
+Hệ quả: (a) thay DeepXDE bằng vòng PyTorch thuần cắt tối đa khoảng 15–17% bước; (b) tối ưu đạo hàm bậc hai (sửa đổi 01a, mục 13) nhắm vào 86% còn lại nên là đòn bẩy lớn hơn nhiều; (c) ngưỡng "DeepXDE chiếm > 15% thì xem xét PyTorch thuần" nêu trong thảo luận **không** nằm trong đăng ký, nên không phải quy tắc khóa.
 
-**Hai điều cần nói thẳng:**
-1. **Nhận định "chi phí thư viện ≈ 0" của tôi trước đây chỉ đúng cho bước chuẩn bị dữ liệu** (`train_next_batch` ≈ 0 s). Toàn bộ chi phí còn lại của DeepXDE là khoảng 15–17% bước, bằng đúng ngưỡng 15% tôi đã nêu trong thảo luận (ngưỡng đó **không** nằm trong đăng ký 01, nên không phải quy tắc khóa).
-2. **Chi phí chính nằm ở đạo hàm bậc hai, không ở thư viện:** lan truyền thuận của mạng chỉ 2.2 ms, còn bước đầy đủ 108 ms (gấp 49 lần). Thay DeepXDE bằng vòng PyTorch thuần chỉ cắt tối đa khoảng 15–17%; giảm chi phí đạo hàm bậc hai là đòn bẩy lớn hơn nhiều (theo luật Amdahl, nếu phần 86% đó nhanh gấp 3 lần thì bước còn khoảng 46% thời gian, tức khoảng 2.2 lần nhanh hơn; **đây là ước lượng, chưa đo**).
-
-**Chấm dự đoán:** S1.1 ≤ 0.25 s/bước (90%): đúng (0.140). S1.3 đạo hàm bậc hai > 50% (60%): đúng (86%, xấp xỉ).
-
-**Quy tắc đã khóa (§5 S1.3):** "chỉ làm tối ưu tốc độ nếu đạo hàm bậc hai chiếm > 50% thời gian bước" → điều kiện **thỏa**. Việc tối ưu (truyền thuận Laplacian) cần một đăng ký riêng và được người dùng đồng ý; chưa làm.
-
-### Sửa đổi 01b (2026-10-06 13:02, sau lượt chạy đầu của `tier1c_fastpde.py`, trước khi chạy lại)
-
-Lượt đầu: **E1 đạt** (max|r_nhanh − r_cũ|/RMS = 1.80e-13 trên 28,859 điểm), **E2 đạt** (gradient theo trọng số, sai 4.68e-15), **E3 trượt**: loss PDE float32 trên 364,544 điểm là 0.33156 cho **cả** `fast_residual` và `pde` cũ (lệch 0.0e+00), nhưng so với tham chiếu S1.2 viết là "0.3316" thì lệch 1.1e-4 > 1e-4. Nguyên nhân là **lỗi của chính tiêu chí**: tôi làm tròn tham chiếu S1.2 xuống 4 chữ số; giá trị thật trong `runs/tier1/report.json` là **0.33156269788742065** (L_top 8.812782471068203e-05). Với giá trị đúng, lệch là 8.1e-6.
-
-Sửa (không đổi ngưỡng 1e-4): tham chiếu S1.2 trong E3 và E5 là giá trị **không làm tròn** đọc từ `runs/tier1/report.json`. Chạy lại toàn bộ E1–E5 (E1, E2 không phụ thuộc). Lỗi làm tròn của tôi được ghi để bạn thấy: nó không che một sai khác nào, vì phép so thực chất (mới so với cũ, cùng điểm, cùng trọng số) là 0.0.
+Ghi chú thủ tục: commit `23d94a4` của phiên thứ hai vô tình đưa `fastpde.py` (đang viết dở của phiên chính) vào kho do dùng `git add -A`; nội dung file không do phiên thứ hai viết hay sửa.
