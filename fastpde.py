@@ -1,4 +1,4 @@
-"""Residual PDE chinh xac nhu `lpbf_pinn.pde` nhung KHONG dung dao ham bac hai bang autograd (prereg 01, sua doi 01a).
+"""KHONG DUNG cho huan luyen (01c: E4 truot lan hai, 109 ms so voi 110 ms). Giu lam ban ghi. Residual PDE nhu `lpbf_pinn.pde` nhung khong dung dao ham bac hai bang autograd (prereg 01, sua doi 01a).
 
 Lan truyen thuan, qua tung lop `sin` cua mang, ba thu: gia tri, dao ham bac mot theo (x, y, z, t) va dao ham bac hai cheo
 theo (x, y, z) (quy tac chuoi giai tich: (sin z)' = cos z z', (sin z)'' = -sin z z'^2 + cos z z''). Mat na cung M(x) chi phu thuoc x

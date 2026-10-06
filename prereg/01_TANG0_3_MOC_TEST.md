@@ -172,3 +172,15 @@ Theo quy tắc 01a: **E4 trượt thì giữ `pde` cũ**. Phiên bản đầu c�
 ### Sửa đổi 01c (2026-10-06 13:04, trước khi chạy): **một** lần thử lại duy nhất với bố cục bộ nhớ khác
 
 Chỉ đổi cách xếp tensor: (K, N, W) với K = 7 kênh (giá trị đạo hàm), thay cho (N, W, K), để phép nhân với W là một GEMM phẳng (K·N, 24) × (24, 24) không cần hoán vị; các phép phần tử giữ nguyên. Toán không đổi, nên E1–E3 phải vẫn đạt. **Tiêu chí E1–E5 giữ nguyên.** Giới hạn: đây là lần thử lại cuối của hướng này; nếu E4 trượt lần nữa thì **bỏ hẳn `fastpde`** (giữ mã trong git làm bản ghi) và không tối ưu bậc hai thêm trong đợt này; hướng khác (nếu có) cần đăng ký riêng. Dự đoán: E4 đạt 45% (mức tăng tốc nếu đạt: 1.5–2.5×).
+
+### Kết quả 01c (2026-10-06 13:06): E1, E2, E3, E5 đạt; **E4 trượt lần thứ hai → bỏ `fastpde`**
+
+| ID | Bố cục (N, W, K) (lần 1) | Bố cục (K, N, W) (lần 2) |
+|---|---|---|
+| E1 / E2 / E3 | đạt (1.8e-13 / 4.7e-15 / 0.0) | đạt (1.8e-13 / 5.2e-15 / 0.0) |
+| **E4** bước mới so với bước cũ | 159 ms so với 110 ms (0.69×) | **109 ms so với 110 ms (1.01×)**, bộ nhớ đỉnh 4.6 GB |
+| E5 DeepXDE + residual mới | 0.203 s/bước | 0.147 s/bước (so với 0.140 với `pde` cũ) |
+
+Quy tắc đã khóa ở 01c: không đạt ≥ 1.5× thì **bỏ hẳn**. Quyết định: **không dùng `fastpde` cho huấn luyện**; giữ `pde` của `legacy/lpbf_pinn.py` (mã `fastpde.py` và `smoke/tier1c_fastpde.py` giữ trong git làm bản ghi). Dự đoán E4 đạt ở lần 2 (45%): sai. Không thử thêm biến thể trong đợt này.
+
+Điều học được (đo được, không phải giả thuyết): đổi bố cục bộ nhớ đưa phiên bản giải tích từ 159 xuống 109 ms, nhưng **không** thấp hơn đường autograd (110 ms). Cả hai cách đều có thời gian cỡ **7 lần** bước chỉ-bậc-một (15 ms, S1.3), đúng bằng số kênh đạo hàm cần mang (giá trị + 4 + 3 = 8 so với 1 + 4). Nghĩa là chi phí tỉ lệ với (số điểm) × (số kênh), bị giới hạn bởi băng thông bộ nhớ chứ không phải do cách cài đặt autograd. Hệ quả: muốn giảm thời gian mỗi bước phải **giảm số điểm mỗi bước** (lô con ngẫu nhiên), tức đổi bài toán tối ưu, không phải tính tương đương; việc đó cần đăng ký riêng (không nằm trong đợt này).
