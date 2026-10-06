@@ -12,9 +12,11 @@ import time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-OUT = ROOT/"runs"/"F"
-ENV0 = {"B3i": ROOT/"runs"/"ENV"/"B3_iter0.pt", "B3W0i": ROOT/"runs"/"ENV"/"B3W0_iter0.pt"}
-INIT0 = {"B3i": None, "B3W0i": ROOT/"runs"/"M2pp"/"B3W0_ce48c3b3.pt"}
+SOFT = "--soft" in sys.argv                                           # prereg 05b: mep mem (bac B3s, B3W0s), thu muc runs/Fs
+OUT = ROOT/"runs"/("Fs" if SOFT else "F")
+PLAIN, WEDGE = ("B3s", "B3W0s") if SOFT else ("B3i", "B3W0i")
+ENV0 = {PLAIN: ROOT/"runs"/"ENV"/"B3_iter0.pt", WEDGE: ROOT/"runs"/"ENV"/"B3W0_iter0.pt"}
+INIT0 = {PLAIN: None, WEDGE: ROOT/"runs"/"M2pp"/"B3W0_ce48c3b3.pt"}
 MAX_RETRAIN = 3
 START_CAP_MIN, KILL_CAP_MIN = 120, 180
 ARGS = ["--adam-iters", "6000", "--adam-lr", "1e-4", "--chunk", "500", "--max-iters", "0", "--monitor-every", "500", "--stop-gates", "2", "--min-steps", "2000",
@@ -68,11 +70,11 @@ def run_all():
     OUT.mkdir(parents=True, exist_ok=True)
     t0 = time.time()
     res = {}
-    for run in ("B3i", "B3W0i"):
+    for run in (PLAIN, WEDGE):
         r, why = run_geometry(run, t0)
         res[run] = why
         print(f"=== {run}: ket thuc vi {why}", flush=True)
-        if run == "B3i" and why == "khong_dat_cong":
+        if run == PLAIN and why == "khong_dat_cong":
             print("=== vet thuong cach nhiet KHONG DAT cong: dung theo prereg 05 muc 4", flush=True)
             break
     summarize()
@@ -98,13 +100,13 @@ def summarize():
     base = dict(plain=dict(length=b3["0.7"]["length_um"], width=b3["0.7"]["width_total_um"], depth=b3["0.7"]["depth_um"], penetration=b3["0.7"]["penetration_um"], T_pk=b3["cycle"]["T_pk"], cool_rate=b3["cycle"]["cool_rate_Ks"], dwell_us=b3["cycle"]["dwell_us"]),
                 wedge=row(m2))
     out = dict(baseline=base, iterations={})
-    for run in ("B3i", "B3W0i"):
+    for run in (PLAIN, WEDGE):
         for j in range(MAX_RETRAIN + 1):
             r = load(OUT/f"{run}_it{j}"/"run.json")
             if r is not None:
                 out["iterations"][f"{run}_it{j}"] = dict(passes=passes(r), converged=r["envelope"]["converged"], env_diff=r["envelope"]["diff"], env_stats_next=r["envelope"]["stats_next"], seconds=r["seconds"],
                                                          steps=r["adam"]["steps"][0], row=row(r))
-    fp, fw = final("B3i"), final("B3W0i")
+    fp, fw = final(PLAIN), final(WEDGE)
     print("--- TONG HOP (70% quet; nen: bot dan nhiet nhu dac = B3 va M2'')")
     for name, f in (("vet thuong cach nhiet B3i", fp), ("nem cach nhiet B3W0i", fw)):
         if f:
