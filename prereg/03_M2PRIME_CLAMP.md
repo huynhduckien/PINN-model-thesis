@@ -92,3 +92,27 @@ Chấm dự đoán (mục 5): tầng 2c đạt (65%) → đúng. **M2′ ĐẠT 
 3. **Mật độ điểm huấn luyện thấp ở đuôi:** dx < −600 µm có 4.9% điểm neo trên 17.8% thể tích (0.28× mật độ đều); tổ hợp "đuôi, t > 0.5, y > 0, z 60–180 µm" chỉ 0.5% điểm trên 4.2% thể tích (**0.13×**). Vùng gần laser (−150…100 µm) dày 3.35×. Phù hợp với giả thuyết lệch lấy mẫu, chưa phải bằng chứng nhân quả.
 4. **L-BFGS không tiến khi có cắt** (gần như đứng yên, chạy 3× chậm hơn mỗi vòng, tự dừng sớm). Nguyên nhân chưa kiểm; giả thuyết: gradient không liên tục của max làm tìm kiếm đường thất bại.
 5. Phép cắt vẫn là một tính chất đúng của nghiệm và giữ T_min = T_amb; nó không đủ để qua gate (a).
+
+## 9. Sửa đổi 03a (16:29, trước khi viết mã và chạy): thí nghiệm A1 — kiểm giả thuyết lấy mẫu ở đuôi
+
+Người dùng chọn A1 sau khi xem mục 8. **Đây là thí nghiệm chẩn đoán, không phải lượt M2/M2′**: không thay kết luận TRƯỢT của M2 và M2′, không dùng để tuyên bố đạt cổng; nó chỉ trả lời "thêm điểm huấn luyện ở đuôi nguội phía sau laser có làm nguồn âm ở đó co lại không".
+
+**Giả thuyết H_s:** nguồn âm cỡ −16 mJ của M2′ ở đuôi (dx < −150 µm phía sau laser, t muộn, phía nêm) là hệ quả của mật độ điểm huấn luyện thấp ở đó (0.28× mật độ đều ở dx < −600 µm; 0.13× ở tổ hợp đuôi, t > 0.5, y > 0, z 60–180 µm). Giả thuyết đối lập: sức chứa mạng (6 × 24) hoặc độ khó của bài toán, thêm điểm không giúp.
+
+**Thiết kế (khởi động chung từ trọng số M2′ `runs/M2c/B3W0c_e90da666.pt`, bậc `B3W0c`, đầu ra cắt, Adam 1,000 bước lr 1e-4 toàn lô, `compile` một lần, float32):**
+- **Nhánh C (đối chứng):** tập điểm neo của M2′ không đổi (364,544 điểm).
+- **Nhánh T (thêm điểm đuôi):** thêm **2^17 = 131,072 điểm đều** trong vùng R = {x − x_laser(t) < −150 µm} (lấy bằng loại bỏ mẫu từ phân bố đều trên hộp x thời gian, seed 2026, y ∈ (−Ly/2, Ly/2), z ∈ [0, Lz) đều), nối vào tập neo; mọi thứ khác như C. Mật độ trong R sau khi thêm được báo cáo (dự tính khoảng 1× mật độ trung bình ở dx < −600 µm).
+- Điểm đánh giá độc lập với điểm huấn luyện: `probe` (seed 101) và chẩn đoán theo vùng 2^18 điểm (seed 777), giống mục 8.
+- Đo ở bước 0 (= M2′), và ở cuối mỗi nhánh (bước 1,000): cổng nhẹ mỗi 250 bước (chỉ ghi); ở cuối: `probe` đầy đủ (E_res, T_min, tỉ lệ), E_res theo vùng (dx, t, y, z, dải T) và RMS residual vùng > 1000 K, bể chảy và chỉ báo ở 70%.
+- Mã: `experiments/a1_tail.py`; kết quả `runs/A1/report.json`. Trần GPU 15 phút (dừng ở 22.5). Không sửa `legacy/`; trọng số hai nhánh lưu trong `runs/A1/` (không vào `legacy/ckpt`).
+
+**Quy tắc quyết định (khóa trước khi chạy).** Ký hiệu: E_full = E_res của `probe` đầy đủ ở cuối nhánh (mJ, âm là nguồn âm); E_tail = E_res trong vùng dx < −600 µm theo chẩn đoán 2^18 điểm (M2′ ở bước 0: −11.1 mJ; tổng 2^18 điểm −16.9 mJ; `probe` −16.1 mJ).
+- **H_s được ủng hộ** nếu E_full(T) − E_full(C) ≥ **+8 mJ** (T gần 0 hơn C) **và** E_tail(T) ≥ **−5.5 mJ** (co ít nhất một nửa so với −11.1).
+- **H_s không được ủng hộ** nếu E_full(T) − E_full(C) < **+3 mJ**.
+- Còn lại: **không kết luận** (báo cả hai số, không suy diễn).
+- Ngưỡng 8 và 3 mJ lớn hơn nhiễu đánh giá (sai số chuẩn E_res của `probe` khoảng 1 mJ trên các checkpoint đã đo). Các ngưỡng này là **[ĐỀ XUẤT]** của tôi.
+- Chỉ ghi, không thuộc quy tắc: có qua gate (a) (|E_full| ≤ 10 mJ) không; RMS vùng > 1000 K (M2′ 0.0734) và bể chảy có xấu đi không (cảnh báo nếu RMS tăng > 20% hoặc sâu/dài đổi > 5 µm so với bước 0).
+
+**Dự đoán (ghi trước):** H_s được ủng hộ 40%; không được ủng hộ 35%; không kết luận 25%. Lý do giữ không chắc: bốn phần năm sự cải thiện có thể bị giới hạn bởi sức chứa mạng nhỏ và bởi 1,000 bước ngắn. Nhánh C: E_full thay đổi không quá 3 mJ so với bước 0 (65%), vì Adam của M2′ vẫn đang trôi về phía âm hơn ở những bước cuối (−12.7 → −15.1 → −16.0).
+
+**Nếu H_s được ủng hộ:** bước kế tiếp là đăng ký 03b (lấy mẫu có mật độ đều theo thể tích hoặc có trọng số loss) và chạy lại M2′ đầy đủ; **không** tự chạy. Nếu không được ủng hộ: dừng, thảo luận hướng khác (sức chứa mạng, hướng bột/hướng 4 trên vệt thường).
