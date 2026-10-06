@@ -38,13 +38,19 @@ RUNS = {
     # prereg 03 (M2'): nhu B3W0 nhung dau ra mang bi cat theta >= 0 (nguyen ly cuc dai); chi doi mang, khong doi vat ly
     "B3W0c": dict(init="B3", geometry=GEOMETRY_WEDGE, physics=dict(_F, latent=True, evap=True, melt_k=2.8), clamp=True),
 }
+# prereg 04 (huong 4): do nhay theo hap thu bot alpha_s. B3r = doi chung cong thuc (cung vat ly B3, alpha_s = 0.35); cac bac con lai ghi de alpha_s qua "powder"
+_P_B3 = dict(_F, latent=True, evap=True, melt_k=2.8)
+RUNS["B3r"] = dict(init="B3", geometry=GEOMETRY, physics=_P_B3)
+for _a in (30, 45, 60):
+    RUNS[f"B3_a{_a}"] = dict(init="B3", geometry=GEOMETRY, physics=_P_B3, powder=dict(alpha_s=_a/100))
+    RUNS[f"B3W0_a{_a}"] = dict(init="B3", geometry=GEOMETRY_WEDGE, physics=_P_B3, powder=dict(alpha_s=_a/100))
 TAG_KNOWN = {"A1s": "A1s_f831590d", "B1": "B1_8ff624dd", "B2": "B2_d610497f", "B3": "B3_84d0289e"}
 LEGACY_SHA16 = "b0f5955a2385e79c"                              # sha256 (16 ky tu dau) cua coding/lpbf_pinn.py luc dong bang
 
 
 def scales(run):
     r = RUNS[run]
-    s = L.make_scales(MATERIALS, POWDER, PROCESS, r["geometry"], NUMERICS, r["physics"], run)
+    s = L.make_scales(MATERIALS, dict(POWDER, **r.get("powder", {})), PROCESS, r["geometry"], NUMERICS, r["physics"], run)
     if s["physics"]["latent"]:
         s["sT"] = SIGMA_LAT
     if s["physics"]["evap"]:
