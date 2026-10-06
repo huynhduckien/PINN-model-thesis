@@ -82,11 +82,13 @@ def check_e(sc, path, envp, dev):
     t = 0.7*path["t_end_s"]
     xl = float(np.atleast_1d(L.laser_at(t, path)[0])[0])
     s_ = lambda dz: 0.5*(1.0 + math.tanh(dz/SOFT["a_iface_um"]))
-    st = maskphys.envelope_stats(envp, sc)
+    yg = np.linspace(envp.y0, envp.y1, envp.tab.shape[1])*Lc
+    hot_top = np.flatnonzero(envp.tab[-1] >= envp.Tsol)
+    edge_y = 0.5*(yg[hot_top.max()] + yg[hot_top.max() + 1])
     pts = {"z = 180 um (tam mat phan cach)": (170.0, 180.0, 1 + (r - 1)*0.5, 0.02),
            "z = 210 um (+30)": (170.0, 210.0, 1 + (r - 1)*s_(30), 0.02),
            "z = 150 um (-30)": (170.0, 150.0, 1 + (r - 1)*s_(-30), 0.02),
-           "mep bao (y = nua rong, z = 210 um)": (st["half_width_um"], 210.0, 1 + (r - 1)*s_(30)*0.5, 0.08)}
+           "mep bao +y tren hang mat tren (y = vi tri mep, z = Lz)": (edge_y, sc["Lz_s"]*Lc, 1 + (r - 1)*s_(60)*0.5, 0.05)}       # sua 05c
     X = torch.tensor([[xl - 300/Lc, y/Lc, z/Lc, t] for (y, z, _, _) in pts.values()], dtype=torch.float32, device=dev)
     k = maskphys.kappa_static(X, sc, path)[:, 0].cpu().numpy()
     maskphys.uninstall()
