@@ -144,3 +144,25 @@ Tiêu chí khóa (tất cả phải đạt trước khi dùng cho bất kỳ lư
 Quy tắc: E1–E3 trượt thì **bỏ** `fastpde`, giữ `pde` cũ và báo cáo. E4 trượt thì giữ `pde` cũ (không có lợi), nhưng giữ mã làm bản ghi. Không chạy huấn luyện trong sửa đổi này; nó chỉ kiểm tương đương và tốc độ. Mã trong `lpbfpinn/fastpde.py`, mốc test `smoke/tier1b.py`.
 
 Dự đoán (ghi trước): E1–E3 đạt: khoảng 80% (rủi ro: lỗi đạo hàm mặt nạ hoặc điểm không khả vi của `max` ở nêm). E4 đạt (≥ 1.5×): khoảng 70%; mức tăng tốc kỳ vọng 2–4×, không chắc. E5 đạt: 85% nếu E1–E4 đạt.
+
+---
+
+## Kết quả tầng 1 (2026-10-06 12:57–13:00): **ĐẠT** (S1.1); S1.2 và S1.3 ghi nhận
+
+Mã: `smoke/tier1.py`, `lock.py` (khóa GPU); kết quả `runs/tier1/report.json`, `runs/tier1/overhead.json`. Cùng ghi chú thủ tục như tầng 0: `tier1.py` và `lock.py` có sẵn trong thư mục lúc tôi định viết chúng, và tầng 1 đã chạy lúc 12:57:42 trước khi tôi chạy được gì; tôi đã đọc toàn bộ mã trước khi dùng số. Phần bổ sung (`tier1b_overhead.py`) là của tôi, chạy dưới khóa GPU, ngoài đăng ký ban đầu và **không phải mốc có ngưỡng**.
+
+| Mốc | Kết quả |
+|---|---|
+| S1.1 | Adam toàn lô qua DeepXDE trên cấu hình nêm: **0.140 s/bước**, bộ nhớ GPU đỉnh **6.7 GB** (tiêu chí ≤ 0.25 s: đạt) |
+| S1.2 | Loss khởi điểm của B3 trên hình học nêm: **L_PDE 0.332, L_top 8.8e-5**. Để so: B2→B3 khởi đầu 18.1 (vẫn đạt), B1→B1k nhảy thẳng 14.95 (trượt), bước đồng luân 0.74 và 1.12. Đây là loss khởi điểm thấp nhất đã gặp |
+| S1.3 | một lượt toàn lô (364,544 điểm): lan truyền mạng **2.2 ms**; bước bậc một (xấp xỉ) **15 ms**; bước đầy đủ **108 ms**. Phần thời gian do đạo hàm bậc hai (xấp xỉ) **86%** → vượt ngưỡng 50% đã khóa |
+
+**Phần bổ sung, tách chi phí của DeepXDE** (`overhead.json`): bước DeepXDE theo hiệu hai độ dài chạy (loại phần cố định mỗi lần `train` 0.229 s): **0.132 s**; bước tự viết L_PDE: 0.107 s; **cộng L_top (37,079 điểm): 0.109 s**; chênh DeepXDE − tự viết = **23 ms = 17%** bước DeepXDE. Chênh này là cận trên của chi phí thư viện, vì bước tự viết **không có bước cập nhật tham số của Adam** (khoảng vài ms, chưa đo) và không ghi lịch sử loss. Lượt đo trước (S1.1/S1.3 gộp 140 vs 108 ms) lớn hơn vì gồm cả lần đánh giá loss cuối mỗi lần `train`.
+
+**Hai điều cần nói thẳng:**
+1. **Nhận định "chi phí thư viện ≈ 0" của tôi trước đây chỉ đúng cho bước chuẩn bị dữ liệu** (`train_next_batch` ≈ 0 s). Toàn bộ chi phí còn lại của DeepXDE là khoảng 15–17% bước, bằng đúng ngưỡng 15% tôi đã nêu trong thảo luận (ngưỡng đó **không** nằm trong đăng ký 01, nên không phải quy tắc khóa).
+2. **Chi phí chính nằm ở đạo hàm bậc hai, không ở thư viện:** lan truyền thuận của mạng chỉ 2.2 ms, còn bước đầy đủ 108 ms (gấp 49 lần). Thay DeepXDE bằng vòng PyTorch thuần chỉ cắt tối đa khoảng 15–17%; giảm chi phí đạo hàm bậc hai là đòn bẩy lớn hơn nhiều (theo luật Amdahl, nếu phần 86% đó nhanh gấp 3 lần thì bước còn khoảng 46% thời gian, tức khoảng 2.2 lần nhanh hơn; **đây là ước lượng, chưa đo**).
+
+**Chấm dự đoán:** S1.1 ≤ 0.25 s/bước (90%): đúng (0.140). S1.3 đạo hàm bậc hai > 50% (60%): đúng (86%, xấp xỉ).
+
+**Quy tắc đã khóa (§5 S1.3):** "chỉ làm tối ưu tốc độ nếu đạo hàm bậc hai chiếm > 50% thời gian bước" → điều kiện **thỏa**. Việc tối ưu (truyền thuận Laplacian) cần một đăng ký riêng và được người dùng đồng ý; chưa làm.
