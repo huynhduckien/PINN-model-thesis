@@ -1,0 +1,50 @@
+# Đăng ký trước 03 — M2′: `B3W0` với đầu ra cắt θ ≥ 0 (hướng A)
+
+Ngày: 2026-10-06 15:18 (đồng hồ). Người dùng chọn hướng A rồi mới sang hướng 4 (hiệu chỉnh/bất định hấp thụ, sẽ là đăng ký 04). **Commit file này trước khi viết mã và trước khi chạy bất kỳ mốc nào.** Mọi thay đổi sau đó qua một mục sửa đổi có giờ lấy từ đồng hồ. Ngưỡng đánh dấu **[ĐỀ XUẤT]** do tôi đề xuất.
+
+## 1. Căn cứ (số đo của chẩn đoán không huấn luyện, `runs/M2/diag_energy.json`; không phải mốc)
+
+M2 (đăng ký 02, mục 14) **TRƯỢT và vẫn là TRƯỢT**; bản ghi đó không được sửa. Chẩn đoán trên 2^18 điểm đều (seed 777) cho thấy:
+- E_res của M2 là −25.0 mJ, trong đó **−25.8 mJ nằm ở vùng T < T_amb** (28.5% số điểm); mọi vùng còn lại cộng lại +0.8 mJ. Với B3 gốc: tổng −7.8 mJ, vùng T < T_amb −8.0 mJ.
+- Khi cắt θ tại 0 (không huấn luyện lại): E_res của M2 = **+0.03 mJ**, của B3 gốc = **+0.11 mJ**. Trong vùng T < T_amb, nhiệt độ âm là lỗi của mạng (nguyên lý cực đại: θ ≥ 0 khi nguồn ≥ 0, điều kiện đầu và biên đều bằng 0), và ở đó PDE cũng không thỏa (RMS residual 0.025).
+- Vị trí điểm âm: 64% phía trước laser, 29% sát laser. Độ hụt T_min tăng dần theo Adam (0.94 → 1.23%) và không giảm ở L-BFGS. Vùng nóng (> 1000 K) của M2 có RMS residual 0.0635, so với 0.0398 ở B3 gốc.
+- Hệ quả: gate (a) và (b) của M2 gần như chỉ đo lỗi nhiệt độ âm ở vùng lạnh. Gate E_res là tổng có dấu nên không phản ánh sai số cục bộ ở vùng nóng.
+- Các checkpoint cũ trượt theo kiểu khác: chẩn đoán cũ của B1kc cho nguồn giả dương +47.8 mJ ở dải 298–1000 K, không phải ở vùng T < T_amb; phép cắt không được kỳ vọng làm chúng qua cổng (kiểm ở S2.10(e)).
+
+## 2. Thay đổi mô hình (không đổi tiêu chí)
+
+Bậc mới `B3W0c` trong `config.py`: cùng hình học nêm (y_a = 0), cùng vật lý B3 như `B3W0`, khởi động từ B3, **nhưng** đầu ra của mạng được cắt: θ = max(θ_mạng, 0), gắn bằng cách bọc `net._output_transform` sau `L.build_net` (không sửa `legacy/`). Vùng cắt có θ = 0 đúng, và PDE thỏa chính xác ở đó vì nguồn bằng 0; đạo hàm bậc hai của max bằng 0 gần như mọi nơi nên phần dư không thấy điểm gãy. Cắt không đổi giá trị ở nơi θ_mạng ≥ 0, nên bể chảy và chu trình nhiệt ở vùng nóng giữ nguyên; chỉ T_min và E_res bị ảnh hưởng. **Gate (b) nay qua theo cấu trúc (T_min = T_amb), nên không còn là bằng chứng chất lượng; gate (a), gate (c) và `check_physics` vẫn có nghĩa vì tính trên trường đã cắt.** Tag khác nhờ tên bậc `B3W0c`; `tag_of("B3W0")` phải giữ `B3W0_fff2a3d4`.
+
+## 3. Mốc test tầng 2c (chạy trước M2′; trượt mốc nào thì dừng, báo cáo, không chạy M2′)
+
+| ID | Kiểm | Tiêu chí |
+|---|---|---|
+| S2.10 (a) | Cắt đúng: trọng số M2 (có θ < 0 khi không cắt) trên 2^16 điểm | không cắt: min θ < 0 (mốc không rỗng); có cắt: min θ ≥ 0; chênh lớn nhất so với không cắt ở nơi θ ≥ 0 bằng **0**; có cắt = 0 ở nơi θ < 0 |
+| (b) | Phần dư và gradient: `L.pde` trên 2^14 điểm, float32 và float64, backward tới trọng số | mọi giá trị hữu hạn, gradient trọng số hữu hạn; ở float64 mạng giữ dtype float64 |
+| (c) | **Canary:** B3 (hình học B3) có cắt, đo bằng `L.box`, `L.melt_pool`, `L.probe` | rộng/sâu/dài 166 ± 2 / 90 ± 2 / 516 ± 4 µm; (tích + bay hơi)/nạp 0.805 ± 0.01; |E_res| ≤ 10 mJ; T_min ≥ 297.999 K |
+| (d) | Chỉ báo của B3 có cắt (`analysis.net_indicator`) so với `runs/M1/indicator.json` | mọi số đo kích thước, T_peak, T_pk, thời gian lưu, tốc độ nguội trùng trong 1e-4 tương đối (xác nhận M1 vẫn hợp lệ) |
+| (e) | **Khả năng phân biệt:** cổng đầy đủ có cắt trên `B1k_4d5bf24c`, `B1kc_e7de526d`, `B1f1.4_bd84c1f5` | cả ba vẫn **TRƯỢT** ít nhất một gate (a hoặc c); B3 vẫn PASS |
+| (f) | Hồi quy và rò rỉ: `tag_of("B3W0")` = `B3W0_fff2a3d4`, `tag_of("B3W0c")` khác nó; hash `legacy/ckpt` và `lpbf_pinn.py` không đổi | đúng |
+| (g) | Khói đầu-cuối `runner.py run B3W0c` ngân sách tí hon (Adam 20, khối 5 vòng, tối đa 12), thư mục tạm | ra `run.json` DONE, `gate_full` có, T_min ≥ 297.999 K, loss hữu hạn, tag ≠ tag `B3W0` |
+
+Trần GPU tầng 2c: 10 phút (dừng ở 15). Dự đoán: đạt cả bảy ngay lượt đầu 65%; rủi ro chính là (e), nếu một checkpoint cũ qua cổng sau khi cắt thì cổng mất khả năng phân biệt và phải dừng thảo luận.
+
+## 4. M2′
+
+Cùng quy trình và ngân sách M2: bậc `B3W0c`, khởi động từ `B3_84d0289e` (chỉ đọc), 4 seed Sobol cố định (K = 0), seed 42; Adam 3,000 bước lr 1e-4, cổng nhẹ mỗi 500 bước (chỉ ghi); L-BFGS float64 khối 500, tối đa 2,500 vòng, cổng đầy đủ sau mỗi khối, dừng khi hai khối liên tiếp đạt, trần 75 phút (`--time-cap-s 4500`), chạy dưới `supervise`. Lệnh: `python runner.py supervise B3W0c --out runs/M2c --adam-iters 3000 --adam-lr 1e-4 --chunk 500 --max-iters 2500 --monitor-every 500 --stop-gates 2 --time-cap-s 4500`.
+
+**M2′ ĐẠT khi (tất cả, tiêu chí M2 giữ nguyên):** (a) mọi loss và số đo hữu hạn, không sập quá một lần; (b) cổng đầy đủ đạt trên trọng số cuối; (c) `check_physics` 0 [WARN]; (d) ≤ 75 phút. **Trượt thì dừng, báo cáo, không chạy lại.**
+
+**Chỉ ghi, không phải tiêu chí:** tỉ lệ điểm bị cắt; E_res và RMS residual theo dải nhiệt độ (so với B3 gốc: RMS > 1000 K 0.0398, và M2: 0.0635); bể chảy và chỉ báo ở 50/70/90%; so với M2 và B3. Tôi không đặt ngưỡng cho RMS vùng nóng vì thấy số của M2 trước khi viết; thước đo thực của chất lượng vùng nóng là M3 (độ ổn định theo tập điểm và ngân sách).
+
+**Sau M2′:** nếu ĐẠT, **dừng và báo cáo** rồi hỏi người dùng trước khi chạy M3a, M3b, M4 (đăng ký 02, mục 7, giữ nguyên tiêu chí; chạy trên `B3W0c` với `--sobol-offset 10` cho M3b; hai bước huấn luyện mỗi bước tối đa 75 phút). M1 (vệt thường B3) dùng lại nếu S2.10(d) đạt. Nếu TRƯỢT: dừng, báo cáo.
+
+## 5. Dự đoán (ghi trước, có thể sai)
+- Tầng 2c đạt cả bảy lượt đầu: 65%.
+- M2′ ĐẠT: 65%. Lý do: trọng số M2 sau khi cắt tại chỗ đã cho E_res +0.03 mJ và T_min = T_amb, nhưng huấn luyện lại với đầu ra cắt có thể đổi động học (vùng cắt không có gradient) và `check_physics` có thể có cảnh báo khác ở các phép 5–8 viết cho vệt đối xứng.
+- Bể chảy M2′ ở 70% gần M2 (sâu 98 ± 3 µm, dài 525 ± 10, rộng 167 ± 3): 70%.
+- RMS residual vùng > 1000 K của M2′ ≤ 0.0635 (không tệ hơn M2): 50%.
+- Tổng GPU: tầng 2c khoảng 5 phút, M2′ khoảng 30 phút.
+
+## 6. Giới hạn (khóa)
+Cắt θ ≥ 0 sửa lỗi nhiệt độ âm ở vùng lạnh; nó **không** sửa lỗi trong vùng nóng, không thêm tính cách nhiệt của bột (hướng khác) và không phải hiệu chỉnh. Các giới hạn của 02 (mục 1, 11) giữ nguyên: chỉ báo là cận dưới, tương đối, một điều kiện, không có nghiệm đúng để so.
