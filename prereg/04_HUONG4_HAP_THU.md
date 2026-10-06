@@ -78,3 +78,19 @@ Bất định đầu vào chỉ gồm α_s (một tham số quét bốn điểm,
 ## 8. Kết quả S2.15 (17:55, 30 s, `smoke/tier2g.py`): **ĐẠT** cả sáu mục; ghi lúc 17:56
 
 (a) tag cũ không đổi (`B3_84d0289e`, `B3W0_fff2a3d4`, `B3W0c_fff2a3d4`, A1s, B1, B2) và bảy bậc mới có tag đôi một khác nhau (`B3r_5d0a1121`, `B3_a30_d2dde426`, `B3_a45_8f0a1355`, `B3_a60_a037c5fa`, `B3W0_a30_6dfdfc13`, `B3W0_a45_f7fc5d17`, `B3W0_a60_4f0e0e14`); (b) α_eff, β và năng lượng nạp khớp bảng mục 2 (lệch tối đa 1.8e-4; B3r cùng α_eff, β với B3); (c) MMS `check_pde` nêm ở α_s = 0.30, 0.45, 0.60: 1.3e-14 (≤ 1e-10), không cảnh báo; (d) `check_config`, `check_source`, `check_density`, `check_data` cho nêm ở α_s = 0.60: 0 cảnh báo; (e) `runner.py` khói: `B3W0_a60` và `B3_a30` (Adam 40 bước) đều thoát 0, dừng `gates_passed`, tag đúng bậc, loss hữu hạn (15 và 14 s); (f) `legacy/ckpt` không đổi. Chấm dự đoán (mục 4): đạt cả sáu lượt đầu (70%) → **đúng**. Chạy chuỗi ngay (`python experiments/h4_alpha.py run`).
+
+## 9. Dừng chuỗi theo yêu cầu người dùng (18:12): **hướng 4 chưa hoàn thành, S1–S3 không được đánh giá**
+
+Chuỗi chạy 17:56–18:11; **hai trong bảy lượt xong**, năm lượt chưa chạy (B3W0_a45, B3_a30, B3W0_a30, B3_a60, B3W0_a60). Người dùng hỏi hướng 4 có ý nghĩa gì với trình tự phát triển (M1 → M2 → M3 → M4 → M5, hướng tới thiết kế overhang không support) và yêu cầu dừng để chuyển sang M3. Phân tích: hướng 4 là bước **trước M5** (độ nhạy theo đầu vào mà M5 sẽ hiệu chỉnh), không nằm trên đường đi chính tới M3/M4; M5 còn bị chặn bởi S0.8 (chưa có bảng số thực nghiệm); sàn nhiễu mà S1–S3 cần (từ M3) chưa có. Tiến trình điều phối bị dừng lúc 18:10; lượt đang chạy (B3_a45) được để chạy nốt.
+
+**Kết quả hai lượt đã xong (đều ĐẠT tiêu chí M2″, `runs/H4/`):**
+| Lượt | Dừng | E_res / E_id (mJ) | hụt T_min | tỉ lệ | `check_physics` | dài / rộng / sâu 70% (µm) |
+|---|---|---|---|---|---|---|
+| **B3r** (đối chứng công thức, α_s = 0.35, vệt thường) | `gates_passed` ở bước 2,000 (541 s) | +0.8 / +3.3 | 0.47% | 0.829 | 0 cảnh báo | 511.5 / 167.6 / **90.83** |
+| B3 (M1, bản gốc cùng vật lý) | | −7.4 / −5.6 | 0.67% | 0.805 | | 517.7 / 167.2 / 90.78 |
+| **B3_a45** (vệt thường, α_s = 0.45) | `gates_passed` ở bước 2,000 (359 s) | +2.4 / +2.2 | 0.64% | 0.829 | 0 cảnh báo | 547 / 175 / **94.2** |
+
+- **B3r so với B3:** sai khác độ sâu ở 70% là **0.05 µm**, rộng 0.4 µm, T_pk 2,844 so với 2,842 K, thời gian lưu 478 so với 478 µs, tốc độ nguội +4.1%. Công thức M2″ **tái lập vệt thường** trong dưới 0.1 µm theo độ sâu, nên sàn nhiễu công thức cho vệt thường n_D ≤ 1.2 µm (dùng cận 1.2 µm đã định).
+- **B3_a45 so với B3** (α_eff 0.422 → 0.495, năng lượng nạp +17%): độ sâu **+3.4 µm** (90.8 → 94.2), độ xuyên +3.4, rộng +8, dài +29, T_pk +236 K (2,842 → 3,078), tốc độ nguội −9%. Một cặp điểm, một lượt mỗi điểm: không phải độ nhạy đã kiểm; nhưng nó cho cỡ so sánh: hiệu ứng nêm ΔD = +9.0 µm (M2″) lớn hơn 2.6 lần thay đổi độ sâu do tăng 17% năng lượng nạp của vệt thường.
+- Chưa có nêm ở α_s ≠ 0.35 nên **ΔD(α_s) không đo được**; S1 (cần hai α_s qua cổng cho mỗi hình học), S2, S3: **không đánh giá**. Dự đoán lượt (từng lượt qua cổng 70%): hai trong hai đã xảy ra; không đủ dữ liệu cho các dự đoán S1–S3.
+- Hướng 4 có thể làm lại sau (chuỗi `experiments/h4_alpha.py run` bỏ qua lượt đã có `run.json`); không bị hủy, chỉ hoãn.
