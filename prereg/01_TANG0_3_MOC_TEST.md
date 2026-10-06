@@ -192,3 +192,27 @@ Quy tắc đã khóa ở 01c: không đạt ≥ 1.5× thì **bỏ hẳn**. Quy�
 Điều học được (đo được, không phải giả thuyết): đổi bố cục bộ nhớ đưa phiên bản giải tích từ 159 xuống 109 ms, nhưng **không** thấp hơn đường autograd (110 ms). Cả hai cách đều có thời gian cỡ **7 lần** bước chỉ-bậc-một (15 ms, S1.3), đúng bằng số kênh đạo hàm cần mang (giá trị + 4 + 3 = 8 so với 1 + 4). Nghĩa là chi phí tỉ lệ với (số điểm) × (số kênh), bị giới hạn bởi băng thông bộ nhớ chứ không phải do cách cài đặt autograd. Hệ quả: muốn giảm thời gian mỗi bước phải **giảm số điểm mỗi bước** (lô con ngẫu nhiên), tức đổi bài toán tối ưu, không phải tính tương đương; việc đó cần đăng ký riêng (không nằm trong đợt này).
 
 (Sửa lúc 13:03: (1) mục 01b bị mất khi phiên thứ hai viết lại tệp này lúc 13:01 (hai phiên cùng sửa một tệp); đã khôi phục từ commit `8ee1e9f`. (2) Các mốc giờ của 01a/01b/01c trước đây ghi 13:03/13:04/13:06 do tôi ước lượng thay vì đọc đồng hồ; đã thay bằng giờ thật theo `git log`. Thứ tự sự kiện không đổi.)
+
+## 14. Sửa đổi 01d (2026-10-06 13:21, trước khi chạy chính thức S2.1, S2.3, S2.4): cách hiểu các mốc tầng 2, số đo float64, kết quả S2.2
+
+Từ giờ chỉ một phiên (phiên này) ghi và commit trong `lpbfpinn/`; file thêm theo tên, không dùng `git add -A`. Mã: `gates.py`, `runner.py`, `smoke/tier2.py`.
+
+**Kết quả S2.2 (lượt chạy phát triển 13:1x, cùng mã sẽ chạy chính thức; ghi lại vì thấy kết quả trước khi viết mục này)**: **ĐẠT** cả bốn checkpoint, cổng nhẹ cho cùng kết luận từng gate với `probe` đầy đủ và đúng kết luận mong đợi.
+
+| checkpoint | E_res nhẹ / đầy đủ (mJ) | hụt dưới T_amb nhẹ / đầy đủ | (tích + bay hơi)/nạp nhẹ / đầy đủ | a / b / c |
+|---|---|---|---|---|
+| B3 | −7.39 / −7.39 | 0.53% / 0.67% | 0.801 / 0.805 | đạt / đạt / đạt → **PASS** |
+| B1k | +100.22 / +100.22 | 1.30% / 1.47% | 1.001 / 1.007 | trượt / trượt / trượt → FAIL |
+| B1kc | +31.39 / +31.39 | 2.06% / 2.48% | 0.891 / 0.896 | trượt / trượt / đạt → FAIL |
+| B1f1.4 | +15.27 / +15.27 | 0.26% / 0.29% | 0.854 / 0.860 | trượt / đạt / đạt → FAIL ở E_res, đạt T_min |
+
+Số `probe` đầy đủ trùng với số đã ghi trong `coding/scratchpad/overhang_s1/report*.json` (E_res 100.2, 31.4, 15.3 mJ). Hạn chế của cổng nhẹ, ghi để không đọc quá mức: (1) E_res nhẹ **dùng đúng tập 2^16 điểm của `probe`** (lấy 2^16 dòng đầu của cùng dãy seed 101) nên chênh 0.00 mJ là hệ quả của cách xây dựng, không phải bằng chứng độc lập; (2) T_min trên 2^18 điểm luôn **lạc quan** hơn 2^21 điểm (hụt 0.53% so với 0.67%; 2.06% so với 2.48%), nên một checkpoint sát ngưỡng 1% có thể qua cổng nhẹ mà trượt cổng đầy đủ; (3) B1k trượt gate (c) ở nhẹ chỉ với 1.001, sát ngưỡng 1; (4) probe đầy đủ chỉ mất 1–4 s trên checkpoint này (nhẹ 0.3–1 s), nên lợi thời gian của cổng nhẹ nhỏ ở quy mô này.
+
+**Đo mới (không phải mốc)**: bước PDE (L_PDE + backward, 364,544 điểm, nêm B3W0) ở **float64 mất 3,162 ms**, ở float32 108 ms: chậm **29×**. Lượt thử `runner.py` ngân sách tí hon cho **~130 s mỗi khối L-BFGS float64 (~9 vòng)**, tức khoảng 14 s mỗi vòng. Ghi chép cũ (B1kc: 5,000 vòng trong 48.7 phút = 0.58 s/vòng) **không còn đúng trên GPU này** (RTX 4080, FP64 bằng 1/64 FP32). Hệ quả cho đăng ký 02: L-BFGS float64 với trần 75 phút chỉ cho khoảng 300–1,400 lần tính hàm, không phải hàng nghìn vòng. Đây là phát hiện để cân nhắc ở đăng ký 02, không đổi tiêu chí tầng 2.
+
+**Cách hiểu cố định của S2.1, S2.3, S2.4 (đặt trước khi chạy chính thức)**
+- S2.1: "khối 5 vòng (tối đa 12)" là khối **5 vòng**, tổng **tối đa 12 vòng** (như smoke cũ `CHUNK, MAXIT = 5, 12`), không phải 12 khối. Bậc `B3W0`, Adam 20 bước lr 1e-4, `runner.py run`. Đạt khi: ma thoát 0, có `run.json` với `status = DONE`, ≥ 12 vòng L-BFGS, mọi loss hữu hạn, tag khác `B3W0_fff2a3d4` (tag thật), có `{tag}.pt` trong thư mục ra; hash `legacy/ckpt` không đổi (kiểm ở đầu và cuối tầng). Mọi file ra trong `runs/tier2/` (bị git bỏ qua).
+- Một khối có thể chạy tới khoảng 2× số vòng đặt (DeepXDE gọi tiếp bước L-BFGS khi một bước dừng vì giới hạn số lần tính hàm); tổng vòng tính theo số vòng thực chạy.
+- S2.3: chạy `runner.py` với khối **3 vòng**, tổng tối đa 12 (để có nhiều khối); bật `watch` rồi **giết cứng** (TerminateProcess) ngay sau khi khối đầu đã ghi và khối hai đang chạy; sau đó `--resume`. Đạt khi: (i) mọi khối đã báo xong trong log đều có trong `last.pt` (mất tối đa khối đang chạy, tức ≤ 1); (ii) `watch` thoát với mã 1 trong ≤ 180 s kể từ lúc giết (thăm dò mỗi 10 s); (iii) `--resume` thoát 0, `resumed_from_block` = số khối đã ghi (≥ 1), tổng ≥ 12 vòng; (iv) "kết quả cuối khối tiếp theo hợp lệ" nghĩa là loss khối đầu sau resume **hữu hạn và tổng L_PDE + L_top ≤ 2× tổng của khối cuối đã ghi trước khi giết**. Khóa `.run.lock` còn lại của tiến trình bị giết phải được `--resume` thay (khóa cũ).
+- S2.4: tiến trình A (ngân sách tí hon) giữ khóa; tiến trình B cùng lệnh phải thoát **mã 3 trong ≤ 10 s**, stderr có "TU CHOI" và PID của A, không tạo thư mục ra, và A vẫn chạy.
+- Trần thời gian tầng 2 (15 phút, dừng ở 22.5 phút) tính cho cả S2.1–S2.4. Ước lượng trước khi chạy: S2.1 ≈ 4–6 phút, S2.3 ≈ 6–9 phút, S2.4 ≈ 1 phút, S2.2 < 1 phút; tổng 12–17 phút. Dự đoán S2.1–S2.4 đạt ngay lượt đầu: khoảng 55% (rủi ro chính: tương tác giết tiến trình/khóa trên Windows, và số vòng thực chạy mỗi khối).
