@@ -153,3 +153,43 @@ Lượt đầu (01:50): độ rộng chuyển tiếp **đúng**: mặt phân cá
 ## 12. Kết quả S2.18 (01:51–01:59, 482 s, mã `5dc8adf`): **ĐẠT** cả bảy mục (sau hai sửa đặc tả ở mục 11); ghi lúc 02:00
 
 `legacy/ckpt` không đổi. (a) độ rộng 10–90%: mặt phân cách lớp bột **30.00 µm** (tâm 180.00 µm), mép bao **29.87 µm** (tâm mép +y 85.00 µm, trùng giá trị từ bảng); (b) bao từ e ≥ 0.5 trùng bao từ T_max ≥ T_sol (sâu 90.0 µm, nửa rộng 83.0 µm); (c) đạo hàm κ_s 1.9e-8 và divergence 2.3e-7 (cấu hình mềm, nêm); (d) tương đương với bề rộng cũ: 0 và 9.3e-15; (e) κ_s: 0.5117 / 0.0354 / 0.9881 / mép bao 0.5118 (khớp kỳ vọng tới 4 chữ số); (f) khói `runner.py B3W0s` 40 bước: thoát 0, tag `B3W0s_77e4b83d`, loss hữu hạn, có bao kế tiếp; (g) hồi quy tầng 2, S2.13, S2.17 đạt (466 s). Chấm dự đoán: đạt cả bảy ngay lượt đầu 70% → **sai** (hai lỗi đặc tả điểm kiểm, mã đúng ở cả hai); trần GPU 15 phút → vượt (8 phút cho lượt cuối, tổng cả ba lượt khoảng 9 phút, nằm trong trần 22.5 phút). Chạy lượt đầy đủ F-mềm ngay theo mục 10.
+
+## 13. Kết quả lượt đầy đủ F-mềm (01:59–02:17, 17.4 phút GPU, `experiments/f_insul.py run --soft`, `runs/Fs/`): **ĐẠT** cho cả vệt thường và nêm; ghi lúc 02:19
+
+Chạy đúng mục 10 (`supervise`, không sập, `legacy/ckpt` không đổi). **Mọi lần huấn luyện dừng `gates_passed` ở bước 2,000** (hai điểm kiểm liên tiếp đạt; `check_physics` 0 cảnh báo).
+
+| | B3s vòng 0 (vệt thường) | B3W0s vòng 0 (nêm) | B3W0s vòng 1 (nêm, bao mới) |
+|---|---|---|---|
+| E_res / E_id (mJ) | +0.5 / **−8.8** | +5.5 / −7.1 | +2.4 / −7.0 |
+| hụt T_min (ngưỡng 1%) | 0.76% | 0.67% | 0.84% |
+| tỉ lệ năng lượng | 0.831 | 0.921 | 0.923 |
+| L_PDE / L_top cuối | 9.7e-3 / 6.6e-4 | 1.9e-2 / 6.0e-4 | 1.4e-2 / 4.9e-4 |
+| RMS vùng > 1000 K | 0.124 | 0.147 | 0.130 |
+| bao: lệch độ sâu / nửa rộng / hiệu đối xứng | −2.0 µm / +3.0 µm / 4.3% → **hội tụ** (sát giới hạn 2 và 3 µm) | +8.0 / +5.0 / 18.0% → chưa | +2.0 / −1.0 / 2.8% → **hội tụ** |
+Kết luận về lượt: vệt thường hội tụ ngay vòng 0; nêm hội tụ sau **một** lần huấn luyện lại; không dùng hết 3 lần.
+
+**Chỉ báo ở 70% quét (lưới 2.5 µm; một lượt mỗi trường):**
+| | B3 (bột như đặc) | B3s (cách nhiệt) | M2″ (bột như đặc) | B3W0s vòng 1 (cách nhiệt) |
+|---|---|---|---|---|
+| sâu D (µm) | 90.78 | **89.52** | 99.78 | **107.83** |
+| rộng W₊ + W₋ (µm) | 167.2 | 174.3 | 170.0 | 173.4 |
+| T_pk đáy lớp bột (K) | 2,842 | 2,815 | 2,990 | 2,976 |
+**Hiệu nêm − vệt thường: ΔD = +9.0 µm (bột như đặc) → +18.3 µm (cách nhiệt)**; ΔP trùng ΔD; ΔT_pk +148 K → +161 K; ΔW −0.9 µm; Δ chiều dài +11.4 µm (không dùng, quy tắc R1). Nhiệt độ đỉnh T_pk gần như không đổi; độ sâu của nêm tăng do cách nhiệt (+8 µm so với M2″), của vệt thường giảm nhẹ (−1.3 µm).
+
+**Chu trình nhiệt tại (y = 0, đáy lớp bột), tính lại ở 30 / 40 / 50% quét (chẩn đoán không huấn luyện; xem mục đính chính dưới):**
+| scan | thời gian lưu nêm − thường: bột như đặc / cách nhiệt | tỉ số tốc độ nguội nêm/thường: bột như đặc / cách nhiệt |
+|---|---|---|
+| 30% | +7 µs / **+171 µs** | 1.22 / **0.55** |
+| 40% | +16 / **+203** | 1.12 / **0.54** |
+| 50% | +28 / **+222** | 1.03 / **0.54** |
+Với bột cách nhiệt, điểm đáy lớp bột dưới tâm chùm ở nêm **nóng chảy lâu hơn 170–220 µs (+37–48%) và nguội chậm hơn 46%** so với vệt thường: dấu hiệu tích tụ nhiệt, và nó **nhất quán qua ba thời điểm quét** (0.55, 0.54, 0.54); với bột như đặc, các số này nhỏ và đổi theo thời điểm (1.22 → 1.03).
+
+**Đính chính chỉ báo chu trình nhiệt (lỗi thiết kế của tôi, phát hiện ở lượt này).** `analysis.net_indicator` đo chu trình nhiệt khi laser đi qua ở **70%** quét; đỉnh nhiệt tại điểm đó xảy ra ở t ≈ 1,075 µs và cửa sổ mô phỏng hết ở 1,500 µs, chỉ còn 425 µs sau đỉnh. Nêm cách nhiệt vẫn ở **1,672 K (> T_liq)** tại t_end, nên tốc độ nguội **không xác định** (`None`, vì không có mẫu trên nhánh nguội trong [T_sol, T_liq]) và thời gian lưu **bị cắt cụt bởi cửa sổ**; M2″ vẫn ở T_sol + 36 K tại t_end (cắt cụt một phần), B3 ra khỏi bể ở 1,480 µs (sát cuối cửa sổ). Hệ quả: các dòng **thời gian lưu** và **tốc độ nguội** trong bảng chỉ báo cuối cùng của `02` mục 19 (thời gian lưu +3.5 µs; tốc độ nguội +11.5%) **không đáng tin**: nó so sánh các phần khác nhau của dải nguội (với bột như đặc, tỉ số đổi từ 1.22 ở 30% xuống 1.03 ở 50%). **Đã đính chính ở `02` mục 20.** Chỉ báo chu trình nhiệt từ đây tính ở ≤ 50% quét (cửa sổ sau đỉnh ≥ 700 µs); các dòng độ sâu, độ xuyên, T_pk và độ rộng của mục 19 **không bị ảnh hưởng** (đo từ trường ở một thời điểm, không phải chu trình).
+
+**Chấm dự đoán (mục 10):** vệt thường qua cổng 30% → **xảy ra**; cải thiện ≥ 2 lần L_PDE cuối (kể cả không qua cổng) 55% → **xảy ra** (2.6e-2 → 9.7e-3, 2.7 lần); nêm qua cổng, nếu vệt thường qua: 55% → xảy ra; mặt nạ hội tụ ≤ 3 lần huấn luyện lại 40% → xảy ra; ΔD cách nhiệt > +9.0 µm 85% → xảy ra (+18.3); ≥ +20 µm 55% (dự đoán ở mục 4: 55%) → **không** (+18.3); ≥ +40 µm 20% → không.
+
+**Hạn chế phải ghi cùng kết quả (không cắt bớt):**
+1. **Qua cổng nhưng khớp PDE còn thô:** L_PDE cuối 9.7e-3 (vệt thường) và 1.4e-2 (nêm) so với 1.05e-3 của B3 (9–14 lần); RMS vùng > 1000 K 0.12–0.15 so với 0.040 (3 lần). Gate chỉ còn biên mỏng: E_id −8.8 mJ ở vệt thường (biên 1.2 mJ so với ngưỡng 10). Độ chính xác tuyệt đối của chỉ báo vì vậy thấp hơn B3; nhiễu của mô hình cách nhiệt **chưa đo** (chưa có M3), nên mọi Δ là **một lượt** và chưa biết có tách khỏi nhiễu hay không (nhiễu của mô hình bột như đặc: ± 0.3 µm cho độ sâu; chưa thể giả định cho mô hình này).
+2. **Độ rộng chuyển tiếp 30 µm là giả định cỡ hạt** (D50), không đo cho IN718 ở dự án này; kết quả cách nhiệt phụ thuộc nó (độ nhạy theo 15 và 45 µm chưa kiểm). Mô hình mềm không chứng minh bột cách nhiệt đúng.
+3. Hội tụ mặt nạ của vệt thường nằm đúng tại giới hạn lưới (lệch độ sâu 2.0 µm, nửa rộng 3.0 µm; lưới 2 µm = một ô); xấp xỉ mặt nạ tĩnh theo bao cực đại; nhiệt dung bột không đổi sau khi chảy; một điều kiện (300 W, 0.8 m/s), một góc 45°, α_s = 0.35 chưa hiệu chỉnh; chưa có dữ liệu thực nghiệm. Vệt thường cách nhiệt rộng hơn bột như đặc 7 µm (174.3 so với 167.2 µm): không có dữ liệu ngoài để nói bên nào gần thực tế hơn.
+4. Công thức tối ưu giữ nguyên (Adam, không L-BFGS); không rõ nó có đạt mức hội tụ tốt hơn nếu có L-BFGS (hướng S1) hay không.
