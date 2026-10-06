@@ -63,9 +63,9 @@ def cpu_state(net):
     return {k: v.detach().cpu().clone() for k, v in net.state_dict().items()}
 
 
-def should_stop(passes, k):
-    """Dung theo cong: k khoi CUOI lien tiep deu dat (passes la chuoi dat/truot theo thu tu khoi)."""
-    return k > 0 and len(passes) >= k and all(passes[-k:])
+def should_stop(passes, k, step=None, min_steps=0):
+    """Dung theo cong: k diem kiem/khoi CUOI lien tiep deu dat (passes la chuoi dat/truot theo thu tu), va (neu co) da qua min_steps buoc."""
+    return k > 0 and len(passes) >= k and all(passes[-k:]) and (step is None or step >= min_steps)
 
 
 def captured(fn, *args):
@@ -81,16 +81,21 @@ def build(a, dtype):
     dde.config.set_default_float(dtype)
     dde.config.set_random_seed(42)
     sc, trk, path, net, anc, _ = C.build(a["run"], a.get("sobol_offset", 0))
-    _, model = L.make_data(sc, path, anc, net)
-    return sc, trk, path, net, model, captured(L.check_process, sc, trk)
+    exp = captured(L.check_process, sc, trk)
+    if a.get("energy_lam") or a.get("pos_lam"):                         # prereg 03 muc 15, 18: so hang can bang nang luong + phat duong (mau ngau nhien moi buoc)
+        import energy
+        _, model, _ = energy.make_data_terms(sc, path, anc, net, exp["E_total"])
+    else:
+        _, model = L.make_data(sc, path, anc, net)
+    return sc, trk, path, net, model, exp
 
 
 def gate_row(g):
     return {k: g[k] for k in ("a", "b", "c", "ok", "E_res", "T_min", "under_frac", "ratio") + (("E_id",) if "E_id" in g else ())}
 
 
-def full_gate(net, sc, path, exp):
-    """Cong day du (box + probe) tren ban float32 cua mang, dung giua luc huan luyen float64; tra ve (probe, verdict)."""
+def full_gate(net, sc, path, exp, restore="float64"):
+    """Cong day du (box + probe + E_id) tren ban float32 cua mang; `restore` la dtype mac dinh cua DeepXDE can giu sau khi do (float64 giua L-BFGS, float32 giua Adam)."""
     dde.config.set_default_float("float32")
     try:
         net32 = copy.deepcopy(net).float()
@@ -99,37 +104,73 @@ def full_gate(net, sc, path, exp):
         pr = L.probe(net32, sc, path, melt)
         pr["E_id"] = gates.energy_identity(net32, sc, path, pr["E_stored"], pr.get("E_ev", 0.0))["E_id"]
     finally:
-        dde.config.set_default_float("float64")
+        dde.config.set_default_float(restore)
         gc.collect()
         torch.cuda.empty_cache()
     return pr, gates.verdict(pr, exp["E_total"], sc)
 
 
+def gate_record(pr, v):
+    return dict(gate_row(v | dict(E_res=pr["E_res"], T_min=pr["T_min"], E_id=pr["E_id"])), T_max=pr["T_max"])
+
+
 def adam_stage(a, out, st, t0):
+    """Adam float32. Khong monitor_every: mot lan. Co monitor_every: tung doan; co stop_gates: do cong DAY DU moi diem kiem va dung theo quy tac (prereg 03 muc 18);
+    luu last.pt moi diem kiem (khoi phuc --resume tu adam_done; trang thai Adam bi khoi tao lai)."""
     sc, trk, path, net, model, exp = build(a, "float32")
-    net.load_state_dict(torch.load(a["init"], map_location="cpu"))
-    t1 = time.time()
-    adam, monitor = dict(steps=[], loss=[]), []
+    done, monitor = st.get("adam_done", 0), list(st.get("adam", {}).get("monitor", []))
+    net.load_state_dict(st["weights"] if done else torch.load(a["init"], map_location="cpu"))
+    if done:
+        log(out, f"adam khoi phuc tu buoc {done} (trang thai toi uu hoa khoi tao lai)")
+    t1 = time.time() - st.get("adam", {}).get("seconds", 0.0)
+    full = bool(a.get("stop_gates"))
+    extra = bool(a.get("energy_lam") or a.get("pos_lam"))
+    lam = [1.0, 1.0, a.get("energy_lam", 0.0), a.get("pos_lam", 0.0)] if extra else None
+    last_loss = st.get("adam", {}).get("loss", [])
     if a["adam_iters"]:
-        model.compile("adam", lr=a["adam_lr"])
+        model.compile("adam", lr=a["adam_lr"], loss_weights=lam)
         every = a.get("monitor_every") or a["adam_iters"]
-        done = 0
+        cap = a.get("time_cap_s")
         while done < a["adam_iters"]:
             k = min(every, a["adam_iters"] - done)
             lh, _ = model.train(iterations=k, display_every=max(1, k))
             done += k
+            raw = [float(v) for v in lh.loss_train[-1]]
+            if not np.isfinite(raw).all():
+                st["stopped"] = "non_finite"
+                log(out, f"adam {done}: loss khong huu han {raw}, dung")
+                break
+            last_loss = [raw]
             if a.get("monitor_every"):
-                g = gates.light_gate(net, sc, path, exp["E_total"])
-                monitor.append(dict(step=done, **gate_row(g)))
-                log(out, f"adam {done}: cong nhe E_res {g['E_res']*1e3:+.1f} mJ, hut T_min {g['under_frac']*100:.2f}%, ti le {g['ratio']:.3f}, a/b/c {int(g['a'])}{int(g['b'])}{int(g['c'])}")
-        adam = dict(steps=[int(s) for s in lh.steps], loss=[[float(v) for v in l] for l in lh.loss_train])
-    adam.update(seconds=time.time() - t1, monitor=monitor)
-    st.update(phase="lbfgs", adam=adam, blocks=[], weights=cpu_state(net))
+                if full:
+                    pr, v = full_gate(net, sc, path, exp, restore="float32")
+                    row = dict(step=done, loss_raw=raw, **gate_record(pr, v))
+                    log(out, f"adam {done}: loss [{raw[0]:.3e}, {raw[1]:.3e}], cong day du E_res {pr['E_res']*1e3:+.1f} E_id {pr['E_id']*1e3:+.1f} mJ, hut T_min {v['under_frac']*100:.2f}%, ti le {v['ratio']:.3f}, a/b/c {int(v['a'])}{int(v['b'])}{int(v['c'])}")
+                else:
+                    g = gates.light_gate(net, sc, path, exp["E_total"])
+                    row = dict(step=done, loss_raw=raw, **gate_row(g))
+                    log(out, f"adam {done}: cong nhe E_res {g['E_res']*1e3:+.1f} mJ, hut T_min {g['under_frac']*100:.2f}%, ti le {g['ratio']:.3f}, a/b/c {int(g['a'])}{int(g['b'])}{int(g['c'])}")
+                monitor.append(row)
+                st.update(phase="adam", adam_done=done, weights=cpu_state(net), adam=dict(steps=[done], loss=last_loss, seconds=time.time() - t1, monitor=monitor))
+                save(out, st, t0)
+                if full and should_stop([m["ok"] for m in monitor], a["stop_gates"], done, a.get("min_steps", 0)):
+                    st["stopped"] = "gates_passed"
+                    break
+                if cap and time.time() - t0 > cap:
+                    st["stopped"] = "time_cap"
+                    log(out, f"tran gio {cap:.0f} s: da chay {time.time() - t0:.0f} s, dung")
+                    break
+    adam = dict(steps=[done], loss=last_loss, seconds=time.time() - t1, monitor=monitor)
+    if a["max_iters"] <= 0:
+        st.setdefault("stopped", "iteration_budget")
+    st.update(phase="lbfgs" if a["max_iters"] > 0 else "eval", adam=adam, adam_done=done, blocks=[], weights=cpu_state(net))
     save(out, st, t0)
-    log(out, f"adam xong: {a['adam_iters']} buoc, {adam['seconds']:.0f} s, loss cuoi {adam['loss'][-1] if adam['loss'] else None}")
+    log(out, f"adam xong: {done} buoc, {adam['seconds']:.0f} s, loss cuoi {adam['loss'][-1] if adam['loss'] else None}" + (f", dung vi {st['stopped']}" if st.get("stopped") else ""))
 
 
 def lbfgs_stage(a, out, st, t0):
+    if a.get("energy_lam") or a.get("pos_lam"):
+        sys.exit("L-BFGS khong ho tro so hang phu ngau nhien (dung --max-iters 0)")
     sc, trk, path, net, model, exp = build(a, "float64")
     net.load_state_dict(st["weights"])
     cap, k_stop = a.get("time_cap_s"), a.get("stop_gates", 0)
@@ -155,7 +196,7 @@ def lbfgs_stage(a, out, st, t0):
         secs = time.time() - tb
         pr, v = full_gate(net, sc, path, exp)
         done += n
-        st["blocks"].append(dict(n=n, loss=loss, seconds=secs, gate=dict(gate_row(v | dict(E_res=pr["E_res"], T_min=pr["T_min"], E_id=pr["E_id"])), T_max=pr["T_max"])))
+        st["blocks"].append(dict(n=n, loss=loss, seconds=secs, gate=gate_record(pr, v)))
         st["weights"] = cpu_state(net)
         save(out, st, t0)
         log(out, f"khoi {len(st['blocks'])}: +{n} vong (tong {done}/{a['max_iters']}), loss [{loss[0]:.4e}, {loss[1]:.4e}], {secs:.0f} s; "
@@ -209,6 +250,7 @@ def run(args):
             sys.exit(f"--resume nhung khong co {last}")
         st = torch.load(last, map_location="cpu", weights_only=False)
         a = st["args"]
+        st.setdefault("blocks", [])
         st["resumed_from_block"] = len(st["blocks"])
         log(out, f"--resume: phase {st['phase']}, {len(st['blocks'])} khoi da xong, da chay {st.get('elapsed', 0):.0f} s")
     else:
@@ -220,11 +262,13 @@ def run(args):
         r = C.RUNS[args.run]
         init = args.init or str(C.LEGACY/"ckpt"/f"{C.TAG_KNOWN[r['init']]}.pt")
         train = dict(adam_iters=args.adam_iters, adam_lr=args.adam_lr, lbfgs_maxit=args.max_iters, lbfgs_chunk=args.chunk, lbfgs_dtype="float64")
+        if args.energy_lam or args.pos_lam:
+            train.update(energy_lam=args.energy_lam, pos_lam=args.pos_lam)
         if args.sobol_offset:
             train["sobol_offset"] = args.sobol_offset                  # tag khac khi doi tap diem
         a = dict(run=args.run, adam_iters=args.adam_iters, adam_lr=args.adam_lr, chunk=args.chunk, max_iters=args.max_iters, init=init,
                  tag=C.tag_of(args.run, train), monitor_every=args.monitor_every, stop_gates=args.stop_gates, time_cap_s=args.time_cap_s,
-                 sobol_offset=args.sobol_offset)
+                 sobol_offset=args.sobol_offset, energy_lam=args.energy_lam, pos_lam=args.pos_lam, min_steps=args.min_steps)
         st = dict(args=a, phase="adam")
         log(out, f"bat dau {a['run']} tag {a['tag']} (tag that {C.tag_of(a['run'])}), khoi dong am tu {init}")
     t0 = time.time() - st.get("elapsed", 0.0)                           # dong ho cong don qua cac lan resume
@@ -286,6 +330,9 @@ def add_run_args(r):
     r.add_argument("--stop-gates", type=int, default=0)
     r.add_argument("--time-cap-s", type=float, default=0.0)
     r.add_argument("--sobol-offset", type=int, default=0)
+    r.add_argument("--energy-lam", type=float, default=0.0)
+    r.add_argument("--pos-lam", type=float, default=0.0)
+    r.add_argument("--min-steps", type=int, default=0)
 
 
 if __name__ == "__main__":
