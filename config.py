@@ -35,6 +35,8 @@ RUNS = {
     "B3": dict(init="B2", geometry=GEOMETRY, physics=dict(_F, latent=True, evap=True, melt_k=2.8)),
     # nem 45 do, y_a = 0, bot dan nhiet nhu ran (chi nhiet dung khac), vat ly B3, khoi dong am tu B3
     "B3W0": dict(init="B3", geometry=GEOMETRY_WEDGE, physics=dict(_F, latent=True, evap=True, melt_k=2.8)),
+    # prereg 03 (M2'): nhu B3W0 nhung dau ra mang bi cat theta >= 0 (nguyen ly cuc dai); chi doi mang, khong doi vat ly
+    "B3W0c": dict(init="B3", geometry=GEOMETRY_WEDGE, physics=dict(_F, latent=True, evap=True, melt_k=2.8), clamp=True),
 }
 TAG_KNOWN = {"A1s": "A1s_f831590d", "B1": "B1_8ff624dd", "B2": "B2_d610497f", "B3": "B3_84d0289e"}
 LEGACY_SHA16 = "b0f5955a2385e79c"                              # sha256 (16 ky tu dau) cua coding/lpbf_pinn.py luc dong bang
@@ -64,6 +66,14 @@ def tag_of(run, train=None):
     return L.ckpt_tag(sc, L.make_path(sc, L.make_track(sc)), NETWORK, SAMPLING, budget(run, train))
 
 
+def clamp_output(net):
+    """Boc phep bien doi dau ra cua mang: theta = max(theta_mang, 0). Khong doi trong so; cat chi tac dong noi theta_mang < 0."""
+    import torch
+    inner = net._output_transform
+    net.apply_output_transform(lambda x, y: torch.clamp(inner(x, y), min=0.0))
+    return net
+
+
 def build(run, sobol_offset=0):
     """sc, trk, path, net, anchors, group (chua dung DeepXDE data; make_data goi rieng khi can). sobol_offset > 0: tap diem khac (prereg 02, M3b)."""
     import anchors as A
@@ -72,4 +82,6 @@ def build(run, sobol_offset=0):
     path = L.make_path(sc, trk)
     anchors, group = A.build_anchors(sc, trk, SAMPLING, path, sobol_offset)
     net = L.build_net(sc, path, NETWORK)
+    if RUNS[run].get("clamp"):
+        clamp_output(net)
     return sc, trk, path, net, anchors, group

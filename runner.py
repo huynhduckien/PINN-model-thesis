@@ -189,6 +189,7 @@ def eval_stage(a, out, st, t0):
                probe={k: float(full[k]) for k in ("T_min", "T_max", "E_stored", "E_res") + (("E_ev",) if "E_ev" in full else ())},
                gate_full=gates.verdict(full, exp["E_total"], sc), gate_light=light,
                check_physics=dict(warnings=phys.count("[WARN]"), text=phys), indicator=analysis.net_indicator(net, sc, path),
+               band_diag=gates.band_diag(net, sc, path),
                seconds=time.time() - t0)
     (out/"run.json").write_text(json.dumps(res, indent=2, default=float), encoding="utf-8")
     log(out, f"run.json: dung vi {st['stopped']}; cong day du {res['gate_full']['ok']}, check_physics {res['check_physics']['warnings']} canh bao, "

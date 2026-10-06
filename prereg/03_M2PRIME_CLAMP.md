@@ -48,3 +48,21 @@ Cùng quy trình và ngân sách M2: bậc `B3W0c`, khởi động từ `B3_84d0
 
 ## 6. Giới hạn (khóa)
 Cắt θ ≥ 0 sửa lỗi nhiệt độ âm ở vùng lạnh; nó **không** sửa lỗi trong vùng nóng, không thêm tính cách nhiệt của bột (hướng khác) và không phải hiệu chỉnh. Các giới hạn của 02 (mục 1, 11) giữ nguyên: chỉ báo là cận dưới, tương đối, một điều kiện, không có nghiệm đúng để so.
+
+## 7. Kết quả tầng 2c (15:19–15:20, 30 s, mã `@@C@@`): **ĐẠT** cả bảy mục; ghi lúc 15:20
+
+`legacy/ckpt` không đổi. Mã: `config.py` (`B3W0c`, `clamp_output`), `gates.py` (`band_diag`), `runner.py` (ghi `band_diag` vào `run.json`), `smoke/tier2c.py`.
+
+| Mục | Kết quả |
+|---|---|
+| (a) | trọng số M2: không cắt min θ = −0.0204 (28.6% điểm âm); có cắt min 0; chênh lớn nhất nơi θ ≥ 0 bằng **0**; bằng 0 nơi θ < 0 |
+| (b) | phần dư và gradient hữu hạn ở float32 và float64, dtype đúng |
+| (c) canary B3 có cắt | rộng/sâu/dài 166.0 / 90.0 / 516.0 µm; tỉ lệ 0.805; E_res +0.26 mJ; T_min 298.000 K |
+| (d) | chỉ báo B3 có cắt trùng `runs/M1/indicator.json` (lệch lớn nhất 0): M1 vẫn hợp lệ |
+| (e) phân biệt | B3 PASS; B1k trượt (a, c: E_res +113.6 mJ, tỉ lệ 1.008); B1kc trượt (a: +44.7 mJ); B1f1.4 trượt (a: +20.8 mJ) |
+| (f) | tag `B3W0` = `B3W0_fff2a3d4` (không đổi), tag `B3W0c` = `B3W0c_fff2a3d4`; hash `lpbf_pinn.py` đúng |
+| (g) | `runner.py run B3W0c` tí hon: 24 s, mã thoát 0, 15 vòng, T_min 298.0 K, loss hữu hạn, tag `B3W0c_e9d36614` |
+
+Ghi nhận: (1) tiền tố tag `B3W0c_` khác `B3W0_`, nhưng phần băm giống nhau ở hai tag (băm không chứa cờ cắt); tag khác nhau chỉ nhờ tên bậc. (2) Cắt làm E_res của ba checkpoint cũ **tăng** (+100.2 → +113.6; +31.4 → +44.7; +15.3 → +20.8 mJ), vì phần âm của vùng T < T_amb bị bỏ đi; nghĩa là cắt không làm cổng dễ qua hơn với các checkpoint cũ. (3) Dự đoán tầng 2c đạt cả bảy lượt đầu (65%): **đúng**.
+
+Chạy M2′ ngay theo mục 4.

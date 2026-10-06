@@ -61,3 +61,23 @@ def light_gate(net, sc, path, E_in, n_t=2**18, n_e=2**18, n_res=2**16):
         out["E_ev"] = float((qs*inn).mean())*11.0*6.0*sc["L_c"]**2*te*sc["t_c"]
     out.update(verdict(out, E_in, sc), seconds=time.perf_counter() - t0)
     return out
+
+
+def band_diag(net, sc, path, n=2**18):
+    """Chan doan (khong phai cong): E_res [J] va RMS residual theo dai T, ty le diem bi cat (theta_mang < 0) tren n diem deu, seed 777 (nhu chan doan M2)."""
+    dev = next(net.parameters()).device
+    rng = np.random.default_rng(777)
+    U = lambda a, b: rng.uniform(a, b, n)
+    Lx, Ly, Lz, te = sc["Lx_s"], sc["Ly_s"], sc["Lz_s"], path["t_end_s"]
+    X = np.column_stack([U(-Lx/2, Lx/2), U(-Ly/2, Ly/2), U(0, Lz), U(0, te)])
+    r, T = [], []
+    for i in range(0, n, 2**14):
+        xt = torch.tensor(X[i:i + 2**14], dtype=torch.float32, device=dev, requires_grad=True)
+        th = net(xt)
+        r.append(L.pde(xt, th, sc, path).detach().cpu().numpy().ravel())
+        T.append(sc["Tamb"] + sc["T_c"]*th.detach().cpu().numpy().ravel())
+    r, T = np.concatenate(r), np.concatenate(T)
+    Er = sc["rho"]*sc["Cp"]*sc["T_c"]*sc["L_c"]**3*Lx*Ly*Lz*te
+    bands = {"T_le_Tamb": T <= sc["Tamb"] + 1e-6, "Tamb_1000": (T > sc["Tamb"] + 1e-6) & (T < 1000), "1000_Tsol": (T >= 1000) & (T < sc["T_solidus"]), "ge_Tsol": T >= sc["T_solidus"]}
+    out = {k: dict(frac=float(m.mean()), E_res_mJ=float(r[m].sum()/n*Er*1e3), rms=float(np.sqrt((r[m]**2).mean())) if m.any() else None) for k, m in bands.items()}
+    return dict(bands=out, E_res_mJ=float(r.mean()*Er*1e3), rms_total=float(np.sqrt((r**2).mean())), rms_gt_1000K=float(np.sqrt((r[T >= 1000]**2).mean())))
