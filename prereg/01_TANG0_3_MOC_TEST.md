@@ -104,3 +104,55 @@ Mã: `config.py`, `indicator.py`, `smoke/tier0.py`; kết quả máy đọc `run
 **Chấm dự đoán:** tầng 0 đạt ngay lượt đầu (60%): đúng. S0.3 đạt (75%): đúng. S0.8 (50%): chưa làm.
 
 **Còn mở:** S0.8 (bảng số thực nghiệm, không GPU, chỉ chặn M5) chưa thực hiện; tầng 1–3 chưa chạy.
+
+---
+
+## 11. Kết quả tầng 0 (2026-10-06 12:56): **ĐẠT** cả bảy mốc, 27 giây
+
+Mã: `config.py`, `indicator.py`, `smoke/tier0.py`; kết quả `runs/tier0/report.json`; `legacy/ckpt/` không đổi (hash trước/sau trùng).
+
+| ID | Kết quả |
+|---|---|
+| S0.1 | torch 2.5.1+cu121, deepxde 1.15.0, GPU 381/16,376 MiB, không tiến trình liên quan khác |
+| S0.2 | hash `legacy/lpbf_pinn.py` = `b0f5955a2385e79c`; tag tính lại `A1s_f831590d`, `B1_8ff624dd`, `B2_d610497f`, `B3_84d0289e` đúng; file `.pt` có |
+| S0.3 (canary) | B3: rộng 166.0, sâu 90.0, dài 516.0 µm; (tích + bay hơi)/nạp 0.805; E_res −7.4 mJ; T_peak 5,555 K, T_min 263.1 K |
+| S0.4 | `indicator.py` trên giải tích R0: 520.15 / 121.99 / 85.95 µm (lệch 0.00 cả ba); độ xuyên 25.95 µm |
+| S0.5 | nêm y_a = 0: s = 0.5 tại z = 60 µm ở y = 120.0 µm; diện tích vùng đặc 26,877 µm² (−0.46%); s(200, 60) = 7.9e-14; s(−100, 60) = 1.0000; s ≥ 0.9997 ở z = 195 µm |
+| S0.6 | MMS có nêm (ẩn nhiệt + k lỏng + bay hơi): 1.28e-14 |
+| S0.7 | `check_config`, `check_source`, `check_density`, `check_data` cho nêm B3W0: 0 cảnh báo; 364,544 điểm neo, 37,079 điểm mặt trên |
+
+Chấm dự đoán: tầng 0 đạt ngay lượt đầu (60%): **đúng**. S0.3 đạt (75%): đúng. Một điều cần ghi: S0.4 cho lệch đúng 0.00 µm vì `indicator.py` dùng cùng lưới và cùng phép nội suy với R0; mốc này chỉ chứng minh không có lỗi lập trình, không chứng minh tính độc lập của phép đo.
+
+## 12. Kết quả tầng 1 (2026-10-06 12:57): **ĐẠT** (S1.1 đạt; S1.2 và S1.3 chỉ ghi nhận)
+
+Mã `smoke/tier1.py` (giữ khóa GPU `lock.py`); kết quả `runs/tier1/report.json`. Cấu hình B3W0 (nêm y_a = 0, Ly = 480 µm), tag `B3W0_fff2a3d4`, 364,544 điểm neo; trọng số B3 nạp vào, không lưu gì.
+
+| ID | Kết quả |
+|---|---|
+| S1.1 | Adam toàn lô qua DeepXDE: **0.140 s/bước**, bộ nhớ GPU đỉnh 6.7 GB (ngưỡng 0.25) |
+| S1.2 | Loss khởi điểm của B3 trên nêm: **L_PDE 0.332, L_top 8.8e-5** (B3 từng bắt đầu ở 18.1; B1→B1k ở 14.95). Rất thuận lợi so với các lượt trước |
+| S1.3 | Cùng 364,544 điểm, vòng thủ công (không DeepXDE): chỉ lan truyền mạng 2 ms; bước chỉ dùng đạo hàm bậc một (xấp xỉ) **15 ms**; bước đầy đủ (đạo hàm bậc hai + backward) **108 ms**. Phần thời gian do đạo hàm bậc hai ≈ **86%** > ngưỡng 50% → theo đăng ký **làm** tối ưu bậc hai |
+
+Hai điều cần ghi trung thực:
+- Chênh DeepXDE (140 ms) − bước thủ công đầy đủ (108 ms) = **33 ms**. Tôi đã nói trước đó "chi phí DeepXDE ≈ 0"; con số đó chỉ đo `train_next_batch`. 33 ms này **chưa quy được cho DeepXDE**, vì bước thủ công chưa gồm loss mặt trên (37,079 điểm có đạo hàm bậc một và bay hơi) và bước tối ưu.
+- 86% là proxy (so với bước bậc một), không phải profiler thật; dùng để quyết định hướng, không phải con số chính xác.
+
+Chấm dự đoán: S1.1 ≤ 0.25 s/bước (90%): đúng. Đạo hàm bậc hai > 50% (60%): đúng (86%).
+
+## 13. Sửa đổi 01a (2026-10-06, trước khi viết `fastpde.py`): tối ưu bậc hai
+
+Căn cứ: S1.3. Mục tiêu: tính residual PDE **chính xác như `lpbf_pinn.pde`** nhưng không dùng đạo hàm bậc hai bằng autograd, để giảm thời gian mỗi bước. Phương pháp: lan truyền thuận giá trị, đạo hàm bậc một (x, y, z, t) và đạo hàm bậc hai chéo (xx, yy, zz) qua từng lớp `sin` của mạng 6×24 (quy tắc chuỗi giải tích: (sin z)' = cos z·z', (sin z)'' = −sin z·z'² + cos z·z''); mặt nạ cứng M(x) (chỉ phụ thuộc x, không phụ thuộc trọng số) lấy đạo hàm bằng autograd riêng (không cần đồ thị qua tham số), rồi θ = M·y bằng quy tắc tích. Divergence dùng dạng khai triển (đã kiểm ở `check_pde`): div = κ_s·K·Σθ_jj + κ_s·K′·Σθ_j² + K·(∇ₓκ_s·∇θ), κ_s là độ dẫn tĩnh theo (y, z). Không hỗ trợ `sc['pm']`.
+
+Tiêu chí khóa (tất cả phải đạt trước khi dùng cho bất kỳ lượt huấn luyện nào):
+
+| ID | Kiểm | Tiêu chí |
+|---|---|---|
+| E1 | Residual tại 2^14 điểm ngẫu nhiên (cả trong miền và dải mặt phân giới/nêm), float64, trọng số B3 | max\|r_nhanh − r_cũ\| / RMS(r_cũ) ≤ 1e-10 |
+| E2 | Gradient của loss PDE theo trọng số, float64 | sai tương đối chuẩn L2 ≤ 1e-8 |
+| E3 | Loss PDE tại đủ 364,544 điểm neo, float32, trọng số B3 trên nêm | sai tương đối ≤ 1e-4 so với 0.3316 (S1.2) và so với `pde` cũ |
+| E4 | Tốc độ: bước (PDE loss + backward, vòng thủ công, 364,544 điểm) | ≤ 72 ms (nhanh ≥ 1.5× so với 108 ms); bộ nhớ đỉnh ≤ 12 GB |
+| E5 | Tích hợp DeepXDE: truyền hàm residual mới làm `pde` của `TimePDE`; 30 bước Adam; loss ở bước 0 | loss bước 0 trùng [0.3316, 8.8e-5] sai ≤ 1e-4 tương đối; s/bước được báo cáo |
+
+Quy tắc: E1–E3 trượt thì **bỏ** `fastpde`, giữ `pde` cũ và báo cáo. E4 trượt thì giữ `pde` cũ (không có lợi), nhưng giữ mã làm bản ghi. Không chạy huấn luyện trong sửa đổi này; nó chỉ kiểm tương đương và tốc độ. Mã trong `lpbfpinn/fastpde.py`, mốc test `smoke/tier1b.py`.
+
+Dự đoán (ghi trước): E1–E3 đạt: khoảng 80% (rủi ro: lỗi đạo hàm mặt nạ hoặc điểm không khả vi của `max` ở nêm). E4 đạt (≥ 1.5×): khoảng 70%; mức tăng tốc kỳ vọng 2–4×, không chắc. E5 đạt: 85% nếu E1–E4 đạt.
