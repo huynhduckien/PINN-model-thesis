@@ -116,3 +116,34 @@ Người dùng chọn A1 sau khi xem mục 8. **Đây là thí nghiệm chẩn �
 **Dự đoán (ghi trước):** H_s được ủng hộ 40%; không được ủng hộ 35%; không kết luận 25%. Lý do giữ không chắc: bốn phần năm sự cải thiện có thể bị giới hạn bởi sức chứa mạng nhỏ và bởi 1,000 bước ngắn. Nhánh C: E_full thay đổi không quá 3 mJ so với bước 0 (65%), vì Adam của M2′ vẫn đang trôi về phía âm hơn ở những bước cuối (−12.7 → −15.1 → −16.0).
 
 **Nếu H_s được ủng hộ:** bước kế tiếp là đăng ký 03b (lấy mẫu có mật độ đều theo thể tích hoặc có trọng số loss) và chạy lại M2′ đầy đủ; **không** tự chạy. Nếu không được ủng hộ: dừng, thảo luận hướng khác (sức chứa mạng, hướng bột/hướng 4 trên vệt thường).
+
+## 10. Kết quả A1 (16:31–16:47, 15.5 phút GPU, mã `a1_tail.py`, `runs/A1/report.json`): **H_s KHÔNG được ủng hộ**; ghi lúc 16:48
+
+`legacy/ckpt` không đổi. Điểm thêm: 131,072 điểm đều trong vùng dx < −150 µm; mật độ tương đối ở dx < −600 µm tăng 0.28× → **0.82×** (dự tính trước khoảng 1×; số đo thật thấp hơn), ở −600…−150 µm 1.12× → 1.43×, gần laser giảm 3.35× → 2.46×.
+
+| | Bước 0 (M2′) | Nhánh C (đối chứng) | Nhánh T (thêm điểm đuôi) |
+|---|---|---|---|
+| E_res `probe` đầy đủ (mJ, ± sai số chuẩn) | −16.1 ± 1.0 | −17.2 ± 1.0 | **−19.3 ± 0.9** |
+| E_res vùng dx < −600 µm (mJ) | −11.1 | −11.5 | **−11.0** |
+| E_res vùng −600…−150 µm (mJ) | −6.0 | −5.6 | −7.3 |
+| RMS residual vùng > 1000 K | 0.0734 | 0.0716 | 0.0716 |
+| bể chảy rộng/sâu/dài (µm, lưới 2 µm) | 164/98/512 | 164/98/512 | 164/98/510 |
+| loss cuối [L_PDE, L_top] | 6.32e-3 | 5.98e-3 | 4.46e-3 (tập điểm khác) |
+| thời gian huấn luyện 1,000 bước | | 168 s | **754 s** (1.36× điểm, 4.5× thời gian) |
+
+**Quyết định theo quy tắc khóa (mục 9):** E_full(T) − E_full(C) = **−2.2 mJ** < +3 mJ → **H_s không được ủng hộ**. E_tail(T) = −11.0 mJ (cần ≥ −5.5 để ủng hộ): vùng đuôi không co. Gate (a) vẫn trượt ở cả hai nhánh (|E_res| > 10); gate (b) đạt theo cấu trúc, gate (c) đạt (tỉ lệ 0.70). Bể chảy và RMS vùng nóng không xấu đi.
+
+Chấm dự đoán (mục 9): H_s không được ủng hộ (35%) → **xảy ra**; nhánh C đổi E_full không quá 3 mJ (65%) → đúng (−1.1 mJ).
+
+**Giới hạn của thí nghiệm (phải ghi):** nhánh C chỉ giảm loss 5% và E_res đổi −1.1 mJ sau 1,000 bước Adam lr 1e-4, nên thí nghiệm có sức phát hiện thấp với thay đổi chậm; nó trả lời "thêm điểm đuôi trong 1,000 bước Adam không co nguồn âm", không loại trừ hoàn toàn tác dụng của lấy mẫu qua huấn luyện dài. Thời gian nhánh T 4.5× với 1.36× điểm: nghi bộ nhớ GPU gần đầy (15.9 / 16.4 GB), chưa kiểm. **Đính chính:** câu "bốn phần năm sự cải thiện có thể bị giới hạn…" ở dự đoán mục 9 là câu viết sai; ý định là "mức cải thiện có thể bị giới hạn bởi sức chứa mạng nhỏ và bởi 1,000 bước ngắn"; quy tắc quyết định và ngưỡng không đổi.
+
+**Chẩn đoán bổ sung (không huấn luyện, không phải mốc; E_res theo vật liệu `s` của `powder_index`, 2^18 điểm đều seed 777):**
+
+| Trường | rắn (s < 0.01) | mặt phân cách | bột (s > 0.99) |
+|---|---|---|---|
+| B3 @ B3 (vệt thường) | 71.4% thể tích: **−8.07 mJ** | 7.2%: −0.27 | 21.4%: +0.49 |
+| M2′ @ nêm | 19.8%: −1.39 | 7.5%: −3.33 | **72.7%: −12.13** (dải 298–1000 K: −11.55; RMS 0.024) |
+
+Ở nêm, vùng "bột" gồm lớp 60 µm trên cùng **và** vùng dưới phần nhô (tam giác y < 180 − z); phần rắn chỉ còn là góc nêm (19.8% thể tích). Nguồn âm của M2′ nằm chủ yếu ở vùng bột/dưới phần nhô, trong dải 298–1000 K, với RMS residual 0.024 (nhỏ so với 0.073 ở vùng nóng) trên 73% thể tích; ở B3 vệt thường nó nằm ở nền rắn.
+
+**Giả thuyết còn lại (chưa kiểm):** E_res là hàm tuyến tính của phần dư (trung bình của r), còn loss là bình phương (trung bình r²). Sai số có dấu hệ thống nhỏ (|r| ~ 0.02–0.03) trên thể tích lớn bị loss bình phương phạt yếu (0.024² so với 0.073² ở vùng nóng) nhưng cộng thành −12 mJ trong E_res. Nếu đúng, lấy thêm điểm (A1) không đủ, cần thêm số hạng loss theo cân bằng năng lượng (trung bình phần dư), một điều kiện vật lý chính xác của PDE; đánh đổi: cổng E_res khi đó là một phần của mục tiêu huấn luyện, nên mất vai trò kiểm độc lập.
