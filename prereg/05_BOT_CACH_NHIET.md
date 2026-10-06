@@ -105,3 +105,39 @@ Hệ quả: **mặt nạ di chuyển không phải là khó khăn** (nỗi lo ba
 **6. Gate E_id đã phát hiện trường không đạt.** E_res −2.2 mJ là triệt tiêu giữa dải T ≤ 1000 K (+29.6 mJ) và dải nóng (−25.5 mJ); E_id −32.1 mJ (17% năng lượng nạp).
 
 **Giả thuyết còn lại và cách kiểm (chưa chạy):** (H1) nhảy r = 1 → 0.02346 một lần quá lớn cho Adam; (H2) thiếu L-BFGS (không thể dùng cùng số hạng ngẫu nhiên); (H3) độ sắc của các mép: thang chuyển tiếp mặt phân cách lớp bột `iface_delta` 15 µm → tanh trên thang 3.75 µm; w_T = 50 K ↔ vài µm; trong khi cỡ hạt D50 = 30 µm (độ mềm cỡ 15–30 µm có cơ sở vật lý hơn). Mỗi giả thuyết cần một thí nghiệm có đăng ký riêng (05b).
+
+## 10. Sửa đổi 05b (01:49, trước khi viết mã và chạy): hướng S3 — làm mềm mép hệ số dẫn nhiệt về cỡ hạt bột
+
+Người dùng chọn S3 sau phân tích ở mục 9 (S1 + S2 là phương án tôi đề nghị; người dùng chọn S3, ghi lại đúng như vậy). **Đây là thay đổi mô hình, không chỉ thay đổi tối ưu hóa**: độ dày vùng chuyển tiếp của hệ số dẫn nhiệt trở thành một tham số vật lý của mô hình bột cách nhiệt. Lượt F ở mục 8 (mép sắc) giữ nguyên như bản ghi KHÔNG ĐẠT.
+
+**Cơ sở vật lý.** Cỡ hạt D50 = 30 µm; mặt phân cách lớp bột/nền và biên vùng đã kết khối là các vùng nhám cỡ một đường kính hạt, không phải vài µm. Hiện tại: mặt phân cách lớp bột có độ rộng 10–90% khoảng 8 µm (tanh trên thang `iface_delta`/4 = 3.75 µm); mép bao bể chảy khoảng 3–5 µm (sigmoid theo nhiệt độ, w_T = 50 K); mép trước mặt nạ (w_x = 8 µm) đã rộng 35 µm.
+
+**Thay đổi (chỉ cho hệ số dẫn nhiệt κ_s của bậc cách nhiệt `*s`; nhiệt dung C* dùng bản đồ vật liệu cũ, không đổi):**
+1. Mặt phân cách lớp bột trong κ_s: tanh trên thang **a_I = 13.65 µm**, tức độ rộng 10–90% = 2.197·a_I = **30 µm** (= D50). Dùng `L.powder_index` với `dlt_s` thay thế (cùng hàm, kể cả nêm).
+2. Mép bao bể chảy: thay sigmoid theo nhiệt độ bằng sigmoid theo **khoảng cách có dấu** tới đường bao T_max = T_sol (biến đổi khoảng cách Euclid trên lưới 2 µm): e = σ(−sd/w_e), **w_e = 6.83 µm**, tức độ rộng 10–90% = 4.394·w_e = **30 µm**, không phụ thuộc gradient nhiệt độ.
+3. Mép trước mặt nạ giữ w_x = 8 µm (đã 35 µm).
+Mọi tham số khác của mục 2 giữ nguyên (r = 0.02346, x_nose = 47 µm, lưới bao, công thức M2″, mục tiêu dừng, trần). Bậc mới `B3s` (vệt thường), `B3W0s` (nêm); bao vòng 0 dùng lại `runs/ENV/B3_iter0.pt` và `B3W0_iter0.pt` (bảng T_max không đổi, chỉ cách hiểu thay đổi).
+
+**Mốc test S2.18 (chạy trước; trượt mục nào thì dừng, báo cáo, không chạy lượt đầy đủ):**
+| ID | Kiểm | Tiêu chí |
+|---|---|---|
+| (a) | Độ rộng chuyển tiếp: s_k(z) dọc z tại (y = 0, ngoài bao, sau mũi) vệt thường; e(y) dọc y tại mặt trên từ bao B3 | mặt phân cách: độ rộng 10–90% = 30 ± 1.5 µm, tâm 180 ± 1 µm; mép bao: độ rộng 10–90% = 30 ± 2.5 µm, tâm tại nửa rộng bao ± 2 µm |
+| (b) | Nhất quán bao: vùng e ≥ 0.5 có cùng độ sâu (tại y = 0) và nửa rộng trên mặt với `envelope_stats` (T_max ≥ T_sol) | lệch ≤ 2 µm mỗi đại lượng |
+| (c) | Đạo hàm và divergence với cấu hình mềm, nêm, float64: như S2.17(b), (c) | phân vị 99%: ≤ 1e-4 và ≤ 1e-5 |
+| (d) | Tương đương: bề rộng mặt phân cách bằng giá trị cũ (3.75 µm), e ≡ 0, r = 0.02346 so với `L.pde` với `kap_p = r`; và hai trường hợp r = 1, như S2.17(a) | sai ≤ 1e-10 |
+| (e) | κ_s tại điểm cho trước (vệt thường, sau mũi, ngoài bao): z = 180 µm → 1 + (r − 1)·0.5; z = 210 µm → 1 + (r − 1)·s(+30 µm) = 0.0354; z = 150 µm → 0.988; tại mép bao (y = nửa rộng, z = 210 µm) → 0.52 ± 0.08 | sai ≤ 0.02 (các điểm mặt phân cách), ≤ 0.08 (mép bao) |
+| (f) | Khói `runner.py run B3W0s` (Adam 40 bước, kiểm 20, `--min-steps 20`, thư mục tạm, bao từ M2″) | `run.json` DONE, tag khác tag của `B3W0i`, loss hữu hạn, có bao kế tiếp |
+| (g) | Hồi quy: tầng 2 (S2.1–S2.4), S2.13, S2.17 chạy lại (cấu hình sắc mặc định không đổi) | đạt |
+Trần GPU 15 phút (dừng ở 22.5). Không có canary tối ưu hóa riêng (lượt đầy đủ chỉ mất khoảng 17 phút cho vệt thường). Dự đoán: đạt cả bảy ngay lượt đầu 70%.
+
+**Lượt đầy đủ F-mềm (nếu S2.18 đạt):** như mục 4 với `B3s` rồi `B3W0s` (vệt thường trước; vệt thường trượt thì dừng, không chạy nêm), cùng tiêu chí ĐẠT, cùng trần (6,000 bước Adam, hai điểm kiểm liên tiếp đạt sau 2,000 bước, `supervise`, tối đa 3 lần huấn luyện lại, tổng 120 phút), **cùng công thức tối ưu** (Adam, λ_E = 1, λ_P = 1000, khởi động từ B3 và M2″): một thay đổi duy nhất.
+
+**Quy tắc quyết định sau lượt vệt thường vòng 0 (khóa trước khi chạy), so với B3i mép sắc (L_PDE cuối 2.6e-2, E_id −32.1 mJ):**
+- **ĐẠT cổng** → tiếp tục theo quy trình.
+- **Không đạt cổng nhưng cải thiện rõ** (L_PDE cuối ≤ 1.3e-2, tức ≥ 2 lần; và |E_id| ≤ 16 mJ): ghi "mép mềm giúp nhưng không đủ", **dừng**, đề xuất S1 (L-BFGS) trên cấu hình mềm; không tự chạy.
+- **Không cải thiện rõ** (L_PDE cuối > 1.3e-2 hoặc |E_id| > 16 mJ): ghi "S3 không đủ", **dừng**, đề xuất S1 + S2.
+- Cải thiện đo bằng chính chỉ số của B3i; chiều dài bể chảy chỉ ghi.
+
+**Dự đoán (ghi trước, có thể sai).** Vệt thường vòng 0 qua cổng 30%; cải thiện ≥ 2 lần về L_PDE cuối (kể cả không qua cổng) 55%; nêm qua cổng, nếu vệt thường qua: 55%; mặt nạ hội tụ ≤ 3 lần huấn luyện lại, nếu cả hai qua cổng: 40%; ΔD cách nhiệt > +9.0 µm, nếu cả hai qua cổng: 85%. Lý do giữ thận trọng: 40% loss ở mục 9 nằm ở vùng trơn (RMS 0.047) và Adam kẹt theo bước^−0.15, hai điều S3 không trực tiếp xử lý.
+
+**Giới hạn thêm (khóa).** Độ dày chuyển tiếp 30 µm là giả định cỡ hạt, không đo cho IN718 ở dự án này; kết quả cách nhiệt phụ thuộc nó. Nếu lượt đầy đủ qua cổng, độ nhạy theo độ dày (ví dụ 15 và 45 µm) là bước kiểm sau và hỏi người dùng; bản thân mô hình mềm không chứng minh bột cách nhiệt đúng.
