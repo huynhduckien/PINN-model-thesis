@@ -301,3 +301,30 @@ Chấm dự đoán (mục 15): C1 được ủng hộ 30% → **xảy ra**; (1) 
 6. RMS vùng nóng tăng nhẹ so với C0 (0.0680 so với 0.0616, +10%): chi phí nhỏ của hai số hạng phụ.
 
 **Số đo bể chảy (chưa phải chỉ báo, vì chưa có lượt chính thức qua cổng).** Độ sâu 70% của mọi biến thể trên nêm: M2 98.2, M2′ 97.9, B1 λ = 1 98.0, B1 λ = 10 98.4, C0 98.2, C1a 98.8, C1b 99.1 µm, tức khoảng dao động **1.2 µm** (ΔD so với B3, 90.8 µm: +7.1 đến +8.3 µm); độ rộng 166–169 µm (khoảng 3 µm). Chiều dài 512–535 µm (khoảng 23 µm) và tốc độ nguội 1.06–1.27e6 K/s vẫn nhạy với cách huấn luyện. Tỉ lệ (tích + bay hơi)/nạp của C1b là 0.812, gần B3 vệt thường (0.805), còn M2 là 0.756.
+
+## 18. Đăng ký 03d (17:37, trước khi viết mã và chạy): M2″ — lượt chính thức từ B3 với số hạng cân bằng năng lượng và phạt dương
+
+Người dùng đồng ý (sau mục 17): viết đăng ký, chạy M2″, rồi chuyển sang hướng 4. M2 và M2′ vẫn TRƯỢT (không đổi); M2″ là một lượt **mới** từ B3, không phải tinh chỉnh từ M2.
+
+**Cấu hình.** Bậc `B3W0` (nêm y_a = 0, **không cắt**, vật lý B3), khởi động từ `B3_84d0289e` (chỉ đọc), 4 seed Sobol cố định (K = 0), seed 42, mạng 6 × 24, float32. **Chỉ Adam** (L-BFGS không dùng được với số hạng phụ ngẫu nhiên mỗi bước, mục 17 hạn chế 5), lr 1e-4 toàn lô, `compile` một lần. Loss = L_PDE + L_top + 1·L_E + 1000·L_P (λ_E = 1, λ_P = 1000 = λ* của C1, mục 17; định nghĩa L_E, L_P như mục 11 và 15).
+
+**Điểm kiểm và quy tắc dừng.** Cứ **500 bước** đo **cổng đầy đủ** (`probe` 2^21 điểm, E_id, T_min; cổng (a) = |E_res| và |E_id| ≤ 10 mJ; (b) hụt T_min ≤ 1%; (c) tỉ lệ ≤ 1). **Dừng** khi **hai điểm kiểm liên tiếp đều đạt cả ba cổng** và đã qua bước **2,000** (không dừng sớm hơn, để có ít nhất lượng Adam tương đương C1 và M2), hoặc hết **6,000 bước**, hoặc trần giờ **45 phút** (không bắt đầu đoạn mới nếu đã quá), hoặc loss không hữu hạn. Chạy dưới `supervise` (thử lại một lần nếu sập; Adam khôi phục từ điểm kiểm cuối, trạng thái tối ưu hóa được khởi tạo lại, ghi rõ trong log).
+
+**M2″ ĐẠT khi (tất cả):** (a) mọi loss và số đo hữu hạn, không sập quá một lần; (b) **dừng vì hai điểm kiểm liên tiếp đạt cổng đầy đủ**, và cổng đầy đủ cuối (đo lại riêng sau khi dừng, trên trọng số cuối, `probe` seed 101) đạt (a), (b), (c); (c) `check_physics` 0 [WARN] trên trọng số cuối; (d) ≤ 75 phút. **Trượt thì dừng, báo cáo, không chạy lại.**
+
+**Chỉ ghi, không phải tiêu chí:** đường E_res, E_id, hụt T_min theo bước; E_res theo vật liệu (3 lớp); RMS residual vùng > 1000 K (B3 gốc 0.0398, M2 0.0635, C1b 0.0680); bể chảy và chỉ báo ở 50/70/90% (dài, rộng W₊ + W₋, sâu, độ xuyên) và chu trình nhiệt tại đáy lớp bột; so với B3 (M1), M2, C1b. Chiều dài bể chảy chỉ ghi.
+
+**Mốc test S2.14 (chạy trước M2″; trượt thì dừng, báo cáo):** thay đổi mã: `runner.py` có chế độ Adam với số hạng phụ (`--energy-lam`, `--pos-lam`), cổng đầy đủ ở điểm kiểm Adam (`--monitor-every`, `--stop-gates`, `--min-steps`), khôi phục giữa Adam, `--max-iters 0` bỏ L-BFGS.
+| ID | Kiểm | Tiêu chí |
+|---|---|---|
+| (a) | Logic dừng: `should_stop` có bước tối thiểu trên chuỗi giả | [đ, đ] ở bước < 2,000 không dừng; [t, đ, đ] ở bước ≥ 2,000 dừng; [đ, t, đ] không dừng |
+| (b) | Khói: `runner.py run B3W0 --adam-iters 80 --monitor-every 20 --stop-gates 2 --min-steps 40 --max-iters 0 --energy-lam 1 --pos-lam 1000` (thư mục tạm) | ra `run.json` DONE; mỗi điểm kiểm có cổng đầy đủ kèm E_id; tag khác `B3W0_fff2a3d4` và khác tag của M2; dtype giữ float32 sau mỗi lần đo cổng (80 bước chạy hết, loss hữu hạn); không L-BFGS |
+| (c) | Khôi phục: giết cứng sau điểm kiểm đầu, `--resume` | `run.json` DONE, `resumed_from_block` = 0 nhưng bước Adam tiếp từ `adam_done` ≥ 20, tổng bước = 80 (không chạy lại từ 0) |
+| (d) | Hồi quy: tầng 2 (S2.1–S2.4), S2.5–S2.9 (tầng 2b) chạy lại | đạt |
+Trần GPU 10 phút (dừng ở 15). Dự đoán S2.14 đạt cả bốn lượt đầu 70%.
+
+**Lệnh M2″:** `python runner.py supervise B3W0 --out runs/M2pp --adam-iters 6000 --adam-lr 1e-4 --chunk 500 --max-iters 0 --monitor-every 500 --stop-gates 2 --min-steps 2000 --time-cap-s 2700 --energy-lam 1 --pos-lam 1000`.
+
+**Dự đoán (ghi trước, có thể sai).** M2″ ĐẠT 50%. Lý do giữ không chắc: C1b qua cổng từ M2 (đã huấn luyện 5,500 bước) chứ chưa từ B3; điểm kiểm dao động ±5–9 mJ nên "hai điểm kiểm liên tiếp đạt" là điều kiện chặt (xác suất dừng theo cổng trong 6,000 bước khoảng 60%); `check_physics` có thể có cảnh báo ở các phép 5–8 (viết cho vệt đối xứng; M2 và C1b không có). Nếu trượt, nghi phạm: gate (b) (T_min sát 1%) 40%, E_id/E_res dao động 40%, `check_physics` 20%. Thời gian: 12–24 phút.
+
+**Bước sau M2″.** ĐẠT: ghi kết quả; **hướng 4** theo yêu cầu người dùng: viết đăng ký 04 (độ nhạy của chỉ báo với hấp thụ α_s trong dải 0.30–0.60 của Moser 2019; mỗi giá trị cần một cặp vệt thường + nêm qua cổng; thiết kế ở đăng ký 04). M3a/M3b/M4 của đăng ký 02 để lại, hỏi người dùng. TRƯỢT: dừng, báo cáo và thảo luận trước khi sang hướng 4.
