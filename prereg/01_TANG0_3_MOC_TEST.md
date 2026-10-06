@@ -234,3 +234,21 @@ Lượt 2 (`python smoke/tier2.py S2.3 S2.4`, 155 s, `legacy/ckpt` không đổi
 **Sửa mốc giờ**: mục 14 và 01e ghi 13:21 và 13:28 do tôi ước lượng thay vì đọc đồng hồ (sai kiểu đã ghi ở cuối mục 12a). Giờ commit thật là 13:20:20 (`28b2356`) và 13:25:58 (`334d499`); đã sửa trong tiêu đề hai mục. Thứ tự sự kiện không đổi.
 
 **Lượt 3**: vì `runner.py` đổi sau khi S2.1 đạt, chạy lại **toàn bộ** S2.1 → S2.4 với mã cuối (tiêu chí và tham số giữ nguyên như 14 và 01e; S2.3 khối 5 vòng). Trần thời gian tầng 2 tính tổng cả ba lượt (đã dùng khoảng 8 phút); dự kiến lượt 3 ≈ 4–6 phút nếu sửa bộ nhớ đúng. Dự đoán: đạt cả bốn 80%; khối L-BFGS 5 vòng ≤ 30 s (đo được ở runner sau sửa) 75%.
+
+## 15. Kết quả tầng 2 (2026-10-06 13:31–13:32, lượt 3 với mã cuối `aa94cc7`): **ĐẠT** cả bốn mốc S2.1–S2.4, 61 s
+
+Mã: `gates.py`, `runner.py`, `smoke/tier2.py`; kết quả máy đọc `runs/tier2/report.json` (không commit); `legacy/ckpt` không đổi (kiểm hash đầu và cuối). Lượt 1 (S2.1, S2.2 đạt; S2.3 trượt do lỗi mốc test) và lượt 2 (S2.3, S2.4 đạt) ở trên dùng cùng tiêu chí; lượt 3 chạy lại cả bốn mốc sau khi sửa bộ nhớ trong `runner.py`.
+
+| Mốc | Kết quả |
+|---|---|
+| S2.1 | 22 s: Adam 20 + L-BFGS float64 khối 5 vòng, 15 vòng trong 2 khối (8 + 7), **7 s và 6 s mỗi khối** (trước khi sửa bộ nhớ: 128 s và 107 s); `run.json` DONE; tag `B3W0_e9d36614` khác tag thật `B3W0_fff2a3d4`; loss hữu hạn; có `{tag}.pt` |
+| S2.2 | cổng nhẹ trùng cổng đầy đủ từng gate trên 4 checkpoint (B3 PASS; B1k, B1kc FAIL; B1f1.4 FAIL ở E_res, đạt T_min); E_res nhẹ = đầy đủ (cùng tập điểm); cổng nhẹ 0.2–1 s so với 1–4 s |
+| S2.3 | giết cứng sau khi khối 1 ghi: `last.pt` có 1 khối = 1 khối đã báo xong (mất 0 khối hoàn thành); `watch` thoát mã 1 sau 10 s (≤ 180); `--resume` thoát 0, tiếp từ khối 1, tổng 15 vòng; loss khối kế 0.2075 ≤ 2 × 0.2101; khóa cũ được thay |
+| S2.4 | tiến trình thứ hai thoát mã 3 sau 0.1 s (≤ 10) với "TU CHOI: GPU dang duoc giu boi PID …"; tiến trình đầu vẫn chạy; không tạo thư mục ra |
+
+Thời gian GPU tầng 2 tổng ba lượt: khoảng 5 + 3 + 1 phút (trần 15). Chấm dự đoán: đạt cả bốn ngay lượt đầu (55%): **sai** (S2.3 trượt do tham số mốc test; S2.1 và S2.2 đạt ngay); S2.3 đạt lượt 2 (65%) đúng; S2.4 (85%) đúng; khối ≤ 30 s sau sửa (75%) đúng (6–7 s); đạt cả bốn ở lượt 3 (80%) đúng.
+
+**Ghi nhận cho tầng 3 và đăng ký 02 (không phải mốc)**
+- Sau 20 bước Adam + 15 vòng L-BFGS từ `B3_84d0289e` trên nêm `B3W0`: bể chảy rộng/sâu/dài **200 / 90 / 494 µm**; cổng đầy đủ **FAIL ở gate (a)**: E_res = **+101.9 mJ** (B3 gốc: −7.4 mJ), T_min 292.4 K (hụt 0.11% biên độ, đạt gate b), (tích + bay hơi)/nạp 0.947 (đạt gate c). Nghĩa là B3 đặt lên hình học nêm thì E_res đã vượt 10 mJ **từ đầu**; S3.1 chỉ ghi E_res (không phải điều kiện đạt), nhưng đăng ký 02 phải tính tới việc gate (a) bắt đầu ở khoảng +100 mJ. Gate (a) cũng là gate đã loại B1k (+100 mJ).
+- Giới hạn của runner (đã biết, chưa sửa): khối nhỏ hơn 5 vòng làm DeepXDE trả +0 vòng và runner dừng "optimizer_stopped_early"; chưa có điều kiện dừng theo cổng (thuộc đăng ký 02); Adam không đo cổng giữa chừng (S3.1 cần đo mỗi 100 bước, sẽ làm ở tầng 3).
+- S0.8 (bảng số thực nghiệm, không GPU) vẫn chưa làm; không chặn tầng 3.
