@@ -79,7 +79,7 @@ def build(a, dtype):
     gc.collect()                                                        # tra bo nho cua lan dung truoc: neu khong, float64 sau float32 cham ~7x (GPU 16 GB bi ep bo nho)
     torch.cuda.empty_cache()
     dde.config.set_default_float(dtype)
-    dde.config.set_random_seed(42)
+    dde.config.set_random_seed(a.get("seed", 42))
     sc, trk, path, net, anc, _ = C.build(a["run"], a.get("sobol_offset", 0))
     exp = captured(L.check_process, sc, trk)
     if a.get("energy_lam") or a.get("pos_lam"):                         # prereg 03 muc 15, 18: so hang can bang nang luong + phat duong (mau ngau nhien moi buoc)
@@ -266,9 +266,13 @@ def run(args):
             train.update(energy_lam=args.energy_lam, pos_lam=args.pos_lam)
         if args.sobol_offset:
             train["sobol_offset"] = args.sobol_offset                  # tag khac khi doi tap diem
+        if args.seed != 42:
+            train["seed"] = args.seed                                  # tag khac khi doi hat giong (prereg 02b, M3c)
+        if args.init:
+            train["init"] = Path(args.init).stem                       # tag khac khi khoi dong tu trong so khac (M3a)
         a = dict(run=args.run, adam_iters=args.adam_iters, adam_lr=args.adam_lr, chunk=args.chunk, max_iters=args.max_iters, init=init,
                  tag=C.tag_of(args.run, train), monitor_every=args.monitor_every, stop_gates=args.stop_gates, time_cap_s=args.time_cap_s,
-                 sobol_offset=args.sobol_offset, energy_lam=args.energy_lam, pos_lam=args.pos_lam, min_steps=args.min_steps)
+                 sobol_offset=args.sobol_offset, energy_lam=args.energy_lam, pos_lam=args.pos_lam, min_steps=args.min_steps, seed=args.seed)
         st = dict(args=a, phase="adam")
         log(out, f"bat dau {a['run']} tag {a['tag']} (tag that {C.tag_of(a['run'])}), khoi dong am tu {init}")
     t0 = time.time() - st.get("elapsed", 0.0)                           # dong ho cong don qua cac lan resume
@@ -333,6 +337,7 @@ def add_run_args(r):
     r.add_argument("--energy-lam", type=float, default=0.0)
     r.add_argument("--pos-lam", type=float, default=0.0)
     r.add_argument("--min-steps", type=int, default=0)
+    r.add_argument("--seed", type=int, default=42)
 
 
 if __name__ == "__main__":
