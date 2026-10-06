@@ -66,3 +66,29 @@ Cắt θ ≥ 0 sửa lỗi nhiệt độ âm ở vùng lạnh; nó **không** s�
 Ghi nhận: (1) tiền tố tag `B3W0c_` khác `B3W0_`, nhưng phần băm giống nhau ở hai tag (băm không chứa cờ cắt); tag khác nhau chỉ nhờ tên bậc. (2) Cắt làm E_res của ba checkpoint cũ **tăng** (+100.2 → +113.6; +31.4 → +44.7; +15.3 → +20.8 mJ), vì phần âm của vùng T < T_amb bị bỏ đi; nghĩa là cắt không làm cổng dễ qua hơn với các checkpoint cũ. (3) Dự đoán tầng 2c đạt cả bảy lượt đầu (65%): **đúng**.
 
 Chạy M2′ ngay theo mục 4.
+
+## 8. Kết quả M2′ (15:20–15:41, 21 phút, `runs/M2c/run.json`, tag `B3W0c_e90da666`): **TRƯỢT**; ghi lúc 15:43
+
+Chạy đúng mục 4, không sập (`supervise` không thử lại). Adam 3,000 bước mất 435 s; **L-BFGS chỉ 1 khối, 269 vòng, 821 s, dừng `optimizer_stopped_early`** (loss 0.0063185 → 0.0063177, tức gần như không tiến; ở M2 không cắt, khối đầu giảm 0.0064 → 0.0054 trong 262 s).
+
+| Tiêu chí M2′ | Kết quả | |
+|---|---|---|
+| (a) hữu hạn, không sập quá một lần | đạt | đạt |
+| (b) cổng đầy đủ trên trọng số cuối | gate a: E_res **−16.1 mJ** (ngưỡng ±10) **trượt**; gate b: T_min 298.0 K (đạt theo cấu trúc); gate c: tỉ lệ 0.706 (đạt) | **trượt** |
+| (c) `check_physics` 0 [WARN] | 0 cảnh báo | đạt |
+| (d) ≤ 75 phút | 21 phút | đạt |
+
+Diễn biến Adam (cổng nhẹ): E_res +10.5 → +10.7 → −4.3 → −12.7 → −15.1 → −16.0 mJ ở bước 500…3,000; tỉ lệ năng lượng 0.781 → 0.703. Giá trị cuối khối L-BFGS: E_res −16.1 mJ. Bể chảy ở 70%: dài/rộng/sâu = 511.9 / 166.3 (82.0 + 84.4) / 97.9 µm, độ xuyên 37.9 µm; chu trình tại đáy lớp bột: T_pk 2,950 K, lưu 479 µs, tốc độ nguội 1.267e6 K/s. So với M2: sâu −0.3, dài −13.6, rộng −0.4 µm; tốc độ nguội +12%. So với B3: sâu +7.1, dài −5.8 µm (hai lượt huấn luyện cùng cấu hình cho dài khác nhau 13.6 µm). **Các số này không được dùng như chỉ báo (M2′ trượt cổng).**
+
+Chẩn đoán theo dải (`band_diag`, 2^18 điểm đều): 59% điểm bị cắt (E_res −0.6 mJ); dải 298–1000 K (36% điểm): **−14.8 mJ**, RMS 0.029; dải 1000–T_sol +0.4; ≥ T_sol −1.9 mJ; RMS residual vùng > 1000 K **0.0734** (B3 gốc 0.0398; M2 0.0635).
+
+Chấm dự đoán (mục 5): tầng 2c đạt (65%) → đúng. **M2′ ĐẠT (65%) → sai.** Bể chảy gần M2 (sâu 98 ± 3, dài 525 ± 10, rộng 167 ± 3): sâu và rộng đúng, **dài sai** (511.9, lệch 13.6) → sai một phần. RMS vùng > 1000 K không tệ hơn M2 (50%) → **sai** (0.0734 so với 0.0635). Thời gian dự báo 30 phút, thực tế 21.
+
+**Quyết định theo đăng ký:** dừng, báo cáo; không chạy M3, M4. M2 và M2′ đều là bản ghi TRƯỢT, không bản nào được sửa.
+
+**Điều rút ra (số đo; chẩn đoán không huấn luyện, không phải mốc; `runs/M2c/diag_energy.json`)**
+1. **Giả thuyết "chỉ do nhiệt độ âm" ở mục 1 quá mạnh.** Phép cắt tại chỗ trên trọng số M2 cho E_res +0.03 mJ, nhưng huấn luyện lại với đầu ra cắt **chuyển** phần nguồn âm sang dải 298–1000 K (−14.8 mJ), không làm nó biến mất. Nguồn âm cỡ −16…−26 mJ (khoảng 8–13% nạp 190 mJ) tồn tại ở cả hai lượt.
+2. **Vị trí ổn định:** ở M2′ (và M2): vùng z 60–180 µm (−16.6 mJ; −17.7 ở M2), phía nêm y 0…100 µm (−14.9; −17.5), thời điểm muộn t > 0.5 (−17.6; −21.4), **phía sau laser dx < −150 µm (−17.1 mJ)**, trong đó dx < −600 µm chiếm −11.1 mJ (M2: −14.1). Đó là đuôi nguội phía nêm ở thời điểm muộn.
+3. **Mật độ điểm huấn luyện thấp ở đuôi:** dx < −600 µm có 4.9% điểm neo trên 17.8% thể tích (0.28× mật độ đều); tổ hợp "đuôi, t > 0.5, y > 0, z 60–180 µm" chỉ 0.5% điểm trên 4.2% thể tích (**0.13×**). Vùng gần laser (−150…100 µm) dày 3.35×. Phù hợp với giả thuyết lệch lấy mẫu, chưa phải bằng chứng nhân quả.
+4. **L-BFGS không tiến khi có cắt** (gần như đứng yên, chạy 3× chậm hơn mỗi vòng, tự dừng sớm). Nguyên nhân chưa kiểm; giả thuyết: gradient không liên tục của max làm tìm kiếm đường thất bại.
+5. Phép cắt vẫn là một tính chất đúng của nghiệm và giữ T_min = T_amb; nó không đủ để qua gate (a).
