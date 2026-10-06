@@ -333,3 +333,31 @@ Trần GPU 10 phút (dừng ở 15). Dự đoán S2.14 đạt cả bốn lượt
 
 `legacy/ckpt` không đổi. (a) `should_stop` có bước tối thiểu: 5/5 chuỗi giả đúng. (b) khói Adam 80 bước (kiểm mỗi 20, `--stop-gates 2 --min-steps 40`, λ_E = 1, λ_P = 1000, thư mục tạm): 19 s, thoát 0, 3 điểm kiểm đều có E_id, dừng `gates_passed`, tag `B3W0_fe47ed79` (khác `B3W0_fff2a3d4` và M2 `B3W0_e90da666`), loss hữu hạn, 0 vòng L-BFGS, cổng đầy đủ cuối đạt; (c) khôi phục: giết sau điểm kiểm đầu (adam_done = 20), `--resume` thoát 0, tổng 80 bước Adam, 4 điểm kiểm, log có "khôi phục từ bước 20" (dtype giữ đúng giữa các lần đo cổng). (d) hồi quy: tầng 2b (S2.5–S2.9) **đạt**; tầng 2 (S2.1–S2.4) ở **lần đầu sập** với mã thoát `0xC0000409` (STATUS_STACK_BUFFER_OVERRUN) trong tiến trình kiểm thử chính ngay sau khi S2.1 đạt (lúc vào S2.2), **không** trong `runner.py`; chạy lại một lần: **đạt cả bốn trong 65 s**. Đây là sập native đơn lẻ không tái lập, thuộc loại đã ghi ở kế hoạch gốc (mục 8, "sập native không phụ thuộc thư viện; xử lý bằng resume và thử lại một lần"); ghi lại vì tầng 2 đã chạy bốn lần trước không sập, lần này sập một lần trong năm. Quy tắc 1 của đăng ký 01 (trượt thì dừng) áp dụng cho trượt tiêu chí, không cho sập hạ tầng đã có cơ chế thử lại; tôi coi (d) đạt sau thử lại một lần, **như đã nêu**. Hệ quả cho M2″: `supervise` (thử lại một lần bằng `--resume`, nay khôi phục được ở giữa Adam) bao phủ trường hợp này.
 Chấm dự đoán (mục 18): S2.14 đạt cả bốn lượt đầu (70%) → **sai một phần** (một sự cố sập hạ tầng ở (d), tiêu chí (a)–(c) đạt ngay lượt đầu). Chạy M2″ ngay theo mục 18.
+
+## 20. Kết quả M2″ (17:44:59–17:50:45, 5.8 phút, `runs/M2pp/run.json`, tag `B3W0_ce48c3b3`): **ĐẠT**; ghi lúc 17:52
+
+Chạy đúng mục 18 (`supervise`, không sập, không phải thử lại; `legacy/ckpt` không đổi). **Dừng `gates_passed` ở bước 2,000**: các điểm kiểm 1,500 và 2,000 đều đạt cổng đầy đủ (và cả 500, 1,000).
+
+| Bước | E_res (mJ) | E_id (mJ) | hụt T_min | tỉ lệ | gate a/b/c |
+|---|---|---|---|---|---|
+| 500 | +5.2 | +2.5 | 0.72% | 0.797 | đạt cả ba |
+| 1,000 | −3.9 | −4.6 | 0.85% | 0.796 | đạt cả ba |
+| 1,500 | −3.9 | −4.0 | 0.89% | 0.801 | đạt cả ba |
+| 2,000 | −5.4 | −4.6 | 0.88% | 0.802 | đạt cả ba |
+
+**Tiêu chí M2″ (mục 18):** (a) hữu hạn, không sập: đạt; (b) dừng vì hai điểm kiểm liên tiếp đạt, và cổng đầy đủ cuối đo riêng (`probe` seed 101): E_res **−5.4**, E_id **−4.6** mJ, hụt T_min **0.88%** (T_min 251.9 K), tỉ lệ **0.802**: đạt; (c) `check_physics` **0 cảnh báo**: đạt; (d) 5.8 phút ≤ 75: đạt. **M2″ ĐẠT.** Chấm dự đoán (mục 18): ĐẠT 50% → đúng; dừng theo cổng trong 6,000 bước 60% → đúng (ở bước 2,000, ngay bước tối thiểu); `check_physics` 0 cảnh báo → đúng. Thời gian dự báo 12–24 phút, thực tế 6.
+
+**Chỉ ghi (không phải tiêu chí):** E_res theo dải T: T ≤ T_amb (12.4% điểm) −7.5 mJ; 298–1000 K +2.2; 1000–T_sol +2.5; ≥ T_sol −2.7. RMS residual vùng > 1000 K **0.0809** (B3 gốc 0.0398; M2 0.0635; C1b 0.0680), tức **cao nhất** trong các lượt trên nêm. Loss cuối [L_PDE, L_top] = [7.9e-3, 1.3e-4].
+
+**Chỉ báo của M2″ so với B3 vệt thường (M1; lưới 2.5 µm; chưa qua M3):**
+
+| | 50% | 70% | 90% |
+|---|---|---|---|
+| dài, M2″ − B3 (µm) | −12.5 | −5.8 | +18.0 |
+| rộng (W₊ + W₋), M2″ − B3 (µm) | +2.0 | +2.7 | +2.5 |
+| **sâu, M2″ − B3 (µm)** | **+9.0** | **+9.0** | **+9.3** |
+| độ xuyên dưới đáy lớp bột (µm): M2″ | 39.7 | 39.8 | 40.0 |
+
+M2″ ở 70%: dài / rộng / sâu = 511.9 / 170.0 (83.7 + 86.3) / 99.8 µm, T_peak 5,549 K. Chu trình tại đáy lớp bột (70% quét): T_pk **2,990 K** (B3 2,842; +5%), thời gian lưu **481 µs** (B3 478), tốc độ nguội **1.187e6 K/s** (B3 1.064e6; **+11.5%**).
+
+**Nhận xét (số đo, chưa suy diễn):** độ sâu của M2″ (99.8 µm) nằm trong khoảng 97.9–99.8 của mọi biến thể trên nêm (M2, M2′, B1, C0, C1a, C1b), và ΔD = +9.0 µm giữa ba thời điểm quét (+9.0 / +9.0 / +9.3) rất ổn định; chiều dài thì khác nhau theo thời điểm (ΔL −12.5 → +18.0 µm), vì chiều dài của vệt nêm tăng nhanh hơn vệt thường theo thời gian quét (470 → 548 so với 482 → 530 µm). Đây là **một lượt chạy**; độ ổn định theo tập điểm và ngân sách (M3) chưa đo; M3 và M4 của đăng ký 02 để lại và sẽ hỏi người dùng. Bước kế tiếp theo yêu cầu người dùng: hướng 4 (đăng ký 04).
