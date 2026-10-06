@@ -64,11 +64,12 @@ def tag_of(run, train=None):
     return L.ckpt_tag(sc, L.make_path(sc, L.make_track(sc)), NETWORK, SAMPLING, budget(run, train))
 
 
-def build(run):
-    """sc, trk, path, net, anchors, group (chua dung DeepXDE data; make_data goi rieng khi can)."""
+def build(run, sobol_offset=0):
+    """sc, trk, path, net, anchors, group (chua dung DeepXDE data; make_data goi rieng khi can). sobol_offset > 0: tap diem khac (prereg 02, M3b)."""
+    import anchors as A
     sc = scales(run)
     trk = L.make_track(sc)
     path = L.make_path(sc, trk)
-    anchors, group = L.build_anchors(sc, trk, SAMPLING, path)
+    anchors, group = A.build_anchors(sc, trk, SAMPLING, path, sobol_offset)
     net = L.build_net(sc, path, NETWORK)
     return sc, trk, path, net, anchors, group

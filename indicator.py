@@ -28,8 +28,8 @@ def half_extent(T, s, level):
     return out
 
 
-def pool_dims(Tf, Lx, Lz, x_laser, t_powder, T_sol, y_max=250e-6, z_max=250e-6):
-    """Tra ve dict kich thuoc [um], T_peak [K] va do xuyen duoi day lop bot [um]."""
+def pool_dims(Tf, Lx, Lz, x_laser, t_powder, T_sol, y_max=250e-6, z_max=250e-6, two_sided=False):
+    """Tra ve dict kich thuoc [um], T_peak [K] va do xuyen duoi day lop bot [um]. two_sided: them w_plus_um, w_minus_um (nua rong o y > 0 va y < 0)."""
     xl = np.arange(-Lx/2, Lx/2, 2e-6)
     xs = np.arange(-Lx/2, x_laser + 60e-6, 10e-6)
     ys = np.arange(0.0, y_max, 2.5e-6)
@@ -41,6 +41,21 @@ def pool_dims(Tf, Lx, Lz, x_laser, t_powder, T_sol, y_max=250e-6, z_max=250e-6):
     X2, Z = np.meshgrid(xs, zd, indexing="ij")
     Td = Tf(X2.ravel(), np.zeros(X2.size), Lz - Z.ravel()).reshape(X2.shape)
     depth = 1e6*half_extent(Td, zd, T_sol).max()
-    return dict(length_um=0.0 if ext is None else 1e6*(ext[1] - ext[0]), width_um=2e6*half_extent(Tw, ys, T_sol).max(),
-                depth_um=float(depth), T_peak=float(max(line.max(), Td.max())),
-                penetration_um=float(max(depth - 1e6*t_powder, 0.0)))
+    out = dict(length_um=0.0 if ext is None else 1e6*(ext[1] - ext[0]), width_um=2e6*half_extent(Tw, ys, T_sol).max(),
+               depth_um=float(depth), T_peak=float(max(line.max(), Td.max())),
+               penetration_um=float(max(depth - 1e6*t_powder, 0.0)))
+    if two_sided:
+        Tm = Tf(X.ravel(), -Y.ravel(), np.full(X.size, Lz)).reshape(X.shape)
+        out.update(w_plus_um=1e6*half_extent(Tw, ys, T_sol).max(), w_minus_um=1e6*half_extent(Tm, ys, T_sol).max())
+    return out
+
+
+def cycle_metrics(t, T, T_sol, T_liq):
+    """Chu trinh nhiet T(t) [K] tai mot diem: T dinh, thoi gian luu T >= T_sol [us] (hinh thang tren ham chi thi), toc do nguoi trung binh
+    -dT/dt [K/s] tren nhanh nguoi voi T trong [T_sol, T_liq] (nhu `L.cool_rate`; nan neu khong co mau trong dai)."""
+    i = int(np.argmax(T))
+    hot = (T >= T_sol).astype(float)
+    dwell = float((0.5*(hot[1:] + hot[:-1])*np.diff(t)).sum())*1e6
+    r, Tc = -np.gradient(T, t)[i:], T[i:]
+    m = (Tc >= T_sol) & (Tc <= T_liq)
+    return dict(T_pk=float(T[i]), dwell_us=dwell, cool_rate_Ks=float(r[m].mean()) if m.any() else float("nan"))
