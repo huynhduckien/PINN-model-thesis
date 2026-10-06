@@ -228,3 +228,38 @@ Chấm dự đoán (mục 11): B1 được ủng hộ 50% → **không** (theo q
 4. **Đính chính phát biểu của tôi.** (a) Mục 2: "đạo hàm bậc hai của max bằng 0 gần như mọi nơi nên phần dư không thấy điểm gãy" được viết như một ưu điểm; thực ra đó là khuyết điểm (không thấy = không phạt). (b) Mục 1 và mục 8: "cổng (a) và (b) gần như chỉ đo lỗi nhiệt độ âm", "cắt là tính chất đúng của nghiệm" chỉ đúng nửa: nhiệt độ âm là lỗi thật, nhưng cắt không bảo toàn thông lượng nên không phải cách sửa. (c) Mục 13: B1 không phải bằng chứng cho H_c theo nghĩa bảo toàn năng lượng; nó chỉ cho thấy phần dư trung bình theo điểm có thể bị ép về 0 mà loss PDE không đổi. Các kết luận TRƯỢT của M2 và M2′ **không đổi** (E_id còn xấu hơn); không kết quả nào được sửa thành đạt.
 
 **Quan sát bổ sung (từ số đã có, chưa phải mốc).** Mức |E_id| (hoặc E_res không cắt) tỉ lệ gần tuyến tính với loss PDE huấn luyện cuối cùng trong sáu checkpoint khác nhau về vật lý: B3 L_PDE 1.05e-3 → 7.4 mJ; B1f1.4 1.82e-3 → 15.3; B1kc 4.62e-3 → 31.4; B1k 1.68e-2 → 100.2; M2 4.30e-3 → 25.0 (E_id); M2′ 6.32e-3 → 34.8 (E_id); tức khoảng **6–8 mJ cho mỗi 1e-3** (B1 λ = 1: 2.9 mJ cho mỗi 1e-3, nhờ số hạng năng lượng). Gate (a) ±10 mJ tương ứng L_PDE khoảng 1.4e-3 theo quan hệ này. Đây là quan hệ thực nghiệm trên 6 điểm, chưa kiểm nhân quả; nếu đúng, khiếm khuyết bảo toàn là hệ quả của mức hội tụ của loss (ở nêm, M2 dừng ở 4.3e-3 sau 5,500 bước, B3 dừng ở 1.05e-3 sau 21,500 bước) chứ không phải lỗi riêng của hình học hay đầu ra.
+
+## 15. Sửa đổi 03c (17:14, trước khi viết mã và chạy): hướng 1 (cổng E_id trung thực) cộng hướng 2 (phạt dương thay cắt cứng)
+
+Người dùng chọn hướng 1 và hướng 2 sau mục 14. Bản ghi `B3W0c` (cắt cứng), M2′, A1, B1 giữ nguyên như bản ghi; từ đây không dùng cắt cứng cho lượt mới.
+
+**Hướng 1 — cổng trung thực.** Định nghĩa E_id như mục 14: E_id = E_lưu_trữ(t_end) + E_qua_5_vách + E_bay_hơi − E_nạp. E_nạp = ∫∫ q (Monte Carlo); E_lưu_trữ và E_bay_hơi từ `probe` (đầy đủ) hoặc cổng nhẹ; thông lượng qua vách −k ∂T/∂n_ngoài, đạo hàm bậc một tại các điểm cách vách 2 µm (2^17 điểm mỗi mặt ở bản đầy đủ, 2^15 ở bản nhẹ; E_nạp 2^20 / 2^18 điểm). **Gate (a) nay = (|E_res| ≤ 10 mJ) VÀ (|E_id| ≤ 10 mJ)**; ngưỡng không đổi. Lý do: phép đo E_res theo điểm chỉ đúng khi trường không có điểm gãy (mục 14); E_id không dùng đạo hàm bậc hai nên không bị đánh lừa. Áp dụng cho mọi lượt từ đây; tính lại cho các lượt cũ không làm đổi kết luận nào (M2: E_id −25.0, M2′: −34.8; cả hai vẫn TRƯỢT; B3 vệt thường −5.6 đạt). Sai số Monte Carlo của E_id khoảng ±2 mJ.
+
+**Hướng 2 — phạt dương.** Bậc \`B3W0\` (**không cắt**, khởi động từ trọng số M2 \`runs/M2/B3W0_e90da666.pt\`). Thêm hai số hạng vào loss (gắn qua \`loss_weights\` của DeepXDE, mẫu đều mới mỗi bước như L_E): λ_E·L_E (như mục 11, 6 lớp vật liệu × nửa thời gian, nay hợp lệ vì trường trơn) và **λ_P·L_P, L_P = mean ReLU(−θ)²** trên N = 2^15 điểm đều, θ = (T − T_amb)/T_c. Hàm này trơn hai lần phần dư theo điểm nên **không tạo nguồn ẩn**, và gate (b) (T_min) vẫn **là phép kiểm có thông tin** (không qua theo cấu trúc). Không chọn biến đổi dương mượt (softplus): gate (b) qua theo cấu trúc, và lớp chuyển rất mỏng khó lấy mẫu đủ nên có nguy cơ lặp lại nguồn ẩn (chưa thử; ghi lại như phương án).
+
+**Mốc test tầng 2e (S2.13, chạy trước thí nghiệm; trượt thì dừng, báo cáo):**
+| ID | Kiểm | Tiêu chí |
+|---|---|---|
+| (a) | E_id (bản đầy đủ) trên B3 vệt thường và trên M2 (không cắt) | B3: −5.6 ± 2 mJ; M2: −25.0 ± 2 mJ (số mục 14); lùi 8 µm thay 2 µm khác ≤ 2 mJ |
+| (b) | Hai đường đo khớp với trường không có điểm gãy | |E_res − E_id| ≤ 3 mJ cho B3 và M2 |
+| (c) | **Cổng phát hiện nguồn ẩn:** M2 sau khi cắt (cùng trọng số) | E_res đo được |E_res| ≤ 10 mJ nhưng |E_id| > 10 mJ, tức cổng (a) mới **TRƯỢT** |
+| (d) | Cổng mới trên bốn checkpoint cũ | B3 PASS cả (a); B1k, B1kc, B1f1.4 TRƯỢT (a) |
+| (e) | Số hạng L_P: giá trị, gradient hữu hạn; L_P(M2) khớp tính độc lập trên 2^17 điểm khác (tỉ lệ 0.8–1.25); ba số hạng phụ (L_PDE, L_top không đổi khi λ = 0 như S2.12a) | đúng |
+| (f) | Hồi quy: tầng 2 (S2.1–S2.4) và S2.12 chạy lại với mã mới | đạt |
+Dự đoán S2.13 đạt cả sáu 65% (rủi ro: (a), (b) lệch quá 2–3 mJ vì Monte Carlo).
+
+**Thí nghiệm C1 (chẩn đoán, giống A1/B1: không phải lượt M2).** Từ trọng số M2 (\`B3W0\`, không cắt), Adam 1,500 bước lr 1e-4 toàn lô, `compile` một lần, ba nhánh: **C0** (đối chứng, λ_E = λ_P = 0), **C1a** (λ_E = 1, λ_P = 100), **C1b** (λ_E = 1, λ_P = 1000). λ_P chọn để λ_P·L_P cùng bậc L_E ở bước 0 (L_P(M2) khoảng 1e-5 nên λ_P = 100 cho 1e-3, λ_P = 1000 cho 1e-2). Đo trên điểm độc lập như B1: \`probe\` đầy đủ, E_id, hụt T_min, chẩn đoán theo vùng và theo vật liệu, RMS vùng > 1000 K, chỉ báo ở 50/70/90%, \`check_physics\`. Mã \`experiments/c1_positivity.py\`, kết quả \`runs/C1/report.json\`; trần GPU 25 phút (dừng ở 37).
+
+**Quy tắc quyết định (khóa trước khi chạy).** Một nhánh **thành công** khi đạt **tất cả**, trên điểm độc lập:
+1. |E_res| ≤ 10 mJ **và** |E_id| ≤ 10 mJ.
+2. Hụt T_min ≤ 1% biên độ (gate b, có thông tin).
+3. Gate (c): tỉ lệ (tích + bay hơi)/nạp ≤ 1; loss hữu hạn.
+4. Mỗi lớp vật liệu (gộp hai nửa thời gian) |E_c| ≤ 7 mJ.
+5. RMS vùng > 1000 K ≤ 1.2 × của M2 (0.0635 → ≤ 0.0762).
+6. Bể chảy ở 70%: **sâu và rộng** (W₊ + W₋) lệch ≤ 5 µm so với M2; **dài chỉ ghi** (xem đính chính).
+7. \`check_physics\` 0 [WARN].
+**C1 được ủng hộ** nếu ít nhất một nhánh đạt (1)–(7) **và** C0 trượt (1) hoặc (2) (để quy hiệu quả cho số hạng mới); khi cả hai nhánh đạt, λ* = nhánh có λ_P nhỏ hơn. **C1 không được ủng hộ** nếu không nhánh nào đạt (1). Còn lại: **không kết luận**. Ngưỡng 7 mJ, 1.2×, 5 µm [ĐỀ XUẤT] giữ như 03b.
+
+**Đính chính tiêu chí chiều dài (03b, tiêu chí 4).** Ở B1 tôi đặt "dài lệch ≤ 5 µm so với bước 0" làm điều kiện thành công. Sai về thiết kế: chiều dài là đại lượng nhạy (M2 và M2′, hai lượt cùng cấu hình, khác nhau 13.6 µm; B3 vệt thường 517.7 µm giữa các thời điểm 482–530 µm), và khi sửa đúng cân bằng năng lượng thì đuôi bể **phải** đổi (B1 λ = 1: +5.2 µm). Điều kiện đó loại trừ đúng điều ta muốn đạt. Từ C1 trở đi, chỉ báo chính (sâu, rộng) bị chặn ≤ 5 µm, dài chỉ được ghi. Thay đổi này **không áp dụng ngược** để đổi kết luận "không kết luận" của B1 (đã khóa).
+
+**Dự đoán (ghi trước, có thể sai).** C1 được ủng hộ 30%: (1) đạt ở ít nhất một nhánh 65% (E_id theo kịp E_res khi trường trơn); (2) hụt T_min ≤ 1% ở C1b 55%, ở C1a 25%; (4)–(7) đạt khi (1), (2) đạt 70%. C0 giữ hụt T_min > 1% (90%) và |E_id| > 10 (85%). Ba nhánh khoảng 18 phút.
