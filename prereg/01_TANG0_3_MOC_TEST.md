@@ -157,7 +157,13 @@ Hệ quả: (a) thay DeepXDE bằng vòng PyTorch thuần cắt tối đa khoả
 
 Ghi chú thủ tục: commit `23d94a4` của phiên thứ hai vô tình đưa `fastpde.py` (đang viết dở của phiên chính) vào kho do dùng `git add -A`; nội dung file không do phiên thứ hai viết hay sửa.
 
-### Kết quả 01a/01b (2026-10-06 13:03): E1, E2, E3, E5 đạt; **E4 trượt**
+### Sửa đổi 01b (2026-10-06 13:01, sau lượt chạy đầu của `tier1c_fastpde.py`, trước khi chạy lại)
+
+Lượt đầu: **E1 đạt** (max|r_nhanh − r_cũ|/RMS = 1.80e-13 trên 28,859 điểm), **E2 đạt** (gradient theo trọng số, sai 4.68e-15), **E3 trượt**: loss PDE float32 trên 364,544 điểm là 0.33156 cho **cả** `fast_residual` và `pde` cũ (lệch 0.0e+00), nhưng so với tham chiếu S1.2 viết là "0.3316" thì lệch 1.1e-4 > 1e-4. Nguyên nhân là **lỗi của chính tiêu chí**: tôi làm tròn tham chiếu S1.2 xuống 4 chữ số; giá trị thật trong `runs/tier1/report.json` là **0.33156269788742065** (L_top 8.812782471068203e-05). Với giá trị đúng, lệch là 8.1e-6.
+
+Sửa (không đổi ngưỡng 1e-4): tham chiếu S1.2 trong E3 và E5 là giá trị **không làm tròn** đọc từ `runs/tier1/report.json`. Chạy lại toàn bộ E1–E5 (E1, E2 không phụ thuộc). Lỗi làm tròn của tôi được ghi để bạn thấy: nó không che một sai khác nào, vì phép so thực chất (mới so với cũ, cùng điểm, cùng trọng số) là 0.0.
+
+### Kết quả 01a/01b (2026-10-06 13:01): E1, E2, E3, E5 đạt; **E4 trượt**
 
 | ID | Kết quả |
 |---|---|
@@ -169,11 +175,11 @@ Ghi chú thủ tục: commit `23d94a4` của phiên thứ hai vô tình đưa `f
 
 Theo quy tắc 01a: **E4 trượt thì giữ `pde` cũ**. Phiên bản đầu của `fastpde` đúng về toán nhưng **không nhanh hơn**: kết quả âm. Dự đoán "E4 đạt (≥ 1.5×)" 70%: sai. Giả thuyết về nguyên nhân (chưa kiểm): `einsum('nwk,vw->nvk')` trên tensor (N, 24, 7) buộc hoán vị bộ nhớ (copy) ở mỗi lớp, trong khi phép nhân ma trận nhỏ 24×24 bị giới hạn bởi băng thông bộ nhớ, không phải tính toán.
 
-### Sửa đổi 01c (2026-10-06 13:04, trước khi chạy): **một** lần thử lại duy nhất với bố cục bộ nhớ khác
+### Sửa đổi 01c (2026-10-06 13:01, trước khi chạy): **một** lần thử lại duy nhất với bố cục bộ nhớ khác
 
 Chỉ đổi cách xếp tensor: (K, N, W) với K = 7 kênh (giá trị đạo hàm), thay cho (N, W, K), để phép nhân với W là một GEMM phẳng (K·N, 24) × (24, 24) không cần hoán vị; các phép phần tử giữ nguyên. Toán không đổi, nên E1–E3 phải vẫn đạt. **Tiêu chí E1–E5 giữ nguyên.** Giới hạn: đây là lần thử lại cuối của hướng này; nếu E4 trượt lần nữa thì **bỏ hẳn `fastpde`** (giữ mã trong git làm bản ghi) và không tối ưu bậc hai thêm trong đợt này; hướng khác (nếu có) cần đăng ký riêng. Dự đoán: E4 đạt 45% (mức tăng tốc nếu đạt: 1.5–2.5×).
 
-### Kết quả 01c (2026-10-06 13:06): E1, E2, E3, E5 đạt; **E4 trượt lần thứ hai → bỏ `fastpde`**
+### Kết quả 01c (2026-10-06 13:02): E1, E2, E3, E5 đạt; **E4 trượt lần thứ hai → bỏ `fastpde`**
 
 | ID | Bố cục (N, W, K) (lần 1) | Bố cục (K, N, W) (lần 2) |
 |---|---|---|
@@ -184,3 +190,5 @@ Chỉ đổi cách xếp tensor: (K, N, W) với K = 7 kênh (giá trị đạo 
 Quy tắc đã khóa ở 01c: không đạt ≥ 1.5× thì **bỏ hẳn**. Quyết định: **không dùng `fastpde` cho huấn luyện**; giữ `pde` của `legacy/lpbf_pinn.py` (mã `fastpde.py` và `smoke/tier1c_fastpde.py` giữ trong git làm bản ghi). Dự đoán E4 đạt ở lần 2 (45%): sai. Không thử thêm biến thể trong đợt này.
 
 Điều học được (đo được, không phải giả thuyết): đổi bố cục bộ nhớ đưa phiên bản giải tích từ 159 xuống 109 ms, nhưng **không** thấp hơn đường autograd (110 ms). Cả hai cách đều có thời gian cỡ **7 lần** bước chỉ-bậc-một (15 ms, S1.3), đúng bằng số kênh đạo hàm cần mang (giá trị + 4 + 3 = 8 so với 1 + 4). Nghĩa là chi phí tỉ lệ với (số điểm) × (số kênh), bị giới hạn bởi băng thông bộ nhớ chứ không phải do cách cài đặt autograd. Hệ quả: muốn giảm thời gian mỗi bước phải **giảm số điểm mỗi bước** (lô con ngẫu nhiên), tức đổi bài toán tối ưu, không phải tính tương đương; việc đó cần đăng ký riêng (không nằm trong đợt này).
+
+(Sửa lúc 13:04: (1) mục 01b bị mất khi phiên thứ hai viết lại tệp này lúc 13:01 (hai phiên cùng sửa một tệp); đã khôi phục từ commit `8ee1e9f`. (2) Các mốc giờ của 01a/01b/01c trước đây ghi 13:03/13:04/13:06 do tôi ước lượng thay vì đọc đồng hồ; đã thay bằng giờ thật theo `git log`. Thứ tự sự kiện không đổi.)
