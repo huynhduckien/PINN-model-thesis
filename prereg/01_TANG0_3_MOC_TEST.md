@@ -156,3 +156,19 @@ Mục 12 ghi chênh DeepXDE (140 ms) − bước thủ công (108 ms) = 33 ms l�
 Hệ quả: (a) thay DeepXDE bằng vòng PyTorch thuần cắt tối đa khoảng 15–17% bước; (b) tối ưu đạo hàm bậc hai (sửa đổi 01a, mục 13) nhắm vào 86% còn lại nên là đòn bẩy lớn hơn nhiều; (c) ngưỡng "DeepXDE chiếm > 15% thì xem xét PyTorch thuần" nêu trong thảo luận **không** nằm trong đăng ký, nên không phải quy tắc khóa.
 
 Ghi chú thủ tục: commit `23d94a4` của phiên thứ hai vô tình đưa `fastpde.py` (đang viết dở của phiên chính) vào kho do dùng `git add -A`; nội dung file không do phiên thứ hai viết hay sửa.
+
+### Kết quả 01a/01b (2026-10-06 13:03): E1, E2, E3, E5 đạt; **E4 trượt**
+
+| ID | Kết quả |
+|---|---|
+| E1 | residual float64 trên 28,859 điểm (anchors, đều, dải giao diện bột/đặc, quanh mặt nghiêng của nêm): lệch 1.80e-13 |
+| E2 | gradient theo trọng số (float64): sai tương đối 4.68e-15 |
+| E3 | loss PDE float32 trên 364,544 điểm: mới 0.331563 = cũ 0.331563 = S1.2 (lệch 0.0) |
+| **E4** | bước cũ **110 ms**, bước mới **159 ms** (**chậm hơn, 0.69×**); bộ nhớ đỉnh 4.6 GB (thấp hơn) |
+| E5 | DeepXDE + `fast_residual`: loss bước 0 trùng S1.2; **0.203 s/bước** (so với 0.140 với `pde` cũ) |
+
+Theo quy tắc 01a: **E4 trượt thì giữ `pde` cũ**. Phiên bản đầu của `fastpde` đúng về toán nhưng **không nhanh hơn**: kết quả âm. Dự đoán "E4 đạt (≥ 1.5×)" 70%: sai. Giả thuyết về nguyên nhân (chưa kiểm): `einsum('nwk,vw->nvk')` trên tensor (N, 24, 7) buộc hoán vị bộ nhớ (copy) ở mỗi lớp, trong khi phép nhân ma trận nhỏ 24×24 bị giới hạn bởi băng thông bộ nhớ, không phải tính toán.
+
+### Sửa đổi 01c (2026-10-06 13:04, trước khi chạy): **một** lần thử lại duy nhất với bố cục bộ nhớ khác
+
+Chỉ đổi cách xếp tensor: (K, N, W) với K = 7 kênh (giá trị đạo hàm), thay cho (N, W, K), để phép nhân với W là một GEMM phẳng (K·N, 24) × (24, 24) không cần hoán vị; các phép phần tử giữ nguyên. Toán không đổi, nên E1–E3 phải vẫn đạt. **Tiêu chí E1–E5 giữ nguyên.** Giới hạn: đây là lần thử lại cuối của hướng này; nếu E4 trượt lần nữa thì **bỏ hẳn `fastpde`** (giữ mã trong git làm bản ghi) và không tối ưu bậc hai thêm trong đợt này; hướng khác (nếu có) cần đăng ký riêng. Dự đoán: E4 đạt 45% (mức tăng tốc nếu đạt: 1.5–2.5×).

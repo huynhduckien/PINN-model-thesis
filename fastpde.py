@@ -16,14 +16,14 @@ L = C.L
 
 
 def _mix(T, W):
-    """T (N, w_in, 7) nhan ma tran W (w_out, w_in) theo chieu thu hai."""
-    return torch.einsum("nwk,vw->nvk", T, W)
+    """T (7, N, w_in) nhan W (w_out, w_in): mot GEMM phang (7N, w_in) x (w_in, w_out), khong hoan vi bo nho (sua doi 01c)."""
+    return T @ W.t()
 
 
 def _act(z, T):
     s, c = torch.sin(z), torch.cos(z)
-    f, g = T[:, :, :4], T[:, :, 4:]
-    return s, torch.cat([c.unsqueeze(-1)*f, -s.unsqueeze(-1)*f[:, :, :3]**2 + c.unsqueeze(-1)*g], dim=-1)
+    f, g = T[:4], T[4:]
+    return s, torch.cat([c*f, -s*f[:3]**2 + c*g], dim=0)
 
 
 def net_derivs(net, x, sc, path, cfg):
@@ -36,14 +36,14 @@ def net_derivs(net, x, sc, path, cfg):
     lins = list(net.linears)
     u = (x.detach() - c)/h
     z = lins[0](u)
-    T = torch.zeros(len(x), lins[0].out_features, 7, dtype=dt, device=dev)
-    T[:, :, :4] = (lins[0].weight/h[None, :]).unsqueeze(0)
+    T = torch.zeros(7, len(x), lins[0].out_features, dtype=dt, device=dev)
+    T[:4] = (lins[0].weight/h[None, :]).t().unsqueeze(1)
     a, T = _act(z, T)
     for lin in lins[1:-1]:
         z = lin(a)
         a, T = _act(z, _mix(T, lin.weight))
     y = lins[-1](a)
-    Y = _mix(T, lins[-1].weight)[:, 0, :]                          # (N, 7)
+    Y = _mix(T, lins[-1].weight)[:, :, 0].t()                      # (N, 7)
 
     xm = x.detach().clone().requires_grad_(True)                   # mat na cung: chi phu thuoc x
     mt, ms = L.hard_mask(xm, sc, cfg)
