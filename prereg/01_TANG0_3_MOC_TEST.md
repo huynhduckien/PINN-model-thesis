@@ -82,3 +82,25 @@ Viết đăng ký 02 (M2 `B3W0`: ngân sách, cổng dừng, tiêu chí, dự đ
 ## 10. Giới hạn (khóa)
 
 Các mốc test chỉ kiểm hạ tầng và tính khả thi, không kiểm vật lý của overhang. Chúng không thay thế đăng ký 02. Nghiệm giải tích R0 (S0.4) chỉ có cho vật liệu đồng nhất; cổng ở S2.2 hiệu chuẩn trên bốn checkpoint của cùng một họ vật lý, không chứng minh cổng đúng cho hình học nêm.
+
+---
+
+## Kết quả tầng 0 (2026-10-06 12:57): **ĐẠT** cả bảy mốc S0.1–S0.7, 27 giây, không huấn luyện
+
+Mã: `config.py`, `indicator.py`, `smoke/tier0.py`; kết quả máy đọc `runs/tier0/report.json` (không commit, `runs/` bị bỏ qua). `legacy/ckpt` không đổi (kiểm hash đầu và cuối).
+
+| Mốc | Kết quả | Tiêu chí |
+|---|---|---|
+| S0.1 | torch 2.5.1+cu121, deepxde 1.15.0, GPU 381/16,376 MiB, không tiến trình liên quan khác | GPU trống ≥ 14 GB |
+| S0.2 | hash `lpbf_pinn.py` `b0f5955a2385e79c`; tag `A1s_f831590d`, `B1_8ff624dd`, `B2_d610497f`, `B3_84d0289e` đúng; có file `.pt` | khớp |
+| S0.3 (canary B3) | rộng/sâu/dài **166.0 / 90.0 / 516.0 µm**; (tích + bay hơi)/nạp **0.805**; E_res **−7.4 mJ**; T_peak 5,555 K; T_min 263.1 K | 166±2 / 90±2 / 516±4; 0.805±0.01; [−10, −5] |
+| S0.4 | `indicator` trên nghiệm giải tích R0: dài/rộng/sâu 520.15/121.99/85.95 µm, lệch +0.00 mỗi chiều; độ xuyên 25.95 µm | ±2 µm |
+| S0.5 | nêm y_a = 0: s = 0.5 tại z = 60 µm ở y = 120.0 µm; diện tích vùng đặc 26,877 µm² (−0.46%); s(200,60) = 7.9e-14; s(−100,60) = 1.0000; s nhỏ nhất ở z = 195 µm là 0.9997 | 120±10; ±3%; ≤0.01; ≥0.99; ≥0.99 |
+| S0.6 | MMS có nêm (ẩn nhiệt + k lỏng + bay hơi): 1.28e-14 | ≤ 1e-10 |
+| S0.7 | `check_config`, `check_source`, `check_density`, `check_data` cho nêm: 0 cảnh báo; 364,544 điểm neo, 37,079 điểm mặt trên | 0 [WARN] |
+
+**Ghi chú thủ tục (phải nêu rõ):** `config.py`, `indicator.py`, `smoke/tier0.py` và `legacy/overhang_r0.py` đã được ghi vào thư mục này lúc 12:55–12:56, và tầng 0 được chạy lúc 12:56:24, **không phải bởi phiên làm việc đang viết đăng ký này** (người dùng đã duyệt và bảo bắt đầu viết code; chưa xác nhận phiên nào đã viết và chạy). Tôi đã đọc toàn bộ `config.py` và `tier0.py` và phần còn lại của `indicator.py` trước khi chấp nhận kết quả: các tiêu chí khớp đăng ký bản khóa; `half_extent` của `indicator.py` cài khác R0 (vòng lặp từng hàng, thay vì vector hóa) nên S0.4 là đối chiếu độc lập; `legacy/overhang_r0.py` giống hệt `coding/scratchpad/overhang_r0.py` (diff rỗng). Bảng băm `legacy/SHA256SUMS.txt` do tôi tạo.
+
+**Chấm dự đoán:** tầng 0 đạt ngay lượt đầu (60%): đúng. S0.3 đạt (75%): đúng. S0.8 (50%): chưa làm.
+
+**Còn mở:** S0.8 (bảng số thực nghiệm, không GPU, chỉ chặn M5) chưa thực hiện; tầng 1–3 chưa chạy.
