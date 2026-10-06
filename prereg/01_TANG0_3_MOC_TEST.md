@@ -193,7 +193,7 @@ Quy tắc đã khóa ở 01c: không đạt ≥ 1.5× thì **bỏ hẳn**. Quy�
 
 (Sửa lúc 13:03: (1) mục 01b bị mất khi phiên thứ hai viết lại tệp này lúc 13:01 (hai phiên cùng sửa một tệp); đã khôi phục từ commit `8ee1e9f`. (2) Các mốc giờ của 01a/01b/01c trước đây ghi 13:03/13:04/13:06 do tôi ước lượng thay vì đọc đồng hồ; đã thay bằng giờ thật theo `git log`. Thứ tự sự kiện không đổi.)
 
-## 14. Sửa đổi 01d (2026-10-06 13:21, trước khi chạy chính thức S2.1, S2.3, S2.4): cách hiểu các mốc tầng 2, số đo float64, kết quả S2.2
+## 14. Sửa đổi 01d (2026-10-06 13:20, trước khi chạy chính thức S2.1, S2.3, S2.4): cách hiểu các mốc tầng 2, số đo float64, kết quả S2.2
 
 Từ giờ chỉ một phiên (phiên này) ghi và commit trong `lpbfpinn/`; file thêm theo tên, không dùng `git add -A`. Mã: `gates.py`, `runner.py`, `smoke/tier2.py`.
 
@@ -217,10 +217,20 @@ Số `probe` đầy đủ trùng với số đã ghi trong `coding/scratchpad/ov
 - S2.4: tiến trình A (ngân sách tí hon) giữ khóa; tiến trình B cùng lệnh phải thoát **mã 3 trong ≤ 10 s**, stderr có "TU CHOI" và PID của A, không tạo thư mục ra, và A vẫn chạy.
 - Trần thời gian tầng 2 (15 phút, dừng ở 22.5 phút) tính cho cả S2.1–S2.4. Ước lượng trước khi chạy: S2.1 ≈ 4–6 phút, S2.3 ≈ 6–9 phút, S2.4 ≈ 1 phút, S2.2 < 1 phút; tổng 12–17 phút. Dự đoán S2.1–S2.4 đạt ngay lượt đầu: khoảng 55% (rủi ro chính: tương tác giết tiến trình/khóa trên Windows, và số vòng thực chạy mỗi khối).
 
-### Kết quả lượt 1 của tầng 2 (2026-10-06 13:20–13:25) và sửa đổi 01e (2026-10-06 13:28, trước khi chạy lại S2.3)
+### Kết quả lượt 1 của tầng 2 (2026-10-06 13:20–13:25) và sửa đổi 01e (2026-10-06 13:25, trước khi chạy lại S2.3)
 
 Lượt 1 (`python smoke/tier2.py`, 303 s, `legacy/ckpt` không đổi): **S2.1 đạt** (245 s; ma thoát 0; 15 vòng L-BFGS trong 2 khối 8 + 7, mỗi khối 128 s và 107 s; tag `B3W0_e9d36614` khác tag thật `B3W0_fff2a3d4`; `run.json` và `.pt` có), **S2.2 đạt**, **S2.3 trượt**, theo quy tắc 1 không chạy S2.4.
 
 Nguyên nhân S2.3 là **lỗi của mốc test, không phải của cơ chế resume**: mục 14 chọn khối **3 vòng**; với `fun_per_step` = int(3 × 1.25) = 3, bước L-BFGS đầu của DeepXDE dừng ngay (khối đầu +0 vòng sau 44 s, loss không đổi), runner coi là "optimizer_stopped_early" và chạy hết đường tới `run.json` trước khi harness kịp giết, nên **chưa có phép giết nào được thực hiện** và (i)–(iv) chưa được kiểm. Lượt thử phát triển trước đó với khối 2 vòng cho +0 vòng giống hệt; khối 5 vòng cho 8 và 7 vòng, nên tôi lẽ ra phải chọn 5. Ghi thêm: khối nhỏ hơn 5 vòng làm runner dừng sớm sai; với khối 500 vòng của lượt thật điều này không xảy ra, nhưng runner không cảnh báo, ghi nhận như hạn chế.
 
 Sửa đổi 01e (chỉ đổi tham số mốc test, **tiêu chí (i)–(iv) giữ nguyên**): S2.3 dùng **khối 5 vòng, tổng tối đa 12** (như S2.1: hai khối khoảng 107–128 s, giết sau khi khối đầu đã ghi, khối hai đang chạy). Chạy lại **chỉ S2.3 rồi S2.4** (S2.1, S2.2 đã đạt ở lượt 1 với cùng mã); trần thời gian tầng 2 tính cho cả hai lượt (lượt 1 đã dùng 5 phút). Dự đoán S2.3 đạt: khoảng 65%; S2.4: 85%.
+
+### Kết quả lượt 2 của tầng 2 (2026-10-06 13:26–13:28) và sửa đổi 01f (2026-10-06 13:31, trước khi chạy lượt 3)
+
+Lượt 2 (`python smoke/tier2.py S2.3 S2.4`, 155 s, `legacy/ckpt` không đổi): **S2.3 đạt** (giết sau khi khối 1 ghi xong, `last.pt` có 1 khối = số khối đã báo xong, mất 0 khối hoàn thành; `watch` thoát mã 1 sau 10 s; `--resume` thoát 0, tiếp từ khối 1, tổng 15 vòng; loss khối kế 0.2077 ≤ 2 × 0.2101; khóa cũ của tiến trình bị giết được thay), **S2.4 đạt** (tiến trình thứ hai thoát mã 3 sau 0.1 s, nêu PID giữ khóa, tiến trình đầu vẫn chạy, không tạo thư mục ra).
+
+**Đính chính mục 14 (phát hiện sai của chính tôi)**: số "float64 chậm 29×, ~14 s/vòng, L-BFGS float64 chỉ cho 300–1,400 lần tính hàm trong 75 phút" **không phải đặc tính của GPU**. Khối 2 sau resume chạy 7 vòng trong **6 s** (so với 107–128 s ở các khối cùng tiến trình với Adam float32), nên tôi đo lại: bước PDE float64 là **406 ms** khi tiến trình bắt đầu ở float64 (3.7× float32, gần ghi chép cũ 0.58 s/vòng), nhưng **3,032 ms** khi dựng float32 trước trong cùng tiến trình. Gốc là bộ nhớ: sau `gc.collect()` + `torch.cuda.empty_cache()` giữa hai lần dựng, bước float64 về **405 ms**. Cách sửa (4 dòng trong `build()` của `runner.py`): giải phóng bộ nhớ trước mỗi lần dựng. Kết luận cho đăng ký 02: ngân sách L-BFGS float64 tính theo ~0.4 s/lần tính hàm (không phải 3 s). Hai lượt chạy trước đã chạy L-BFGS ở chế độ chậm; số giây của khối trong chúng không dùng để lập ngân sách.
+
+**Sửa mốc giờ**: mục 14 và 01e ghi 13:21 và 13:28 do tôi ước lượng thay vì đọc đồng hồ (sai kiểu đã ghi ở cuối mục 12a). Giờ commit thật là 13:20:20 (`28b2356`) và 13:25:58 (`334d499`); đã sửa trong tiêu đề hai mục. Thứ tự sự kiện không đổi.
+
+**Lượt 3**: vì `runner.py` đổi sau khi S2.1 đạt, chạy lại **toàn bộ** S2.1 → S2.4 với mã cuối (tiêu chí và tham số giữ nguyên như 14 và 01e; S2.3 khối 5 vòng). Trần thời gian tầng 2 tính tổng cả ba lượt (đã dùng khoảng 8 phút); dự kiến lượt 3 ≈ 4–6 phút nếu sửa bộ nhớ đúng. Dự đoán: đạt cả bốn 80%; khối L-BFGS 5 vòng ≤ 30 s (đo được ở runner sau sửa) 75%.

@@ -9,6 +9,7 @@ cho nen chay tiep tuong duong voi chay lien tuc. Giu khoa GPU; khoa duoc lay TRU
 """
 import argparse
 import contextlib
+import gc
 import io
 import json
 import os
@@ -49,6 +50,8 @@ def cpu_state(net):
 
 
 def build(run, dtype):
+    gc.collect()                                                        # tra bo nho cua lan dung truoc: neu khong, float64 sau float32 cham ~7x (GPU 16 GB bi ep bo nho)
+    torch.cuda.empty_cache()
     dde.config.set_default_float(dtype)
     dde.config.set_random_seed(42)
     sc, trk, path, net, anc, _ = C.build(run)
