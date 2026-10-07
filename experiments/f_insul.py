@@ -13,8 +13,9 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 SOFT = "--soft" in sys.argv                                           # prereg 05b: mep mem (bac B3s, B3W0s), thu muc runs/Fs
-OUT = ROOT/"runs"/("Fs" if SOFT else "F")
-PLAIN, WEDGE = ("B3s", "B3W0s") if SOFT else ("B3i", "B3W0i")
+WIDTH = int(sys.argv[sys.argv.index("--width") + 1]) if "--width" in sys.argv else None   # prereg 06: do rong chuyen tiep 15/45 um (chi cung --soft), thu muc runs/Fw{W}
+OUT = ROOT/"runs"/(f"Fw{WIDTH}" if WIDTH else "Fs" if SOFT else "F")
+PLAIN, WEDGE = (f"B3s{WIDTH or ''}", f"B3W0s{WIDTH or ''}") if SOFT else ("B3i", "B3W0i")
 ENV0 = {PLAIN: ROOT/"runs"/"ENV"/"B3_iter0.pt", WEDGE: ROOT/"runs"/"ENV"/"B3W0_iter0.pt"}
 INIT0 = {PLAIN: None, WEDGE: ROOT/"runs"/"M2pp"/"B3W0_ce48c3b3.pt"}
 MAX_RETRAIN = 3

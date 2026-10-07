@@ -1,6 +1,6 @@
 # Đăng ký trước 06 — độ nhạy của chỉ báo cách nhiệt theo độ rộng chuyển tiếp của hệ số dẫn nhiệt
 
-Ngày: 2026-10-07 12:25 (đồng hồ). Người dùng đồng ý: (1) khóa tiêu chí và chạy mốc test trước; (2) chạy 15 và 45 µm cho vệt thường và nêm; (3) cập nhật bảng chỉ báo và mục phạm vi sau khi có kết quả; **nếu 15 µm trượt cổng thì chỉ báo hai điểm (không có điểm dự phòng 22 µm)**; **quét một hệ số chung cho hai độ rộng mép, giữ nguyên w_x**. **Commit file này trước khi viết mã và trước khi chạy bất kỳ mốc nào.** Mọi thay đổi sau đó qua một mục sửa đổi có giờ lấy từ đồng hồ. Ngưỡng đánh dấu **[ĐỀ XUẤT]** do tôi đề xuất. Làm theo `CLAUDE.md`.
+Ngày: 2026-10-07 12:20 (đồng hồ; bản đầu ghi nhầm 12:25, sửa theo đồng hồ). Người dùng đồng ý: (1) khóa tiêu chí và chạy mốc test trước; (2) chạy 15 và 45 µm cho vệt thường và nêm; (3) cập nhật bảng chỉ báo và mục phạm vi sau khi có kết quả; **nếu 15 µm trượt cổng thì chỉ báo hai điểm (không có điểm dự phòng 22 µm)**; **quét một hệ số chung cho hai độ rộng mép, giữ nguyên w_x**. **Commit file này trước khi viết mã và trước khi chạy bất kỳ mốc nào.** Mọi thay đổi sau đó qua một mục sửa đổi có giờ lấy từ đồng hồ. Ngưỡng đánh dấu **[ĐỀ XUẤT]** do tôi đề xuất. Làm theo `CLAUDE.md`.
 
 ## 1. Câu hỏi và phạm vi
 
@@ -72,3 +72,10 @@ Với ΔT_pk: nhiễu 21.8 K > dung sai 15 K của S-b nên lớp "nhạy vừa"
 ## 8. Giới hạn (khóa)
 
 Một lượt mỗi (độ rộng, hình học): nhiễu ở W ≠ 30 µm là **giả định** lấy từ 30 µm; chỉ ba điểm W (hai điểm nếu một độ rộng trượt); quét một hệ số chung cho hai mép, **w_x = 8 µm không quét**; mọi giả định khác của `05` mục 18 (mặt nạ tĩnh theo bao cực đại, k bột Moser ngoại suy, nhiệt dung bột không đổi, đáy giữ nhiệt độ môi trường, một điều kiện 300 W/0.8 m/s, 45°, α_s = 0.35, chưa có dữ liệu ngoài) giữ nguyên và **chưa kiểm**; kết quả là độ nhạy của **mô hình PINN này** theo W, không phải độ nhạy của vật lý thật. Trượt cổng ở một độ rộng là kết quả về công thức tối ưu ở độ rộng đó, không phải về vật lý.
+
+## 9. Sửa đổi 06a (12:23, sau khi viết mã, trước khi chạy mốc test GPU): thêm mục (h) và làm rõ (a), (f)
+
+1. **Thêm (h) vào S2.20 (chỉ làm mốc test chặt hơn):** bộ đánh giá độ nhạy của `experiments/g_width.py` (quy tắc mục 5) chạy trên **8 trường hợp giả** (trong nhiễu ở cả hai độ rộng; ΔD lệch 2 µm → nhạy vừa và báo khoảng; ΔD lệch 5 µm → nhạy; ΔT_pk 18 K trong nhiễu / 25 K nhạy, không có lớp "vừa"; một độ rộng không hợp lệ; cả hai không hợp lệ → "chưa kiểm được"; ΔD ≤ +9.0 µm ở một độ rộng; tỉ số nguội ≥ 1 → hướng đổi). Tiêu chí: cả 8 cho đúng kết luận. Thứ tự chạy: a, b, c, d, e, h, f, g.
+2. **(a):** so sánh `scales()` bỏ khóa `run` (tên bậc), vì chỉ khóa đó khác theo thiết kế.
+3. **(f):** để ghi loss khởi điểm (bước 0), dùng `tier2i.step0_loss` cho bốn bậc (chỉ ghi); canary chạy `supervise` đúng như mục 3; tốc độ lấy từ `adam.seconds / 500` (cùng cách đo như lượt F: 0.17 s/bước).
+(a) và (h) là kiểm thuần Python (không GPU) nên đã chạy thử trước khi ghi mục này; cả hai đạt, không ảnh hưởng đến bất kỳ phán quyết nào.

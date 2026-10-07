@@ -48,6 +48,11 @@ RUNS["B3W0i"] = dict(init="B3", geometry=GEOMETRY_WEDGE, physics=_P_B3, insulate
 _SOFT = dict(a_iface_um=30.0/2.197, w_e_um=30.0/4.394)
 RUNS["B3s"] = dict(init="B3", geometry=GEOMETRY, physics=_P_B3, insulated=True, soft=_SOFT)
 RUNS["B3W0s"] = dict(init="B3", geometry=GEOMETRY_WEDGE, physics=_P_B3, insulated=True, soft=_SOFT)
+# prereg 06: do nhay theo do rong chuyen tiep W (10-90%, um): mot he so chung cho mat phan cach lop bot va mep bao (w_x khong doi)
+for _w in (15, 45):
+    _sw = dict(a_iface_um=_w/2.197, w_e_um=_w/4.394)
+    RUNS[f"B3s{_w}"] = dict(init="B3", geometry=GEOMETRY, physics=_P_B3, insulated=True, soft=_sw)
+    RUNS[f"B3W0s{_w}"] = dict(init="B3", geometry=GEOMETRY_WEDGE, physics=_P_B3, insulated=True, soft=_sw)
 for _a in (30, 45, 60):
     RUNS[f"B3_a{_a}"] = dict(init="B3", geometry=GEOMETRY, physics=_P_B3, powder=dict(alpha_s=_a/100))
     RUNS[f"B3W0_a{_a}"] = dict(init="B3", geometry=GEOMETRY_WEDGE, physics=_P_B3, powder=dict(alpha_s=_a/100))
