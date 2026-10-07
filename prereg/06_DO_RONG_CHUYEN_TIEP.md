@@ -103,3 +103,52 @@ Ghi nhận phụ (đã sửa ở 06b, nay đã loại trừ): VRAM đầy do ti�
 Theo yêu cầu của người dùng ("hãy thử lại"), tôi đo lại tốc độ lúc 14:39 bằng 200 bước `B3s` một mình: **0.195 s/bước** (so 0.68 lúc 14:21): máy đã hồi phục; nguyên nhân chậm 13:03–14:25 **không xác định** (tiến trình điều khiển từ xa vẫn chạy, nên đó chưa chắc là nguyên nhân; chưa kiểm). Không sửa tiêu chí nào; **không áp dụng** phương án đổi trần theo bước (đã nêu với người dùng, không dùng).
 
 Lượt (g) đúng tiêu chí khóa, `python smoke/tier2l.py g` (14:40–14:53, 13 phút): tầng 2 (S2.1–S2.4) đạt 65 s; S2.13 đạt 9 s; **S2.17 đạt** 349 s (S2.17(h): 0.170 và 0.173 s/bước, tỉ lệ loss 0.441 / 0.455, E_id −22.1 / −10.0 mJ); **S2.18 đạt** 449 s; `legacy/ckpt` không đổi. **S2.20 ĐẠT cả tám mục** ((a)–(f), (h) ở lượt 12:22–13:19, mục 10; (g) ở lượt này). Dự đoán mục 3: (a)–(e) đạt ngay lượt đầu 65% → đúng; (f) 85% → đúng; (g) 85% → **sai ở lượt đầu** (lỗi khung kiểm rồi máy chậm), đạt ở lượt lại. Lượt đầy đủ G bắt đầu 14:53 (`experiments/f_insul.py run --soft --width 45`, rồi 15).
+
+## 13. Kết quả lượt đầy đủ G (14:53–15:39, 46 phút GPU, `experiments/f_insul.py run --soft --width W`, `runs/Fw45`, `runs/Fw15`, tổng hợp `runs/Fw/summary.json`); ghi lúc 15:43
+
+Chạy đúng mục 4 (45 rồi 15; vệt thường trước; `supervise`; không sập; `legacy/ckpt` không đổi).
+
+**W = 45 µm: HỢP LỆ cả hai hình học.** Vệt thường: vòng 0 ĐẠT ở bước 2,000 (E_res +1.2, E_id −3.6 mJ, hụt T_min 0.66%) nhưng mặt nạ chưa hội tụ (nửa rộng +4 µm > 3); vòng 1 ĐẠT ở 2,000 bước (E_id −4.5 mJ, hụt 0.62%), mặt nạ **hội tụ**. Nêm: vòng 0 ĐẠT (E_id −6.1 mJ), mặt nạ chưa hội tụ (sâu +8, nửa rộng +6 µm, hiệu 16.5%); vòng 1 ĐẠT (E_id −5.2 mJ, hụt 0.82%), **hội tụ** (0 µm, −1 µm, 1.3%). L_PDE cuối 5.2e-3 (thường) và 1.1e-2 (nêm).
+
+**W = 15 µm: KHÔNG HỢP LỆ (không huấn luyện được ở độ rộng này).** Vệt thường `B3s15` vòng 0: **dùng hết 6,000 bước Adam, không có hai điểm kiểm liên tiếp đạt** (`iteration_budget`, 1,033 s): E_res +0.4 mJ nhưng **E_id −21.1 mJ** (ngưỡng 10; trượt gate (a) ở **mọi** điểm kiểm từ bước 500: −14.0, −19.9, −21.5, −22.4, …, −21.1), hụt T_min 0.84% (đạt), tỉ lệ năng lượng 0.758 (đạt), 0 cảnh báo; L_PDE giảm 2.6e-2 → 1.7e-2 (không về mức 1e-2 của 30 µm); mặt nạ chưa hội tụ (nửa rộng −5 µm). Theo mục 4: vệt thường trượt cổng → dừng độ rộng này, **không chạy nêm, không chạy lại, không đổi ngưỡng cổng**; theo quyết định của người dùng ở đầu đăng ký: **chỉ báo hai điểm (30 và 45 µm), không có điểm dự phòng 22 µm**. Đây là kết quả về **công thức tối ưu** (Adam, 6 × 24, khởi động từ B3/M2″) ở độ rộng này, không phải về vật lý của bột (cùng bản chất với mép sắc 8 µm của `05` mục 8): với công thức hiện tại, độ rộng hẹp nhất huấn luyện được nằm giữa 15 và 30 µm.
+
+**Chỉ báo (70% quét cho hình học; chu trình nhiệt 50% quét tại y = 0, đáy lớp bột):**
+| | W = 30 µm (tham chiếu) | W = 45 µm | lệch | lớp (mục 5) |
+|---|---|---|---|---|
+| vệt thường: D / T_pk / lưu / nguội | 89.52 µm / 2,810 K / 432 µs / 1.258e6 K/s | 90.19 µm / 2,856 K / 467 µs / 1.172e6 K/s | | |
+| nêm: D / T_pk / lưu / nguội | 107.83 µm / 2,970 K / 654 µs / 6.83e5 K/s | 106.65 µm / 2,998 K / 688 µs / 8.02e5 K/s | | |
+| **ΔD = ΔP** | **+18.31 µm** | **+16.46 µm** | 1.85 µm | **nhạy vừa** (0.82 ≤ d ≤ 3) |
+| **ΔT_pk** | +159.8 K | +141.9 K | 17.9 K | **trong nhiễu** (< 21.8 K; nhưng > 15 K của dung sai S-b) |
+| **Δ thời gian lưu** | +222 µs | +221 µs | 1.0 µs | **trong nhiễu** |
+| **tỉ số tốc độ nguội** | 0.543 | 0.684 | 0.141 | **nhạy** (> 0.10) |
+| ΔW (chỉ ghi, không phải chỉ báo) | −0.9 µm | −1.4 µm | | |
+| chiều dài (chỉ ghi, R1) | 503 / 514 µm | 527 / 573 µm | | |
+
+**Quy tắc kết luận (mục 5, áp dụng nguyên văn):** (1) **hướng của hiệu ứng không đổi** (ΔD, ΔT_pk, Δlưu > 0 và tỉ số nguội < 1 ở 30 và 45 µm). (2) **hiệu ứng cách nhiệt (so với bột như đặc) giữ ở mọi độ rộng đã kiểm**: ΔD = +16.5 và +18.3 µm, cả hai > +9.0 µm. (3) **độ nhạy:** ΔD và tỉ số nguội **báo khoảng**; ΔT_pk và thời gian lưu **không nhạy** (bảng cuối giữ số 30 µm ± nhiễu, ghi kiểm ở 30 và 45 µm).
+
+**Chấm dự đoán (mục 7):** vệt thường 45 µm qua cổng 70% → xảy ra; nêm 45 µm qua cổng 70% → xảy ra; vệt thường 15 µm qua cổng 45% → **không**; mặt nạ hội tụ ≤ 3 lần huấn luyện lại (nếu qua cổng) 65% → xảy ra (một lần huấn luyện lại mỗi hình học); hướng không đổi 90% → xảy ra; ΔD > +9.0 µm ở mọi độ rộng hợp lệ 80% → xảy ra; ΔD giảm khi W tăng 65% → xảy ra (chỉ hai điểm hợp lệ); ΔD(45) trong ± 3 µm của 18.3: 45% → xảy ra (lệch 1.85); ΔT_pk(45) trong nhiễu 40% → xảy ra (sát biên: 17.9 so với 21.8 K); thời gian lưu "nhạy" ở ít nhất một độ rộng 45% → **không** (lệch 1 µs); kết quả cuối "ΔD báo khoảng" 70% → xảy ra; thời gian mốc test 20–35 phút → vượt (tổng khoảng 1 giờ 10 phút, gồm hai lượt (g) do lỗi khung và máy chậm); lượt đầy đủ 20–45 phút mỗi độ rộng → đúng (25 phút cho 45 µm, 17 phút cho 15 µm).
+
+**Hạn chế phải ghi cùng kết quả (không cắt bớt):**
+1. **Chỉ hai điểm hợp lệ (30 và 45 µm), một lượt ở 45 µm.** Nhiễu ở 45 µm chưa đo; việc dùng nhiễu của 30 µm là giả định. Hai điểm không xác định dạng hàm; không nội suy hay ngoại suy; **không** có kết luận cho W < 30 µm (độ rộng 15 µm không huấn luyện được, 8 µm cũng không) nên phía hẹp của khoảng **chưa kiểm**: nếu thật sự cỡ hạt nhỏ hơn 30 µm, kết quả có thể ngoài khoảng 16.5–18.3 µm.
+2. Xu hướng ΔD giảm khi W tăng (18.3 → 16.5 µm) khớp với dự đoán cơ chế (mặt phân cách mờ hơn thì cách nhiệt kém hơn) nhưng chỉ dựa trên hai điểm một lượt; chưa chứng minh.
+3. ΔT_pk(45 µm) lệch 17.9 K, thấp hơn ngưỡng "trong nhiễu" 21.8 K (2 × nhiễu của 30 µm) nhưng cao hơn dung sai 15 K của S-b ở `05` mục 14; lớp "trong nhiễu" dựa trên nhiễu đo ở 30 µm, nên đây là phân loại sát biên.
+4. Vẫn chỉ quét một hệ số chung cho hai mép; w_x = 8 µm không quét; mọi giả định khác của `05` mục 18 giữ nguyên.
+
+## 14. Cập nhật bảng chỉ báo cuối cùng và mục phạm vi (người dùng yêu cầu; 15:45)
+
+Mục này thay thế các dòng tương ứng trong `05` mục 17 (bảng chỉ báo cuối) và mục 18 (6, 7); `05` giữ nguyên làm bản ghi lịch sử và có mục 19 trỏ tới đây.
+
+**Bảng chỉ báo cuối cùng của mô hình bột cách nhiệt (nêm − vệt thường, 300 W, 0.8 m/s, 45°, độ rộng chuyển tiếp đã kiểm 30 và 45 µm):**
+| Chỉ báo | Giá trị | Ghi chú |
+|---|---|---|
+| độ sâu = độ xuyên ΔD = ΔP (70% quét) | **+16.5 … +18.3 µm** (45 … 30 µm) | báo khoảng (nhạy vừa với độ rộng); nhiễu huấn luyện ± 0.4 µm (đo ở 30 µm); bột như đặc: +9.0 µm |
+| ΔT_pk tại đáy lớp bột (50% quét) | **+160 ± 11 K** (30 µm); +142 K (45 µm) | không nhạy (trong nhiễu, sát biên) |
+| Δ thời gian lưu trên T_sol (50% quét) | **+222 ± 10 µs** (30 µm); +221 µs (45 µm) | không nhạy |
+| tỉ số tốc độ nguội nêm/thường (50% quét) | **0.54 … 0.68** (30 … 45 µm) | báo khoảng (nhạy); luôn < 1 |
+| **Không dùng:** chiều dài (R1), ΔW (không tách khỏi nhiễu: −0.9 / −1.4 µm, nhiễu 1.9 µm), nhiệt độ đỉnh tuyệt đối (~5,500 K > T_vap) | | |
+
+**Mục phạm vi (thay `05` mục 18, phần 6 và 7):**
+- *Mục 6 (cái mô hình cho biết):* hiệu nêm − vệt thường của độ sâu và độ xuyên là **+16.5 đến +18.3 µm** khi độ rộng chuyển tiếp của hệ số dẫn nhiệt là 45 đến 30 µm (đều lớn hơn +9.0 µm của mô hình bột như đặc); T_pk **+142 đến +160 K**; thời gian lưu **+221 đến +222 µs**; tốc độ nguội **0.54 đến 0.68** lần. Hướng của mọi hiệu ứng **không đổi** giữa hai độ rộng. Nhiễu của quy trình huấn luyện (± 0.4 µm; ± 11 K; ± 10 µs; ± 0.04) chỉ đo ở 30 µm.
+- *Mục 7 (cái mô hình chưa cho biết):* thay "độ nhạy theo độ rộng chuyển tiếp chưa kiểm" bằng: **độ nhạy theo độ rộng chuyển tiếp đã kiểm ở 30 và 45 µm (một lượt ở 45 µm); độ rộng 15 µm không huấn luyện được với công thức tối ưu hiện tại (E_id −21.1 mJ sau 6,000 bước), nên vùng hẹp hơn 30 µm chưa kiểm**; độ mềm của mép mũi bể (w_x) chưa quét. Các mục khác giữ nguyên (không có tiêu chí in được; không có neo thực nghiệm; độ sâu miền; R3; L-BFGS; α_s; k bột; góc nêm; vị trí chùm).
+
+**Cách gọi đúng (bổ sung):** thêm vào cuối cách gọi ở `05` mục 18: *"độ rộng chuyển tiếp hệ số dẫn nhiệt của lớp bột được kiểm ở 30 và 45 µm"*.

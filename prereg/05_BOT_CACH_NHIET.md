@@ -311,3 +311,7 @@ Mục này mô tả **mô hình PINN đã dùng cho M2, M3 và các bảng chỉ
 **6. Cái mô hình cho biết (đã qua cổng trung thực và M3 cách nhiệt ỔN ĐỊNH):** hiệu nêm − vệt thường của độ sâu và độ xuyên **+18.3 ± 0.4 µm**, T_pk tại đáy lớp bột (50% quét) **+160 ± 11 K**, thời gian lưu trên T_sol tại điểm đó **+222 ± 10 µs**, tốc độ nguội **0.54 ± 0.04** lần; độ rộng và chiều dài **không** là chỉ báo. Mô hình bột như đặc cho +9.0 µm (cận dưới). Nhiễu là nhiễu của quy trình huấn luyện (ba biến thể, hai độc lập), **không** phải sai số so với thực tế.
 
 **7. Cái mô hình chưa cho biết:** không có tiêu chí in được (dross, võng, độ xuyên tới hạn); không có neo thực nghiệm hay phương pháp độc lập cho bài phi tuyến có nêm; độ nhạy theo độ rộng chuyển tiếp, độ sâu miền, sức chứa mạng (R3), công thức tối ưu (không có L-BFGS), α_s, k bột, góc nêm, vị trí chùm so với đỉnh nêm chưa kiểm.
+
+## 19. Cập nhật theo đăng ký 06 (15:46)
+
+Độ nhạy theo độ rộng chuyển tiếp (hạn chế 2 của mục 13 và mục 17) đã kiểm ở 30 và 45 µm; 15 µm không huấn luyện được. Bảng chỉ báo cuối cùng và mục phạm vi (mục 18, phần 6 và 7) được cập nhật ở `06_DO_RONG_CHUYEN_TIEP.md` mục 13 và 14; **dùng các số của `06` mục 14** thay cho mục 17 và mục 18 phần 6, 7. Các mục trên giữ nguyên làm bản ghi lịch sử.
