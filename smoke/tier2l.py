@@ -4,6 +4,7 @@
 (a)-(e), (h) chay trong tien trinh nay (giu khoa GPU cho (b)-(e) va buoc 0 cua (f)); (f), (g) chay runner.py / cac tang cu nhu tien trinh con.
 """
 import copy
+import gc
 import hashlib
 import json
 import math
@@ -175,8 +176,23 @@ def check_f(step0):
     return T.record("S2.20f", ok and fin and speed, f"canary 500 buoc ({time.perf_counter() - t0:.0f} s): DONE {sum(1 for rc, r in runs.values() if rc == 0 and r.get('status') == 'DONE')}/4, 4 tag khac nhau va khac tag tham chieu, loss huu han {fin}, <= 0.25 s/buoc {speed}; (chi ghi) " + " | ".join(info))
 
 
+def regression():
+    t1 = time.perf_counter()
+    rcs = {}
+    for name, args in (("tier2.py", []), ("tier2e.py", ["S2.13"]), ("tier2i.py", []), ("tier2j.py", [])):
+        rcs[name] = spawn([str(HERE/name), *args], "g")
+    return T.record("S2.20g", all(v == 0 for v in rcs.values()), f"hoi quy trong {time.perf_counter() - t1:.0f} s: ma thoat {rcs} (tang 2: S2.1-S2.4; S2.13; S2.17; S2.18)")
+
+
 def main():
     OUT.mkdir(parents=True, exist_ok=True)
+    if sys.argv[1:] == ["g"]:                                    # sua 06b: chi chay (g), tien trinh cha khong giu bo nho GPU
+        before = T.hash_dir(C.LEGACY/"ckpt")
+        ok = regression()
+        ok = ok and T.hash_dir(C.LEGACY/"ckpt") == before
+        (OUT/"report_g.json").write_text(json.dumps(RES, indent=2, default=float), encoding="utf-8")
+        print(f"TANG 2l (S2.20) chi (g): {'PASS' if ok else 'FAIL'}")
+        sys.exit(0 if ok else 1)
     before = T.hash_dir(C.LEGACY/"ckpt")
     t0 = time.perf_counter()
     oks = {}
@@ -203,16 +219,15 @@ def main():
                     for w in WIDTHS:
                         step0[f"B3s{w}"] = [round(x, 4) for x in T.step0_loss(f"B3s{w}", T.B3_PT, ENV/"B3_iter0.pt")]
                         step0[f"B3W0s{w}"] = [round(x, 4) for x in T.step0_loss(f"B3W0s{w}", T.M2PP_PT, ENV/"B3W0_iter0.pt")]
+        gc.collect()
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
         if oks.get("e"):
             oks["h"] = check_h()
         if oks.get("h"):
             oks["f"] = check_f(step0)
         if oks.get("f"):
-            t1 = time.perf_counter()
-            rcs = {}
-            for name, args in (("tier2.py", []), ("tier2e.py", ["S2.13"]), ("tier2i.py", []), ("tier2j.py", [])):
-                rcs[name] = spawn([str(HERE/name), *args], "g")
-            oks["g"] = T.record("S2.20g", all(v == 0 for v in rcs.values()), f"hoi quy trong {time.perf_counter() - t1:.0f} s: ma thoat {rcs} (tang 2: S2.1-S2.4; S2.13; S2.17; S2.18)")
+            oks["g"] = regression()
     except Exception as e:                                       # loi cua chinh moc cung la ket qua, khong nuot
         import traceback
         traceback.print_exc()
