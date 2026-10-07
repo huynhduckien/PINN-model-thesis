@@ -199,3 +199,42 @@ Nghiệm bằng T_amb trên đáy và bốn mặt bên và tại t = 0, đạo h
 **4. Phán quyết bảng chỉ báo (C4 − C3, bốn Δ chính):** ĐÚNG chỉ khi cả bốn Δ ĐÚNG; SAI nếu có ít nhất một Δ SAI; còn lại KHÔNG KẾT LUẬN. Δ phụ (C2 − C1, ΔD bột như đặc) chấm riêng. Các số của phép chẩn đoán cục bộ (trường nhiệt, chu trình nhiệt, phần dư PDE của PINN, năng lượng) là **bằng chứng bổ sung**, không tham gia phán quyết.
 
 **5.** Hành động sau phán quyết giữ nguyên mục 4.3: không tự huấn luyện lại; nếu SAI hoặc KHÔNG KẾT LUẬN thì bảng chỉ báo ghi cả hai cột (PINN, FD) cho đến khi người dùng quyết.
+
+
+---
+
+## Kết quả 07 (2026-10-07 21:36, đồng hồ): phán quyết SAI cho bảng chỉ báo cách nhiệt (C4 − C3)
+
+Chạy theo A5: `fd_compare.py grid` (quyết định lưới chỉ dựa trên FD: lưới tham chiếu 5 µm), rồi `fd_compare.py compare` (`runs/FD/grid_decision.json`, `runs/FD/compare.json`). Sai số FD ước ở hai cận p = 2 và p = 1; ngân sách tol = 10% hiệu ứng của PINN.
+
+| Δ (nêm − vệt thường) | PINN | FD (5 µm) | \|lệch\| | e_FD (p=2 / p=1) | tol | p = 2 | p = 1 | Phán quyết |
+|---|---|---|---|---|---|---|---|---|
+| ΔD cách nhiệt (µm) | +18.31 | **+26.77** | 8.46 | 0.27 / 0.80 | 1.83 | SAI | SAI | **SAI** |
+| ΔT_pk (K) | +159.8 | +179.9 | 20.1 | 0.93 / 2.79 | 15.98 | SAI | SAI | **SAI** |
+| Δ thời gian lưu (µs) | +222.0 | +230.3 | 8.3 | 1.15 / 3.44 | 22.2 | ĐÚNG | ĐÚNG | **ĐÚNG** |
+| tỉ số tốc độ nguội | 0.5425 | không xác định | – | – | 0.0457 | – | – | **KHÔNG XÁC ĐỊNH** |
+| ΔD bột như đặc (µm) | +8.99 | +9.62 | 0.63 | 0.11 / 0.34 | 0.90 | ĐÚNG | KHÔNG KẾT LUẬN | **KHÔNG KẾT LUẬN** |
+
+**Phán quyết bảng chỉ báo (C4 − C3): SAI** (hai Δ SAI ở cả hai cận). **ΔD bột như đặc (C2 − C1): KHÔNG KẾT LUẬN.** Mục tiêu độ chính xác FD tol/3 đạt ở cả ΔD cách nhiệt (p = 2: 0.27 ≤ 0.61), ΔT_pk, Δ lưu; không đạt ở ΔD cách nhiệt khi p = 1 (0.80 > 0.61) và ở ΔD bột như đặc khi p = 1 (0.34 > 0.30).
+
+**Tỉ số nguội không xác định ở FD:** điểm chu trình của C4 vẫn trên T_liq đến hết cửa sổ 1.5 ms (FD: 1640 K tại t_end; PINN: 1406 K); đây là cửa sổ cắt cụt đã ghi trong `TIEN_DO.md`, nay thấy ở cả PINN lẫn FD ở mức khác nhau.
+
+**Bằng chứng bổ sung (chẩn đoán, không tham gia phán quyết)** — `runs/FD/fieldcheck.json`, `pinn_cycles.json`, so FD ở 10 µm:
+- Nhiệt độ: PINN lạnh hơn FD ở mọi ca; trung bình (T_PINN − T_FD) trên vùng T > 1000 K tại 70% quét: C1 −11…−17 K, C2 −26…−54 K, C3 −96…−139 K, C4 −122…−197 K; T tại t = 1500 µs ở điểm chu trình 50%: PINN/FD = 1151/1204 (C1), 1202/1268 (C2), 1186/1350 (C3), 1406/1640 K (C4).
+- Năng lượng lưu trữ (cùng định nghĩa): PINN thấp hơn FD 12.3 mJ (C2), 16.3 mJ (C3), 9.5 mJ (C4), tức 6–12%.
+- Phần dư PDE của chính PINN (chuẩn hóa theo |C(1+latent)θ_t| + |q|, ~350 điểm gần chùm): trung vị 5% (C1), 12% (C2), 17% (C3), 19% (C4); phân vị 90 là 12%, 28%, 64%, 77%.
+- Chẩn đoán F0 (trùng FD cũ tới 4e-16), F1 (R0: sâu −0.020 µm, rộng −0.087 µm ở 5 µm), `fd_coef` (κ_s lệch 0, nguồn 5e-16), F2 (MMS 10 → 5 µm: bậc 2.21–2.40) đều không cho thấy vấn đề ở FD. Bộ ba 20, 10, 5 µm của C1 không kết luận được bậc trên bài thật (độ sâu không đơn điệu ±0.4 µm, độ rộng bậc ~1).
+
+**Chấm dự đoán (mục 6):**
+
+| Dự đoán | Kết quả |
+|---|---|
+| F0–F3 đều đạt (~70%) | đạt về chẩn đoán, nhưng F1 phải sửa đặc tả (A3) và F2 bỏ khoảng bậc (A4) |
+| dừng ở 5 µm không cần C2–C4 ở 2.5 µm (~20%) | dừng ở 5 µm, nhưng nhờ A5 (bỏ giai đoạn B), không phải nhờ quy tắc hội tụ |
+| đạt mục tiêu tol/3: ΔD ~50%, lưu ~40%, tỉ số nguội ~35%, ΔT_pk ~25% | ΔD đạt ở p = 2 (không đạt ở p = 1); lưu đạt; ΔT_pk **đạt** (dự đoán sai: 0.93 K ≪ 5.3 K); tỉ số nguội không xác định (dự đoán sai: không nghĩ tới cửa sổ cắt cụt) |
+| phán quyết bảng: ĐÚNG ~30%, KHÔNG KẾT LUẬN ~35%, SAI ~35% | **SAI** (đúng loại có xác suất thấp nhất tôi ghi, 35%) |
+| ΔD bột như đặc KHÔNG KẾT LUẬN ~50% | **KHÔNG KẾT LUẬN** (đúng) |
+| FD hội tụ C1: sâu 88–92 µm, rộng 165–169 µm (~70%) | đúng: 90.57 và 167.71 µm |
+| nếu có Δ SAI, ΔD của FD lớn hơn PINN (~60%) | đúng: +26.77 so với +18.31 µm |
+
+**Giới hạn của kết quả này:** một điều kiện (300 W, 0.8 m/s), góc 45°, y_a = 0; mặt nạ cố định lấy từ PINN (phép lặp mặt nạ chưa kiểm); hai lưới (10 và 5 µm), không đo bậc hội tụ trên bài thật (giai đoạn B bỏ theo A5); tỉ số tốc độ nguội không đánh giá được; MMS dùng mặt nạ đứng yên nên chuyển động mũi bể chỉ được kiểm bằng so khớp hàm hệ số (`fd_coef`). Phán quyết chỉ nói về việc PINN có giải đúng **PDE hiện tại** hay không, không nói PDE có đúng vật lý hay không. Phán quyết SAI không phụ thuộc vào bậc hội tụ giả định (p = 2 và p = 1 cùng kết luận) nhưng phụ thuộc vào mức sai số FD không vượt xa hai cận đó.
