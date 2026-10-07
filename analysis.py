@@ -32,6 +32,8 @@ def net_indicator(net, sc, path):
         out[f"{f:.1f}"] = d
     t, T = L.cycle(net, sc, path, 0.7, sc["t_powder"])
     out["cycle"] = indicator.cycle_metrics(t, T, sc["T_solidus"], sc["T_liquidus"])
+    t5, T5 = L.cycle(net, sc, path, 0.5, sc["t_powder"])                                # prereg 05d: o 70% cua so sau dinh chi con 425 us (02 muc 20); 50% du dai
+    out["cycle50"] = indicator.cycle_metrics(t5, T5, sc["T_solidus"], sc["T_liquidus"])
     return out
 
 
