@@ -241,3 +241,53 @@ Lượt đầu (09:37): (a) khóa cũ lệch 0, `cycle50` B3 466.5 µs / 1.300e6
 ## 16. Kết quả S2.19 (09:40–09:44, 212 s, mã `545d959`): **ĐẠT** cả năm mục (sau sửa đặc tả ở mục 15); ghi lúc 09:44
 
 `legacy/ckpt` không đổi. (a) `cycle50`: B3 466.5 µs / 1.300e6 K/s, M2″ 495.0 µs / 1.345e6 K/s; các khóa cũ lệch 0. (b) lệnh M3a (khởi động từ trọng số và bao cuối của tham chiếu, `--stop-gates 0`, 2,000 bước), M3b (`--sobol-offset 10`), M3c (`--seed 7`), vòng 1 lấy bao và trọng số vòng 0: đúng cho cả hai hình học; bộ đánh giá ổn định đúng 8/8 trường hợp giả; "tách khỏi nhiễu" đúng ở hai chiều. (c) khói đầu-cuối của trình điều khiển (40 bước, 8 lần chạy, 116 s): thoát 0, DONE 8/8, 8 tag khác nhau, chuyển bao và trọng số đúng, sobol-offset và seed đúng. (d) chỉ báo tham chiếu từ trọng số: vệt thường D 89.52 µm, T_pk(50%) 2,810 K, lưu 432.5 µs, nguội 1.258e6 K/s; nêm D 107.83 µm, 2,970 K, 654.5 µs, 6.83e5 K/s; Δ: ΔD +18.31 µm, ΔT_pk +159.8 K, Δlưu +222.0 µs, tỉ số nguội 0.543, ΔW −0.91 µm. (e) hồi quy tầng 2, S2.13, S2.16 đạt (96 s). Chấm dự đoán: đạt cả năm lượt đầu 70% → **sai** (một lỗi đặc tả điểm kiểm ở (d), mã đúng). Chạy M3 đầy đủ ngay theo mục 14.
+
+## 17. Kết quả M3 cho mô hình bột cách nhiệt (09:44–10:36, 52 phút GPU, `experiments/m3_ins.py run`, `runs/M3s/report.json`): **ỔN ĐỊNH** theo tiêu chí đã khóa ở mục 14; ghi lúc 10:37
+
+Chạy đúng mục 14 (`supervise`, không sập, `legacy/ckpt` không đổi). **Cả ba biến thể hợp lệ cho cả hai hình học (3 cặp hợp lệ).** M3a: cổng đầy đủ cuối đạt, 0 cảnh báo (vệt thường E_id −9.7 mJ, nêm −6.2 mJ). M3b, M3c: mọi lần huấn luyện dừng `gates_passed`, mặt nạ hội tụ; vệt thường 1 lần huấn luyện (E_id −7.8 và −8.2 mJ), nêm 2 lần huấn luyện mỗi biến thể (vòng 0 không hội tụ như tham chiếu, vòng 1 hội tụ; E_id −7.2 và −8.4 mJ); riêng M3c nêm vòng 0 dùng 3,000 bước (691 s).
+
+**Chỉ báo từng lần chạy** (70% quét cho hình học; chu trình nhiệt ở 50% quét):
+| | D (µm) | W₊ / W₋ (µm) | dài (µm, chỉ ghi) | T_pk (K) | lưu (µs) | nguội (K/s) |
+|---|---|---|---|---|---|---|
+| vệt thường: tham chiếu | 89.52 | 87.6 / 86.8 | 503 | 2,810 | 432 | 1.258e6 |
+| M3a | 89.78 | 89.1 / 88.5 | 489 | 2,819 | 430 | 1.278e6 |
+| M3b | 89.55 | 87.9 / 87.0 | 503 | 2,810 | 437 | 1.233e6 |
+| M3c | 89.37 | 87.2 / 86.5 | 501 | 2,802 | 428 | 1.280e6 |
+| nêm: tham chiếu | 107.83 | 86.1 / 87.4 | 514 | 2,970 | 654 | 6.83e5 |
+| M3a | 108.50 | 86.7 / 88.0 | 529 | 2,974 | 662 | 6.82e5 |
+| M3b | 108.19 | 86.0 / 87.6 | 515 | 2,981 | 657 | 6.70e5 |
+| M3c | 107.70 | 86.2 / 87.6 | 511 | 2,969 | 644 | 6.43e5 |
+
+**Hiệu nêm − vệt thường theo từng cặp:**
+| | ΔD = ΔP (µm) | ΔT_pk (K) | Δlưu (µs) | tỉ số nguội | ΔW (µm) |
+|---|---|---|---|---|---|
+| tham chiếu | +18.31 | +159.8 | +222.0 | 0.543 | −0.91 |
+| M3a | +18.72 | +154.6 | +232.0 | 0.534 | −2.84 |
+| M3b | +18.64 | +170.7 | +220.5 | 0.543 | −1.35 |
+| M3c | +18.33 | +166.4 | +216.5 | 0.502 | +0.13 |
+
+**Tiêu chí khóa (mục 14):** (S-a) so với tham chiếu: |ΔD| ≤ 3 µm (lớn nhất: vệt thường 0.26, nêm 0.67), |ΔW±| ≤ 5 µm (lớn nhất 1.5 µm): đạt ở mọi biến thể. (S-b): |ΔD_v − ΔD_ref| ≤ 3 µm (lớn nhất 0.41), |ΔT_pk| ≤ 15 K (lớn nhất 10.9 K), |Δlưu| ≤ 50 µs (lớn nhất 10.0 µs), |Δ tỉ số nguội| ≤ 0.10 (lớn nhất 0.041): đạt ở cả ba cặp. **M3-cách-nhiệt ỔN ĐỊNH.**
+
+**Tách khỏi nhiễu** (|Δ_ref| ≥ 2 × lệch lớn nhất giữa các biến thể):
+| Đại lượng | hiệu ứng | nhiễu (lệch lớn nhất) | tách? |
+|---|---|---|---|
+| ΔD = ΔP | +18.31 µm | 0.41 µm (hiệu ứng gấp 45 lần) | **có** |
+| ΔT_pk | +159.8 K | 10.9 K | **có** |
+| Δ thời gian lưu | +222 µs | 10.0 µs | **có** |
+| tỉ số tốc độ nguội | 0.543 (lệch 0.457 khỏi 1) | 0.041 | **có** |
+| ΔW | −0.91 µm | 1.93 µm | **không** |
+
+Chiều dài (chỉ ghi, quy tắc R1): vệt thường 489–503 µm, nêm 511–529 µm: biến thiên giữa các lần chạy 14–18 µm; vẫn không dùng làm chỉ báo.
+
+**Chấm dự đoán (mục 14):** mỗi lần huấn luyện M3b, M3c ĐẠT 70% → đúng (6/6 chuỗi huấn luyện); M3a hợp lệ 80% → đúng; ≥ 2 cặp hợp lệ 75% → đúng (3); (S-a) 55% → đúng; ΔD ± 3 µm 60% → đúng (lệch 0.41); ΔT_pk ± 15 K 70% → đúng; Δlưu ± 50 µs 55% → đúng (10 µs); tỉ số nguội ± 0.10 60% → đúng; **M3 ỔN ĐỊNH (mọi tiêu chí) 25% → xảy ra** (tôi đã đánh giá thấp); ΔD tách khỏi nhiễu 70% → đúng; Δlưu và tỉ số nguội tách khỏi nhiễu 65% → đúng. Thời gian dự báo 50–60 phút, thực tế 52.
+
+**Nhận xét (số đo):** nhiễu của độ sâu ở mô hình cách nhiệt (± 0.4 µm cho ΔD; độ sâu từng hình học lệch ≤ 0.8 µm) **không lớn hơn** ở mô hình bột như đặc (± 0.3 µm) dù loss PDE cao hơn khoảng 10 lần: khớp PDE còn thô không làm các chỉ báo kích thước và chu trình nhiệt kém lặp lại hơn.
+
+**Giới hạn phải ghi cùng kết quả (không cắt bớt):**
+1. **Chỉ ba biến thể** (M3a tiếp nối tham chiếu, nên không độc lập; chỉ M3b, M3c độc lập), nên nhiễu là ước lượng thô. Ngưỡng 15 K, 50 µs, 0.10 là đề xuất của tôi (khóa trước khi chạy); các biến thể đạt xa dưới các ngưỡng đó.
+2. **M3 đo phương sai của quy trình huấn luyện, không đo độ đúng của mô hình.** Mọi kết quả phụ thuộc cùng các giả định: độ rộng chuyển tiếp 30 µm (D50), mặt nạ tĩnh theo bao bể chảy cực đại, k bột từ tương quan Moser ngoại suy, nhiệt dung bột không đổi sau khi chảy, bột dưới phần nhô chỉ dày 180 µm rồi chạm đáy giữ nhiệt độ môi trường, một điều kiện, α_s = 0.35 chưa hiệu chỉnh.
+3. **Chưa kiểm:** độ nhạy theo độ rộng chuyển tiếp (15 và 45 µm), theo sức chứa mạng (R3) và theo công thức tối ưu (không có L-BFGS), theo vị trí chùm y_a ≠ 0, theo độ dày bột dưới phần nhô; không có dữ liệu ngoài.
+4. Độ phân tán của các lần chạy nêm còn bao gồm một thay đổi nhỏ của mặt nạ (M3b, M3c lặp lại vòng lặp mặt nạ), nên nhiễu đã gồm một phần nhiễu mặt nạ; đây là ưu điểm của thiết kế (mục 14).
+5. ΔW không tách khỏi nhiễu: **không dùng làm chỉ báo** ở mô hình cách nhiệt (hiệu ứng ngược dấu với bột như đặc: −0.9 µm so với +2.7 µm, và nhiễu 1.9 µm).
+
+**Bảng chỉ báo cuối cùng của mô hình bột cách nhiệt (nêm − vệt thường; tham chiếu ± lệch lớn nhất giữa các biến thể):** độ sâu và độ xuyên **+18.3 ± 0.4 µm**; T_pk tại đáy lớp bột (50% quét) **+160 ± 11 K**; thời gian lưu trên T_sol **+222 ± 10 µs (+51%)**; tỉ số tốc độ nguội **0.543 ± 0.041**. Không dùng: chiều dài, độ rộng.
