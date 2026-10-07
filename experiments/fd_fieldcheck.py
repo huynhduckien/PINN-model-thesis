@@ -8,6 +8,7 @@ Do: (1) duong doc z tai x = x_chum(70%) - 73 um, y = 0; (2) duong ngang y trong 
 import copy
 import gc
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -21,10 +22,12 @@ import fdv2
 import maskphys
 from fd_cases import CASES
 from lock import gpu_lock
-from pinn_cycles import CK
+from pinn_cycles import CK, F08
 
 L = C.L
-OUT = ROOT/"runs"/"FD"/"fieldcheck.json"
+TAG = os.environ.get("PINN_TAG")                                               # prereg/08: PINN_TAG=f08 -> checkpoint cach nhiet huan luyen lai (C3, C4)
+ONLY = os.environ.get("ONLY")
+OUT = ROOT/"runs"/"FD"/("fieldcheck_f08.json" if TAG == "f08" else "fieldcheck.json")
 ENVP = {c: v[1] for c, v in CASES.items()}
 
 
@@ -41,7 +44,7 @@ def setup(case):
 
 def pinn_net(case, sc, path):
     net = L.build_net(sc, path, C.NETWORK)
-    net.load_state_dict(torch.load(CK[case][1], map_location="cpu"))
+    net.load_state_dict(torch.load(F08[case][1] if TAG == "f08" and case in F08 else CK[case][1], map_location="cpu"))
     return net
 
 
@@ -82,6 +85,8 @@ def residual_stats(net, sc, path, pts_um, t):
 def main():
     res = {}
     for case in CASES:
+        if ONLY and case not in ONLY.split(","):
+            continue
         sc, path = setup(case)
         run, envp = CASES[case]
         Lc = sc["L_c"]

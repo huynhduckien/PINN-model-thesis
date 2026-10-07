@@ -23,17 +23,19 @@ import config as C
 import fdv2
 import maskphys
 from fd_cases import CASES
-from fd_fieldcheck import pinn_net, setup
+from fd_fieldcheck import ONLY, TAG, pinn_net, setup
 from lock import gpu_lock
 
 L = C.L
-OUT = ROOT/"runs"/"FD"/"errormap.json"
+OUT = ROOT/"runs"/"FD"/("errormap_f08.json" if TAG == "f08" else "errormap.json")
 FRACS = (0.5, 0.7, 0.9)
 
 
 def main():
     res = {}
     for case in CASES:
+        if ONLY and case not in ONLY.split(","):
+            continue
         sc, path = setup(case)
         run, envp = CASES[case]
         Lc, rb = sc["L_c"], sc["L_c"]
