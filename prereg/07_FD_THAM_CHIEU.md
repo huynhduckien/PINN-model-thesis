@@ -167,3 +167,18 @@ Nghiệm bằng T_amb trên đáy và bốn mặt bên và tại t = 0, đạo h
 **2. F2 (quy tắc lưới thích ứng, khóa trước khi chạy).** Chạy từng toán tử ở 10 và 5 µm. Tính bậc quan sát p₁₀→₅ = log₂(e₁₀/e₅) (RMS). **Nếu p₁₀→₅ nằm trong [1.7, 2.3] ở cả bốn toán tử: F2 ĐẠT**, không chạy 2.5 µm (dùng p₁₀→₅ làm p_MMS cho mục 4.2). **Nếu bất kỳ toán tử nào ngoài khoảng đó:** chạy 2.5 µm cho **toán tử đó** (hộp thu nhỏ, rẻ), chấm theo p₅→₂.₅ ∈ [1.7, 2.3] đúng như bảng 4.4; nếu vẫn ngoài khoảng thì F2 TRƯỢT cho toán tử đó. Quy tắc dừng này chỉ dựa trên kết quả MMS, không dựa trên PINN.
 
 **3.** Quy tắc lưới thích ứng của mục 4.2 (giai đoạn B: C1 ở 2.5 µm luôn chạy) **chưa được sửa ở đây**; sẽ bàn riêng khi tới bước C1–C4, vì F1 hội tụ nhanh ở 5 µm không chứng minh được sơ đồ có bay hơi, ẩn nhiệt và mặt nạ cũng hội tụ nhanh.
+
+
+---
+
+## Sửa đổi A4 (2026-10-07 19:15, đồng hồ): F0, F1, F2 và `fd_coef` là chẩn đoán, không phải cổng chặn; bỏ khoảng bậc của F2
+
+**Nguyên tắc (người dùng):** FD chỉ để xác minh PINN có giải đúng PDE. Kết luận đúng/sai **chỉ** dựa vào so sánh PINN–FD trong ngân sách của mục 4.3, đã có tính sai số FD (e_FD). Nếu PINN nằm trong sai số cho phép thì PINN vượt qua phép kiểm.
+
+**Hệ quả (thay các điều kiện "một cái trượt thì dừng" ở mục 4.4, và mục 4.4 F2 / A3 điểm 2):**
+1. F0 (hồi quy FD cũ), F1 (R0), F2 (MMS) và `fd_coef` là **chẩn đoán**: dùng để **quy lỗi** khi PINN và FD lệch nhau (lỗi ở PINN hay ở FD). Chúng không phải điều kiện để được chạy bước 5. Lý do: nếu FD giải một PDE khác `L.pde` thì kết quả là PINN lệch FD (sai quy cho PINN); nếu PINN và FD khớp thì phán quyết ĐÚNG đã có hai bộ giải độc lập đồng ý, và các chẩn đoán chỉ bổ sung. Nếu một chẩn đoán cho thấy không hội tụ (sai số không giảm theo lưới) thì phải điều tra **trước khi diễn giải** một phán quyết SAI hoặc KHÔNG KẾT LUẬN.
+2. **Bỏ khoảng bậc [1.7, 2.3] của F2** làm tiêu chí; bậc quan sát chỉ được ghi như số liệu. Không chạy MMS ở 2.5 µm.
+3. Ước sai số FD dùng p_dùng = min(p_quan sát, 2) trong công thức GCI của mục 4.2 (nghiêm hơn, không nới: e_FD lớn hơn).
+4. Quy tắc chống thiên lệch của 4.2 giữ nguyên: lưới tham chiếu chỉ chọn theo hội tụ của chính FD, không theo việc PINN và FD có khớp hay không.
+
+**Công khai về thời điểm:** mục này viết **sau** khi đã có kết quả chẩn đoán nhưng **trước** khi có bất kỳ số so sánh PINN–FD nào. Phán quyết chính (mục 4.3) chưa được động tới nên các thay đổi trên không thể thiên lệch nó. Kết quả chẩn đoán đã có: F0 trùng FD cũ tới 4e-16; F1 (A3): sâu −0.020 µm, rộng −0.087 µm ở 5 µm (so ngưỡng tham khảo 0.61 µm), đóng năng lượng 2e-14; `fd_coef`: κ_s lệch 0, nguồn 5e-16; F2 (MMS, 10 → 5 µm): RMS 25.0 → 4.76 K (`B3`, p 2.39), 25.8 → 4.89 K (`B3W0`, p 2.40), 19.1 → 4.14 K (`B3s`, p 2.21), 19.7 → 3.96 K (`B3W0s`, p 2.31).
