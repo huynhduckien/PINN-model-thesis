@@ -1,6 +1,6 @@
 # Tổng kết tiến độ — PINN overhang không support (LPBF)
 
-Cập nhật: 2026-10-07 21:36 (đồng hồ; thêm kết quả kiểm chứng PINN bằng FD tham chiếu, `prereg/07`: mục 3, 4, 5, 6, 7, 8). Mục đích: một nơi duy nhất để kiểm tra những gì **đã đạt** và **chưa đạt**, và để khởi động lại công việc ở một cuộc hội thoại mới. Mọi số lấy từ file kết quả gốc (`runs/**/run.json`, `report.json`, `summary.json`) và các đăng ký trước trong `prereg/`; chỗ nào chưa tính lại độc lập thì ghi rõ ở mục 6. Cách gọi đúng của mô hình: xem mục 2.
+Cập nhật: 2026-10-08 02:17 (đồng hồ; thêm kết quả kiểm chứng PINN bằng FD tham chiếu `prereg/07` và kết quả huấn luyện lại đến hội tụ `prereg/08`: mục 4, 5, 6, 7). Mục đích: một nơi duy nhất để kiểm tra những gì **đã đạt** và **chưa đạt**, và để khởi động lại công việc ở một cuộc hội thoại mới. Mọi số lấy từ file kết quả gốc (`runs/**/run.json`, `report.json`, `summary.json`) và các đăng ký trước trong `prereg/`; chỗ nào chưa tính lại độc lập thì ghi rõ ở mục 6. Cách gọi đúng của mô hình: xem mục 2.
 
 ## 1. Mục tiêu và ràng buộc đã chốt
 
@@ -44,11 +44,13 @@ Cập nhật: 2026-10-07 21:36 (đồng hồ; thêm kết quả kiểm chứng P
 
 **Bảng này chưa được FD xác nhận (`prereg/07`, phán quyết SAI cho bảng cách nhiệt).** Cùng PDE, FD (5 µm) cho: ΔD **+26.8 µm** (PINN +18.3; ngân sách 10% hiệu ứng = 1.8 µm), ΔT_pk **+179.9 K** (PINN +159.8; ngân sách 16 K), Δ lưu +230.3 µs (PINN +222.0; **đúng** trong ngân sách 22 µs), tỉ số nguội **không xác định** ở FD (điểm chu trình của nêm chưa nguội trong cửa sổ 1.5 ms). ΔD bột như đặc: FD +9.6 µm (PINN +9.0): không kết luận (ĐÚNG ở p = 2, không kết luận ở p = 1). Bằng chứng bổ sung: PINN cách nhiệt lạnh hơn FD 100–230 K ở vùng đuôi, lưu trữ ít năng lượng hơn 6–12%, phần dư PDE trung vị 17–19% so với các số hạng; ở vệt thường bột như đặc thì khớp tốt (độ sâu 90.8 so với 90.6 µm). Đọc bảng trên như **số của PINN, chưa được xác minh độc lập**; xem `prereg/07` phần "Kết quả 07".
 
+**Sau huấn luyện lại đến hội tụ (`prereg/08`, 20000 bước Adam, 30 µm, một seed; số trong bảng trên chưa cập nhật):** ΔD +26.0 µm (FD +26.8; lệch 0.77 µm, **ĐÚNG**), ΔT_pk +161.4 K (FD +179.9; không kết luận), Δ lưu **+307 µs** (FD +230; **SAI**; phán quyết ĐÚNG ở 07 là do sai số bù trừ nhau), tỉ số nguội không xác định ở FD. Bảng chỉ báo vẫn SAI, nhãn theo prereg 08 là KHÔNG ĐỔI / XẤU HƠN. PINN mới sâu/rộng/dài C3 90.4 / 186.5 / 514 µm, C4 116.4 / 193.8 / 587 µm (FD 90.8 / 194.3 / 679 và 117.6 / 204.8 / 773). C4 mới **trượt cổng (b)** (hụt dưới T_amb 1.26% > 1%).
+
 ## 5. Chưa đạt
 
 | Mục | Vì sao | Ghi chú |
 |---|---|---|
-| **PINN cách nhiệt so với FD tham chiếu** | **SAI** ở ΔD (+18.3 so +26.8 µm) và ΔT_pk (+160 so +180 K) ở cả hai cận sai số FD; Δ lưu ĐÚNG; tỉ số nguội không xác định ở FD | `prereg/07` (A5, "Kết quả 07"); PINN lệch ở vùng đuôi và vùng bột phía sau chùm; chưa huấn luyện lại; số liệu này chỉ nói về việc PINN có giải đúng **PDE hiện tại** hay không |
+| **PINN cách nhiệt so với FD tham chiếu** | `prereg/07` (PINN gốc): **SAI** ở ΔD (+18.3 so +26.8 µm) và ΔT_pk (+160 so +180 K); Δ lưu ĐÚNG (do bù trừ sai số). `prereg/08` (huấn luyện lại 20000 bước): ΔD **ĐÚNG** (+26.0), Δ lưu **SAI** (+307 so +230 µs), ΔT_pk không kết luận (lệch 18.5 K, tol 16 K); tỉ số nguội không xác định ở FD | H1 (chưa hội tụ) đúng một phần: sửa được độ sâu, không sửa được vùng đuôi (lạnh hơn FD 150–230 K), thiếu hụt năng lượng C3 (−11%) và ΔT_pk; phần dư PDE chỉ giảm 1.65–1.78 lần; chưa đạt, cần đăng ký 09 cho các giả thuyết còn lại (sức chứa mạng, lấy mẫu vùng sau chùm và bột, L-BFGS); chỉ nói về việc PINN có giải đúng **PDE hiện tại** hay không |
 | M3 theo tiêu chí gốc (không cách nhiệt) | KHÔNG ỔN ĐỊNH, chỉ do tiêu chí lát thời gian của chiều dài | phán quyết giữ nguyên (R1); chiều dài bị loại khỏi chỉ báo |
 | M5 hiệu chỉnh, mọi neo thực nghiệm | không có dữ liệu ngoài; người dùng quyết không làm S0.8 | mọi kết quả là "trong mô hình này"; chưa biết sai số so với thực tế |
 | Tiêu chí in được (dross, võng, độ xuyên tới hạn) | chưa có | nên chưa kết luận được "support-free" |
