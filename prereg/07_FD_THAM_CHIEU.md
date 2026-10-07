@@ -123,3 +123,17 @@ Windows: chuỗi in trong mã dùng không dấu; lệnh dài ghi file rồi ch�
 ## 8. Giới hạn của 07 (khóa)
 
 Chỉ nói PINN có giải đúng **PDE hiện tại** trong ngân sách 10% hiệu ứng, một điều kiện (300 W, 0.8 m/s), một hình học (45°, y_a = 0), mặt nạ cố định lấy từ PINN (phép lặp mặt nạ chưa kiểm). Ngân sách 10% và hệ số 3 là quy ước, không suy ra từ vật lý hay từ yêu cầu của hội đồng. Không nói gì về vật lý, thực nghiệm, độ nhạy theo giả định (σ ẩn nhiệt, k_bột, độ sâu miền, W nhỏ, ρCp sau chảy), hay mô hình lịch sử bột khác (melt, cons): các việc đó sau 07, cần đăng ký riêng.
+
+---
+
+## Sửa đổi A1 (2026-10-07 18:44, đồng hồ): F0 trượt lần đầu vì đặc tả sai đầu vào của ca tham chiếu; ngưỡng không đổi
+
+**Kết quả lần chạy đầu của F0** (`smoke/fd0_regress.py`, `runs/FD/f0.json`, giữ làm bản ghi): ca `F5_old_h10` **đạt** (đỉnh trong 4e-16 tương đối; rộng/sâu/dài trong 5e-13 µm; đóng năng lượng 8e-14; 5250 bước, trùng cả số bước). Ca `OH0_a1s_overhang_h10` **trượt**: GPU chạy 5250 bước còn tham chiếu 5251; đỉnh lệch 8.6e-5 tương đối, rộng 0.0096 µm, sâu 0.0022 µm, dài 0.0285 µm (vượt 1e-9 và 1e-6 µm của tiêu chí khóa). Đóng năng lượng 8e-14.
+
+**Chẩn đoán (đã kiểm bằng số):** số bước = ceil(t_end/dt₀) với t_end/dt₀ **bằng đúng số nguyên** 5250 về mặt toán học, nên ceil lật theo sai số làm tròn 1 ulp của h. Lượt tham chiếu `OH0` khởi chạy qua dòng lệnh `--h 10`, tức h = 10.0×1e-6 = 9.999999999999999e-06 (nhỏ hơn 1e-05 một ulp) → t_end/dt₀ = 5250.000000000001 → 5251 bước (khớp `report.json` của tham chiếu: `steps` 5251, `cfl_dt0_us` 0.2857142857142857). `F5_old_h10` dùng hằng 10e-6 → 5249.999999999998 → 5250 bước. Tôi dùng 10e-6 cho cả hai nên lệch một bước ở ca `OH0`. **Không phải lỗi bản chuyển sang GPU:** ca `F5_old_h10` trùng đến sai số làm tròn máy. Đây là lỗi đặc tả của tôi (không nhận ra t_end/dt₀ là số nguyên chính xác).
+
+**Sửa (không đổi ngưỡng nào):**
+1. F0: mỗi ca tham chiếu chạy với **đúng đầu vào h mà tham chiếu đã dùng**: `F5_old_h10` với h = 10e-6; `OH0_a1s_overhang_h10` với h = 10.0*1e-6. Ngưỡng giữ nguyên: đỉnh trong 1e-9 tương đối; rộng/sâu/dài trong 1e-6 µm; đóng năng lượng < 1e-9; **thêm** kiểm số bước bằng tham chiếu.
+2. Cho các lượt chính (numerics `v2`) tránh đúng cái bẫy này: số bước = ceil(t_end/dt₀ − 1e-6) (xác định, không phụ thuộc 1 ulp của h). dt không vượt dt₀ quá 1e-6 tương đối, chắc chắn nằm trong hệ số an toàn 0.4.
+
+Hai lượt F0 lần đầu giữ nguyên trong `runs/FD/f0.json` (đổi tên thành `f0_run1.json` trước khi chạy lại).
