@@ -1,14 +1,12 @@
-"""Ve be chay cua hai truong (vet thuong va nem). MOI O GIU THANG MAU RIENG (min-max cua chinh o ve), khong gop thang.
+"""Ve be chay cua hai truong (vet thuong va nem) trong MOT hinh: hai o canh nhau (vet thuong | nem), mat cat ngang y-Z vuong goc huong quet, ve CA MIEN theo Z,
+mang tai 70% duong quet, tai x = x_laser + x_offset (am = SAU tam chum, laser da chieu qua). MOI O GIU THANG MAU RIENG (min-max cua chinh o ve), khong gop thang.
 
-Hinh mat cat ngang (mac dinh): hai o canh nhau (vet thuong | nem), mat cat y-Z vuong goc huong quet, ve CA MIEN theo Z, tai x = x_laser + x_offset, mang tai 70% quet:
     python plot_melt_pool.py OUT_DIR TEN RUN1 CKPT1 RUN2 CKPT2 --x-offset UM [--titles T1 T2]
-    Ra OUT_DIR/TEN_melt_pool_transverse.png va TEN_melt_pool_transverse.json.
-Chuoi thoi gian (them --fracs): mat cat doc tai y = 0 o cac thoi diem quet cho truoc, truc x TUYET DOI (laser di chuyen), moi thoi diem mot cap (vet thuong, nem):
-    python plot_melt_pool.py OUT_DIR TEN RUN1 CKPT1 RUN2 CKPT2 --fracs 0.1 0.3 0.7
-    Ra OUT_DIR/TEN_melt_pool_sequence.png va TEN_melt_pool_sequence.json. Dau laser (mui ten do) tren mat tai x_laser(t).
+Ra OUT_DIR/TEN_melt_pool_transverse.png va TEN_melt_pool_transverse.json (vi tri mat cat, dai nhiet do, do sau).
+Vi du: python plot_melt_pool.py runs/Figures insulated B3s runs/Fs/B3s_it0/B3s_<tag>.pt B3W0s runs/Fs/B3W0s_it1/B3W0s_<tag>.pt --x-offset -73
 Z = do sau duoi mat tren (0 o tren cung). T la nhiet do dau ra cua mang (K), khong scale, khong cat; thang mau jet.
 Duong den = T_solidus (bien be chay); duong trang lien nen den = ranh gioi vat lieu (day lop bot, mat nghieng cua nem) tu ban do vat lieu cua mo hinh, chi ve khi
-mat cat co ca bot lan ran. Khong ghi chu, khong ghi kich thuoc len hinh (tru tieu de o). Hai truc cung ti le (um). Chay tren CPU, khong can khoa GPU.
+mat cat co ca bot lan ran. Khong ghi chu, khong ghi kich thuoc, khong ve dau laser len hinh (tru tieu de o). Hai truc cung ti le (um). Chay tren CPU, khong can khoa GPU.
 """
 import argparse
 import json
@@ -30,7 +28,6 @@ import indicator
 L = C.L
 FRAC = 0.7
 UM = 1e6
-LASER_C = "crimson"
 
 
 def load(run, ckpt, frac):
@@ -45,18 +42,6 @@ def load(run, ckpt, frac):
     T = lambda x, y, depth: L.field(net, sc, np.column_stack([x/Lc, y/Lc, (Lz - depth)/Lc, np.full(len(x), t_s)]))
     mat = lambda y, depth: L.powder_index((Lz - depth)/Lc, sc, y/Lc)
     return sc, (Lx, Ly, Lz), xl, T, mat
-
-
-def longitudinal(run, ckpt, frac):
-    """Mat cat doc tai y = 0 phu toan mien theo x (buoc 2 um), toa do tuyet doi."""
-    sc, (Lx, Ly, Lz), xl, T, mat = load(run, ckpt, frac)
-    dz = np.arange(0.0, 150e-6 + 0.5e-6, 1e-6)
-    xs = np.arange(-Lx/2, Lx/2 + 0.5e-6, 2e-6)
-    X, Z = np.meshgrid(xs, dz, indexing="ij")
-    Tl = T(X.ravel(), np.zeros(X.size), Z.ravel()).reshape(X.shape)
-    depth = np.array([0.0 if (e := indicator.line_extent(Tl[i], dz, sc["T_solidus"])) is None else e[1] for i in range(len(xs))])
-    info = dict(run=run, ckpt=str(ckpt), frac=frac, x_laser_um=xl*UM, T_longitudinal=[float(Tl.min()), float(Tl.max())], depth_y0_max_um=float(depth.max()*UM))
-    return dict(long=(X*UM, Z*UM, Tl, mat(np.zeros(X.shape), Z)), T_sol=sc["T_solidus"], info=info, x_laser=xl*UM)
 
 
 def transverse(run, ckpt, x_offset, frac=FRAC):
@@ -95,37 +80,12 @@ def pair(f1, f2, titles, x_offset, name, out):
     fig, axs = plt.subplots(1, 2, figsize=(15.0, 5.4), constrained_layout=True, gridspec_kw=dict(width_ratios=[float(np.ptp(f["trans"][0])) for f in (f1, f2)]))
     for j, (f, t) in enumerate(zip((f1, f2), titles)):
         A, Z, T, S = f["trans"]
-        panel(fig, axs[j], A, Z, T, S, f["T_sol"], "y (µm)", f"({'ab'[j]}) {t}: transverse section at x − x_laser = {x_offset:+.0f} µm", aspect=14)
+        panel(fig, axs[j], A, Z, T, S, f["T_sol"], "y (µm)", f"({'ab'[j]}) {t}: transverse section {abs(x_offset):.0f} µm {'behind' if x_offset < 0 else 'ahead of'} the laser centre", aspect=14)
     path = out/f"{name}_melt_pool_transverse.png"
     fig.savefig(path, dpi=190)
     plt.close(fig)
     print("da luu", path)
     (out/f"{name}_melt_pool_transverse.json").write_text(json.dumps(dict(left=f1["info"], right=f2["info"]), indent=2), encoding="utf-8")
-
-
-def sequence(fs, titles, fracs, name, out):
-    """Mot cot, 2 x len(fracs) hang: theo tung thoi diem quet, vet thuong roi nem; truc x tuyet doi; dau laser tren mat; moi o thang mau rieng."""
-    n = 2*len(fracs)
-    fig, axs = plt.subplots(n, 1, figsize=(13.5, 2.0*n + 0.6), constrained_layout=True, sharex=True)
-    k = 0
-    for fi, frac in enumerate(fracs):
-        for gi, t in enumerate(titles):
-            f = fs[gi][fi]
-            A, Z, T, S = f["long"]
-            ax = axs[k]
-            panel(fig, ax, A, Z, T, S, f["T_sol"], "x (µm)", f"({'abcdefghij'[k]}) {t}: {frac:.0%} of the scan, section through the laser centre line (y = 0)", aspect=8)
-            ax.set_ylim(Z.max(), -34)
-            ax.annotate("", xy=(f["x_laser"], -2), xytext=(f["x_laser"], -30), arrowprops=dict(arrowstyle="-|>", color=LASER_C, lw=2), annotation_clip=False)
-            if k == 0:
-                ax.text(f["x_laser"] + 12, -20, "laser, scanning +x", color=LASER_C, fontsize=9, va="center")
-            if k < n - 1:
-                ax.set_xlabel("")
-            k += 1
-    path = out/f"{name}_melt_pool_sequence.png"
-    fig.savefig(path, dpi=170)
-    plt.close(fig)
-    print("da luu", path)
-    (out/f"{name}_melt_pool_sequence.json").write_text(json.dumps({t: [f["info"] for f in fs[gi]] for gi, t in enumerate(titles)}, indent=2), encoding="utf-8")
 
 
 def main():
@@ -136,23 +96,12 @@ def main():
     ap.add_argument("ckpt1")
     ap.add_argument("run2")
     ap.add_argument("ckpt2")
-    ap.add_argument("--x-offset", type=float, help="mat cat ngang tai x = x_laser + UM (bat buoc khi khong co --fracs)")
-    ap.add_argument("--fracs", type=float, nargs="+")
+    ap.add_argument("--x-offset", type=float, required=True, help="mat cat ngang tai x = x_laser + UM (am = sau tam chum)")
     ap.add_argument("--titles", nargs=2, default=["Plain track", "Wedge (overhang)"])
     a = ap.parse_args()
     out = Path(a.out)
     out.mkdir(parents=True, exist_ok=True)
     runs = ((a.run1, a.ckpt1), (a.run2, a.ckpt2))
-    if a.fracs:
-        fs = [[longitudinal(r, c, fr) for fr in a.fracs] for r, c in runs]
-        for lst in fs:
-            for f in lst:
-                i = f["info"]
-                print(f"{i['run']} @ {i['frac']:.0%} (x_laser = {i['x_laser_um']:+.0f} um): T mat cat doc {i['T_longitudinal'][0]:.1f}..{i['T_longitudinal'][1]:.1f} K (thang rieng), sau nhat {i['depth_y0_max_um']:.1f} um")
-        sequence(fs, a.titles, a.fracs, a.name, out)
-        return
-    if a.x_offset is None:
-        sys.exit("thieu --x-offset (hoac dung --fracs cho chuoi thoi gian)")
     f1, f2 = (transverse(r, c, a.x_offset) for r, c in runs)
     for f in (f1, f2):
         i = f["info"]
