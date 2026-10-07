@@ -55,7 +55,6 @@ Cập nhật: 2026-10-07 16:00 (đồng hồ). Mục đích: một nơi duy nh�
 | Mép mũi bể w_x = 8 µm | không quét | chỉ quét hệ số chung cho mặt phân cách lớp bột và mép bao |
 | Góc nêm ≠ 45°, vị trí chùm ≠ đỉnh nêm, công suất/tốc độ khác | ngoài phạm vi "một điều kiện" | cần nới ràng buộc để nói về thiết kế |
 | Kết khối (M6) | không nằm trong kế hoạch | mô hình không có biến dạng hình học |
-| Hai hình cũ `runs/M1/B3_melt_pool_*.png` | quy chuẩn cũ; chưa xóa (chờ quyết định) | không nằm trong git; xóa là không khôi phục được |
 
 ## 6. Giới hạn của chính phép kiểm này (đọc trước khi dùng số)
 
@@ -82,6 +81,6 @@ Cập nhật: 2026-10-07 16:00 (đồng hồ). Mục đích: một nơi duy nh�
 - **Mã:** `config.py` (RUNS, scales, build), `runner.py` (run/supervise/watch), `gates.py`, `energy.py`, `maskphys.py`, `analysis.py`, `indicator.py`, `lock.py` (khóa GPU), `legacy/lpbf_pinn.py` (đóng băng, không sửa; sha 16 `b0f5955a2385e79c`).
 - **Thí nghiệm:** `experiments/f_insul.py` (vòng lặp mặt nạ; `--soft`, `--width W`), `m3_ins.py`, `g_width.py`, `h4_alpha.py`; kiểm: `smoke/tier0…tier2l.py`.
 - **Kết quả chính:** `runs/M1` (B3), `runs/M2pp` (M2″), `runs/Fs` (cách nhiệt 30 µm), `runs/Fw45`, `runs/Fw15`, `runs/Fw/summary.json`, `runs/M3s/report.json`, `runs/ENV` (bao vòng 0).
-- **Hình:** `runs/Figures/` (sơ đồ hình học, mặt cắt ngang) bằng `plot_geometry.py`, `plot_melt_pool.py`.
+- **Hình:** (hai hình cũ của B3 trong `runs/M1/` đã xóa 2026-10-07; `runs/M1/indicator.json` giữ lại vì các mốc test dùng) `runs/Figures/` (sơ đồ hình học, mặt cắt ngang) bằng `plot_geometry.py`, `plot_melt_pool.py`.
 - **Lệnh mẫu:** hình chuẩn `python plot_melt_pool.py runs/Figures insulated B3s runs/Fs/B3s_it0/B3s_d2f9f1db.pt B3W0s runs/Fs/B3W0s_it1/B3W0s_ba6419f6.pt --x-offset -73`; tổng hợp độ nhạy `python experiments/g_width.py summarize`.
-- **Luật làm việc:** không dùng `git add -A` (thêm file theo tên); chỉ một phiên ghi/commit; đăng ký trước, không nới tiêu chí; kiểm tốc độ (~0.17 s/bước) và `nvidia-smi` trước khi chạy dài (trần thời gian của runner theo đồng hồ có thể biến "đạt" thành "không đạt" giả); GPU một tiến trình một lúc (`lock.py`); thư mục `tailieu/` là của người dùng, chưa vào git.
+- **Luật làm việc:** không dùng `git add -A` (thêm file theo tên); chỉ một phiên ghi/commit; đăng ký trước, không nới tiêu chí; kiểm tốc độ (~0.17 s/bước) và `nvidia-smi` trước khi chạy dài (trần thời gian của runner theo đồng hồ có thể biến "đạt" thành "không đạt" giả); GPU một tiến trình một lúc (`lock.py`); thư mục `tailieu/` (tài liệu tham khảo, hiện có bài Moser 2019 về ứng suất dư) đã vào git.
