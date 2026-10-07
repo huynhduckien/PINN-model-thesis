@@ -97,3 +97,9 @@ Lượt (g) riêng (13:20–13:49, `python smoke/tier2l.py g`, bộ nhớ GPU tr
 Ghi nhận phụ (đã sửa ở 06b, nay đã loại trừ): VRAM đầy do tiến trình cha giữ bộ nhớ chỉ là nghi phạm của lượt đầu; lượt riêng chạy với GPU trống vẫn chậm, nên lời giải thích VRAM ở mục 10 **không phải nguyên nhân đủ**; giữ phần sửa khung chạy (g) riêng.
 
 **Hệ quả:** theo quy tắc của mốc test ("trượt mục nào thì dừng"), lượt đầy đủ G **chưa chạy**. Ba phương án đưa cho người dùng quyết định (xem hội thoại). Trần thời gian của lượt đầy đủ (`mỗi lần huấn luyện ≤ 75 phút`, `mỗi độ rộng ≤ 120 phút`) sẽ bị sát nếu máy còn chậm 4 lần (mỗi lần huấn luyện 2,000 bước ≈ 23 phút; nêm 2–3 lần).
+
+## 12. Kết quả (g) lượt lại và phán quyết S2.20 (14:40–14:53); ghi lúc 14:55
+
+Theo yêu cầu của người dùng ("hãy thử lại"), tôi đo lại tốc độ lúc 14:39 bằng 200 bước `B3s` một mình: **0.195 s/bước** (so 0.68 lúc 14:21): máy đã hồi phục; nguyên nhân chậm 13:03–14:25 **không xác định** (tiến trình điều khiển từ xa vẫn chạy, nên đó chưa chắc là nguyên nhân; chưa kiểm). Không sửa tiêu chí nào; **không áp dụng** phương án đổi trần theo bước (đã nêu với người dùng, không dùng).
+
+Lượt (g) đúng tiêu chí khóa, `python smoke/tier2l.py g` (14:40–14:53, 13 phút): tầng 2 (S2.1–S2.4) đạt 65 s; S2.13 đạt 9 s; **S2.17 đạt** 349 s (S2.17(h): 0.170 và 0.173 s/bước, tỉ lệ loss 0.441 / 0.455, E_id −22.1 / −10.0 mJ); **S2.18 đạt** 449 s; `legacy/ckpt` không đổi. **S2.20 ĐẠT cả tám mục** ((a)–(f), (h) ở lượt 12:22–13:19, mục 10; (g) ở lượt này). Dự đoán mục 3: (a)–(e) đạt ngay lượt đầu 65% → đúng; (f) 85% → đúng; (g) 85% → **sai ở lượt đầu** (lỗi khung kiểm rồi máy chậm), đạt ở lượt lại. Lượt đầy đủ G bắt đầu 14:53 (`experiments/f_insul.py run --soft --width 45`, rồi 15).
