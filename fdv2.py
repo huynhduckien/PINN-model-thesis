@@ -98,8 +98,29 @@ def q_ev_dim(T, sc):
     return L.q_evap((T - sc["Tamb"])/sc["T_c"], sc)*sc["k"]*sc["T_c"]/sc["L_c"]
 
 
-def solve_surface_T(Tc, k_of_T, h, gtop, sc, evap):
-    """Nhiet do mat Ts tu k(Ts)(Tc - Ts)/(h/2) = q_ev(Ts) + g (chia doi; ve trai giam theo Ts). Tra (Ts, q_ev(Ts))."""
+def solve_surface_T(Tc, k_of_T, h, gtop, sc, evap, Ts0=None):
+    """Nhiet do mat Ts tu k(Ts)(Tc - Ts)/(h/2) = q_ev(Ts) + g. Secant (nhanh) tu (Tc, Ts_truoc); kiem phan du tuong doi < 1e-9, neu khong dat
+    thi quay ve chia doi toan mien (solve_surface_T_bisect). Tra (Ts, q_ev(Ts))."""
+    F = lambda Ts: k_of_T(Ts)*(Tc - Ts)/(h/2) - (q_ev_dim(Ts, sc) if evap else 0.0) - gtop
+    Tmax_ = 2.0*sc["ev"]["T_cap"]
+    a = Tc.clone()
+    b = (Tc*(1 - 1e-3)) if Ts0 is None else Ts0.clone()
+    Fa, Fb = F(a), F(b)
+    for _ in range(12):
+        den = Fb - Fa
+        c = torch.where(den.abs() > 0, b - Fb*(b - a)/torch.where(den.abs() > 0, den, torch.ones_like(den)), b)
+        c = c.clamp(1.0, Tmax_)
+        a, Fa, b = b, Fb, c
+        Fb = F(b)
+    q = q_ev_dim(b, sc) if evap else torch.zeros_like(b)
+    scale = k_of_T(b)*(Tc - b).abs()/(h/2) + q + gtop.abs() if torch.is_tensor(gtop) else k_of_T(b)*(Tc - b).abs()/(h/2) + q
+    if float((Fb.abs()/torch.clamp(scale, min=1e3)).max()) < 1e-9:                    # san 1e3 W/m2: o vung nguoi q_ev ~ 1e-50 nen ti le vo nghia
+        return b, q
+    return solve_surface_T_bisect(Tc, k_of_T, h, gtop, sc, evap)
+
+
+def solve_surface_T_bisect(Tc, k_of_T, h, gtop, sc, evap):
+    """Nhiet do mat Ts nhu tren, chia doi (ve trai giam theo Ts); cham nhung chac chan. Tra (Ts, q_ev(Ts))."""
     lo = torch.full_like(Tc, 1.0)
     hi = torch.full_like(Tc, 2.0*sc["ev"]["T_cap"])
     for _ in range(90):
@@ -112,8 +133,25 @@ def solve_surface_T(Tc, k_of_T, h, gtop, sc, evap):
     return Ts, (q_ev_dim(Ts, sc) if evap else torch.zeros_like(Ts))
 
 
+def probe_weights(dom, h, pts):
+    """Chi so o goc va trong so noi suy tuyen tinh (kep o bien) cho cac diem (x, y, z) SI tren luoi tam o."""
+    out = []
+    n = (round(dom["Lx"]/h), round(dom["Ly"]/h), round(dom["Lz"]/h))
+    lo = (-dom["Lx"]/2, -dom["Ly"]/2, 0.0)
+    for p in pts:
+        idx, ws = [], []
+        for a in range(3):
+            f = (p[a] - lo[a])/h - .5
+            i0 = min(max(int(math.floor(f)), 0), n[a] - 2)
+            w1 = min(max(f - i0, 0.0), 1.0)
+            idx.append(i0)
+            ws.append(torch.tensor([1.0 - w1, w1], dtype=DT, device=DEV))
+        out.append((idx, ws[0][:, None, None]*ws[1][None, :, None]*ws[2][None, None, :]))
+    return out
+
+
 def solve(sc, path, dom, h, *, t_end=None, evap=None, src="physical", src_fn=None, gtop_fn=None, T0=None, snap_fracs=(0.7,),
-          zmode="exact", steps_limit=None, masked=False, verbose=False):
+          zmode="exact", steps_limit=None, masked=False, verbose=False, probes=()):
     """Phuong trinh: rho cp C*(y,z) dH/dt = div(k_s kappa_s K grad T) + q (prereg/07 muc 2); H(T) = T + (L_f/c_p) Phi((T - T_m)/sigma).
     src 'physical': nguon laser PINN (tach bien). src 'fn': src_fn(t) -> (nx,ny,nz) [W/m3] (MMS). gtop_fn(t) -> (nx,ny) [W/m2]: thong luong them o mat tren (MMS).
     So buoc = ceil(t_end/dt0 - 1e-6) (prereg/07 A1)."""
@@ -138,6 +176,12 @@ def solve(sc, path, dom, h, *, t_end=None, evap=None, src="physical", src_fn=Non
     zprof = source_profile(sc, z, h, zmode) if src == "physical" else None
     fq = sc["k"]*Tc_/sc["L_c"]**2                                              # q* -> W/m3
     snaps, want = {}, {int(math.ceil(f*steps)): f for f in snap_fracs}
+    Ts_prev = None
+    pw = probe_weights(dom, h, probes)
+    pT = torch.full((n_run + 1, max(len(pw), 1)), float("nan"), dtype=DT, device=DEV)
+    if pw:
+        for j, (ix, wgt) in enumerate(pw):
+            pT[0, j] = (T[ix[0]:ix[0] + 2, ix[1]:ix[1] + 2, ix[2]:ix[2] + 2]*wgt).sum()
     t0w = time.perf_counter()
     for n in range(n_run):
         t = (n + .5)*dt
@@ -155,13 +199,16 @@ def solve(sc, path, dom, h, *, t_end=None, evap=None, src="physical", src_fn=Non
                 kfun = lambda Ts: ktop*L.k_melt((Ts - Ta)/Tc_, sc)
             else:
                 kfun = lambda Ts: ktop.expand_as(Ts)
-            Ts, qev = solve_surface_T(T[:, :, -1], kfun, h, g, sc, evap)
+            Ts, qev = solve_surface_T(T[:, :, -1], kfun, h, g, sc, evap, Ts_prev)
+            Ts_prev = Ts
             div[:, :, -1] -= (qev + g)/h
             Eevap = Eevap + qev.sum()*h*h*dt
         hh = hh + dt*(div + q)/(rhoCp*coef.C[None])
         T = interp_table(hh, hg, Tg)
         Ein = Ein + q.sum()*cellv*dt
         Eloss = Eloss + loss*dt
+        for j, (ix, wgt) in enumerate(pw):
+            pT[n + 1, j] = (T[ix[0]:ix[0] + 2, ix[1]:ix[1] + 2, ix[2]:ix[2] + 2]*wgt).sum()
         if (n + 1) in want:
             xl = float(L.laser_at(((n + 1)*dt)/tc, path)[0])*sc["L_c"]
             snaps[want[n + 1]] = dict(T=T.clone(), t=(n + 1)*dt, laser_x=xl)
@@ -170,6 +217,7 @@ def solve(sc, path, dom, h, *, t_end=None, evap=None, src="physical", src_fn=Non
     stored = (rhoCp*coef.C[None]*(hh - h0)).sum()*cellv
     E = [float(v) for v in (Ein, Eloss, Eevap, stored)]
     return dict(T=T, snaps=snaps, h_um=h*1e6, grid=[nx, ny, nz], steps=steps, dt_us=dt*1e6, t_end=te, x=x, y=y, z=z,
+                probe_t=(torch.arange(n_run + 1, dtype=DT, device="cpu")*dt).numpy(), probe_T=pT.cpu().numpy()[:, :len(pw)],
                 energy=dict(input_mJ=E[0]*1e3, loss_wall_mJ=E[1]*1e3, evap_mJ=E[2]*1e3, stored_mJ=E[3]*1e3,
                             closure_relative=abs(E[0] - E[1] - E[2] - E[3])/max(abs(E[0]), 1e-300)),
                 seconds=time.perf_counter() - t0w)
