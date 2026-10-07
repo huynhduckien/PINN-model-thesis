@@ -104,7 +104,7 @@ Theo yêu cầu của người dùng ("hãy thử lại"), tôi đo lại tốc 
 
 Lượt (g) đúng tiêu chí khóa, `python smoke/tier2l.py g` (14:40–14:53, 13 phút): tầng 2 (S2.1–S2.4) đạt 65 s; S2.13 đạt 9 s; **S2.17 đạt** 349 s (S2.17(h): 0.170 và 0.173 s/bước, tỉ lệ loss 0.441 / 0.455, E_id −22.1 / −10.0 mJ); **S2.18 đạt** 449 s; `legacy/ckpt` không đổi. **S2.20 ĐẠT cả tám mục** ((a)–(f), (h) ở lượt 12:22–13:19, mục 10; (g) ở lượt này). Dự đoán mục 3: (a)–(e) đạt ngay lượt đầu 65% → đúng; (f) 85% → đúng; (g) 85% → **sai ở lượt đầu** (lỗi khung kiểm rồi máy chậm), đạt ở lượt lại. Lượt đầy đủ G bắt đầu 14:53 (`experiments/f_insul.py run --soft --width 45`, rồi 15).
 
-## 13. Kết quả lượt đầy đủ G (14:53–15:39, 46 phút GPU, `experiments/f_insul.py run --soft --width W`, `runs/Fw45`, `runs/Fw15`, tổng hợp `runs/Fw/summary.json`); ghi lúc 15:43
+## 13. Kết quả lượt đầy đủ G (14:53–15:39, 46 phút GPU, `experiments/f_insul.py run --soft --width W`, `runs/Fw45`, `runs/Fw15`, tổng hợp `runs/Fw/summary.json`); ghi lúc 15:40
 
 Chạy đúng mục 4 (45 rồi 15; vệt thường trước; `supervise`; không sập; `legacy/ckpt` không đổi).
 
@@ -134,7 +134,7 @@ Chạy đúng mục 4 (45 rồi 15; vệt thường trước; `supervise`; khôn
 3. ΔT_pk(45 µm) lệch 17.9 K, thấp hơn ngưỡng "trong nhiễu" 21.8 K (2 × nhiễu của 30 µm) nhưng cao hơn dung sai 15 K của S-b ở `05` mục 14; lớp "trong nhiễu" dựa trên nhiễu đo ở 30 µm, nên đây là phân loại sát biên.
 4. Vẫn chỉ quét một hệ số chung cho hai mép; w_x = 8 µm không quét; mọi giả định khác của `05` mục 18 giữ nguyên.
 
-## 14. Cập nhật bảng chỉ báo cuối cùng và mục phạm vi (người dùng yêu cầu; 15:45)
+## 14. Cập nhật bảng chỉ báo cuối cùng và mục phạm vi (người dùng yêu cầu; 15:40)
 
 Mục này thay thế các dòng tương ứng trong `05` mục 17 (bảng chỉ báo cuối) và mục 18 (6, 7); `05` giữ nguyên làm bản ghi lịch sử và có mục 19 trỏ tới đây.
 
