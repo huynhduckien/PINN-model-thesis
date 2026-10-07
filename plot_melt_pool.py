@@ -1,14 +1,11 @@
-"""Ve be chay: mat cat doc (x-Z tai y = 0) va mat cat ngang (y-Z), mang tai 70% duong quet.
+"""Ve be chay cua hai truong (vet thuong va nem) trong MOT hinh luoi 2 x 2: cot = (vet thuong | nem), hang = (mat cat doc x-Z tai y = 0 | mat cat ngang y-Z),
+mang tai 70% duong quet. MOI O GIU THANG MAU RIENG (min-max cua chinh o ve), khong gop thang.
 
-Hai hinh rieng cho mot truong:
-    python plot_melt_pool.py [RUN] [CKPT.pt] [OUT_DIR] [--name TEN] [--x-offset UM]
-    mac dinh: RUN = B3, CKPT = legacy/ckpt/B3_84d0289e.pt, OUT_DIR = runs/M1, TEN = RUN; mat cat ngang tai x co do sau lon nhat doc y = 0.
-    Ra OUT_DIR/TEN_melt_pool_longitudinal.png, TEN_melt_pool_transverse.png va TEN_melt_pool.json.
-Mot hinh gop hai truong (vet thuong va nem), luoi 2 x 2 (cot: vet thuong | nem; hang: mat cat doc | mat cat ngang), MOI O GIU THANG MAU RIENG:
-    python plot_melt_pool.py compose OUT_DIR TEN RUN1 CKPT1 RUN2 CKPT2 [--x-offset UM]
-    Ra OUT_DIR/TEN_melt_pool_composite.png va TEN_melt_pool_composite.json.
---x-offset UM: mat cat ngang tai x = x_laser + UM (de so sanh hai truong cung vi tri).
-Z = do sau duoi mat tren (0 o tren cung). T la nhiet do dau ra cua mang (K), khong scale, khong cat; thang mau jet tu min den max cua chinh o ve.
+    python plot_melt_pool.py OUT_DIR TEN RUN1 CKPT1 RUN2 CKPT2 [--x-offset UM] [--titles T1 T2]
+Ra OUT_DIR/TEN_melt_pool_composite.png va TEN_melt_pool_composite.json (vi tri mat cat, dai nhiet do).
+Vi du: python plot_melt_pool.py runs/Figures insulated B3s runs/Fs/B3s_it0/B3s_<tag>.pt B3W0s runs/Fs/B3W0s_it1/B3W0s_<tag>.pt --x-offset -73
+--x-offset UM: mat cat ngang tai x = x_laser + UM (cung vi tri cho ca hai truong); mac dinh: tai x co do sau lon nhat doc y = 0 cua tung truong.
+Z = do sau duoi mat tren (0 o tren cung). T la nhiet do dau ra cua mang (K), khong scale, khong cat; thang mau jet.
 Duong den = T_solidus (bien be chay); duong trang net dut mong = ranh gioi vat lieu (day lop bot, mat nghieng cua nem), tu ban do vat lieu cua mo hinh,
 chi ve khi mat cat co ca bot lan ran. Khong ghi kich thuoc len hinh. Hai truc cung ti le (um). Chay tren CPU, khong can khoa GPU.
 """
@@ -78,18 +75,6 @@ def panel(fig, ax, A, Z, T, S, T_sol, xlabel, title=None):
     fig.colorbar(m, ax=ax, pad=0.015, aspect=18).set_label("Temperature (K)")
 
 
-def draw_single(f, name, out):
-    for key, xlabel in (("long", "x − x_laser (µm)"), ("trans", "y (µm)")):
-        fig, ax = plt.subplots(figsize=(8.0, 3.6), constrained_layout=True)
-        A, Z, T, S = f[key]
-        panel(fig, ax, A, Z, T, S, f["T_sol"], xlabel)
-        path = out/f"{name}_melt_pool_{'longitudinal' if key == 'long' else 'transverse'}.png"
-        fig.savefig(path, dpi=200)
-        plt.close(fig)
-        print("da luu", path)
-    (out/f"{name}_melt_pool.json").write_text(json.dumps(f["info"], indent=2), encoding="utf-8")
-
-
 def compose(f1, f2, titles, name, out):
     """Luoi 2 x 2: cot = (vet thuong | nem), hang = (mat cat doc | mat cat ngang). Moi o co thang mau rieng."""
     fig, axs = plt.subplots(2, 2, figsize=(16.0, 7.6), constrained_layout=True, gridspec_kw=dict(height_ratios=[1.0, 1.35]))
@@ -105,41 +90,24 @@ def compose(f1, f2, titles, name, out):
 
 
 def main():
-    if len(sys.argv) > 1 and sys.argv[1] == "compose":
-        ap = argparse.ArgumentParser()
-        ap.add_argument("cmd")
-        ap.add_argument("out")
-        ap.add_argument("name")
-        ap.add_argument("run1")
-        ap.add_argument("ckpt1")
-        ap.add_argument("run2")
-        ap.add_argument("ckpt2")
-        ap.add_argument("--x-offset", type=float)
-        ap.add_argument("--titles", nargs=2, default=["Plain track", "Wedge (overhang)"])
-        a = ap.parse_args()
-        out = Path(a.out)
-        out.mkdir(parents=True, exist_ok=True)
-        f1, f2 = fields(a.run1, a.ckpt1, a.x_offset), fields(a.run2, a.ckpt2, a.x_offset)
-        for f in (f1, f2):
-            i = f["info"]
-            print(f"{i['run']} @ {FRAC:.0%}: T mat cat doc {i['T_longitudinal'][0]:.1f}..{i['T_longitudinal'][1]:.1f} K, mat cat ngang {i['T_transverse'][0]:.1f}..{i['T_transverse'][1]:.1f} K (thang rieng); "
-                  f"mat cat ngang tai x - x_laser = {i['x_section_offset_um']:+.0f} um")
-        compose(f1, f2, a.titles, a.name, out)
-        return
     ap = argparse.ArgumentParser()
-    ap.add_argument("run", nargs="?", default="B3")
-    ap.add_argument("ckpt", nargs="?", default=str(C.LEGACY/"ckpt"/f"{C.TAG_KNOWN['B3']}.pt"))
-    ap.add_argument("out", nargs="?", default=str(ROOT/"runs"/"M1"))
-    ap.add_argument("--name")
+    ap.add_argument("out")
+    ap.add_argument("name")
+    ap.add_argument("run1")
+    ap.add_argument("ckpt1")
+    ap.add_argument("run2")
+    ap.add_argument("ckpt2")
     ap.add_argument("--x-offset", type=float)
+    ap.add_argument("--titles", nargs=2, default=["Plain track", "Wedge (overhang)"])
     a = ap.parse_args()
     out = Path(a.out)
     out.mkdir(parents=True, exist_ok=True)
-    f = fields(a.run, a.ckpt, a.x_offset)
-    i = f["info"]
-    print(f"{a.name or a.run} ({a.run}, {Path(a.ckpt).stem}) @ {FRAC:.0%}: T mat cat doc {i['T_longitudinal'][0]:.1f}..{i['T_longitudinal'][1]:.1f} K, mat cat ngang {i['T_transverse'][0]:.1f}..{i['T_transverse'][1]:.1f} K "
-          f"(khong scale); mat cat ngang tai x - x_laser = {i['x_section_offset_um']:+.0f} um (sau nhat tai {i['x_deepest_offset_um']:+.0f} um)")
-    draw_single(f, a.name or a.run, out)
+    f1, f2 = fields(a.run1, a.ckpt1, a.x_offset), fields(a.run2, a.ckpt2, a.x_offset)
+    for f in (f1, f2):
+        i = f["info"]
+        print(f"{i['run']} @ {FRAC:.0%}: T mat cat doc {i['T_longitudinal'][0]:.1f}..{i['T_longitudinal'][1]:.1f} K, mat cat ngang {i['T_transverse'][0]:.1f}..{i['T_transverse'][1]:.1f} K (thang rieng); "
+              f"mat cat ngang tai x - x_laser = {i['x_section_offset_um']:+.0f} um (sau nhat tai {i['x_deepest_offset_um']:+.0f} um)")
+    compose(f1, f2, a.titles, a.name, out)
 
 
 if __name__ == "__main__":
