@@ -182,3 +182,20 @@ Nghiệm bằng T_amb trên đáy và bốn mặt bên và tại t = 0, đạo h
 4. Quy tắc chống thiên lệch của 4.2 giữ nguyên: lưới tham chiếu chỉ chọn theo hội tụ của chính FD, không theo việc PINN và FD có khớp hay không.
 
 **Công khai về thời điểm:** mục này viết **sau** khi đã có kết quả chẩn đoán nhưng **trước** khi có bất kỳ số so sánh PINN–FD nào. Phán quyết chính (mục 4.3) chưa được động tới nên các thay đổi trên không thể thiên lệch nó. Kết quả chẩn đoán đã có: F0 trùng FD cũ tới 4e-16; F1 (A3): sâu −0.020 µm, rộng −0.087 µm ở 5 µm (so ngưỡng tham khảo 0.61 µm), đóng năng lượng 2e-14; `fd_coef`: κ_s lệch 0, nguồn 5e-16; F2 (MMS, 10 → 5 µm): RMS 25.0 → 4.76 K (`B3`, p 2.39), 25.8 → 4.89 K (`B3W0`, p 2.40), 19.1 → 4.14 K (`B3s`, p 2.21), 19.7 → 3.96 K (`B3W0s`, p 2.31).
+
+
+---
+
+## Sửa đổi A5 (2026-10-07 21:35, đồng hồ): bỏ giai đoạn B, lưới tham chiếu 5 µm, phán quyết hai cận, Δ không xác định
+
+**Công khai về thời điểm.** Mục này viết **sau** khi đã thấy: kết quả FD giai đoạn A (10 và 5 µm, `runs/FD/fd_cases.json`), chu trình nhiệt của PINN tính lại từ checkpoint (`runs/FD/pinn_cycles.json`) và phép chẩn đoán cục bộ (`runs/FD/fieldcheck.json`), nên tôi đã biết ở mức sơ bộ PINN và FD lệch nhau thế nào (ΔD cách nhiệt PINN +18.31 µm so với FD khoảng +26.8 µm). **Phán quyết chính thức (`fd_compare.py compare`) chưa chạy** vào lúc ghi mục này. Quyết định bỏ giai đoạn B là của người dùng ("khóa phán quyết", chọn phương án (b) trong hai phương án tôi nêu); lý do tôi nêu: giai đoạn B tốn ước 2–3 giờ GPU và ΔD cách nhiệt lệch ~8.5 µm so với sai số FD ước chỉ ≤ 0.8 µm ngay cả khi giả định bậc hội tụ xấu nhất (p = 1).
+
+**1. Giai đoạn B bỏ; lưới tham chiếu = 5 µm** (lưới mịn nhất đã chạy cho cả bốn ca). Không có đo bậc hội tụ trên bài thật (bộ ba 20, 10, 5 µm của C1 chỉ cho kết quả không kết luận được: độ sâu không đơn điệu, độ rộng bậc ~1).
+
+**2. Phán quyết hai cận** (thay phép tính e_FD của mục 4.2/4.3 và A4 điểm 3): với mỗi Δ_Q tính sai số FD hai lần, e(p) = 1.25·|Q₅ − Q₁₀|/(2^p − 1) với **p = 2** (A4) và **p = 1** (xấu nhất); chấm trạng thái ĐÚNG/SAI/KHÔNG KẾT LUẬN theo mục 4.3 ở từng cận. Trạng thái của Δ_Q là trạng thái chung nếu hai cận **cùng** kết luận; nếu khác nhau thì KHÔNG KẾT LUẬN. Ngân sách tol_Q (10% hiệu ứng của PINN) và mục tiêu tol_Q/3 giữ nguyên; mục tiêu tol_Q/3 chỉ còn là con số báo cáo, không còn quyết định lưới.
+
+**3. Δ không xác định:** Δ_Q có giá trị không xác định ở FD (NaN ở một trong hai lưới; xảy ra với tỉ số tốc độ nguội của nêm cách nhiệt, vì điểm chu trình vẫn trên T_liq đến hết cửa sổ mô phỏng 1.5 ms: FD cho T = 1640 K tại t_end, PINN 1406 K) ghi **KHÔNG XÁC ĐỊNH**, không tham gia quyết định lưới, và **không** biến bảng thành ĐÚNG.
+
+**4. Phán quyết bảng chỉ báo (C4 − C3, bốn Δ chính):** ĐÚNG chỉ khi cả bốn Δ ĐÚNG; SAI nếu có ít nhất một Δ SAI; còn lại KHÔNG KẾT LUẬN. Δ phụ (C2 − C1, ΔD bột như đặc) chấm riêng. Các số của phép chẩn đoán cục bộ (trường nhiệt, chu trình nhiệt, phần dư PDE của PINN, năng lượng) là **bằng chứng bổ sung**, không tham gia phán quyết.
+
+**5.** Hành động sau phán quyết giữ nguyên mục 4.3: không tự huấn luyện lại; nếu SAI hoặc KHÔNG KẾT LUẬN thì bảng chỉ báo ghi cả hai cột (PINN, FD) cho đến khi người dùng quyết.
