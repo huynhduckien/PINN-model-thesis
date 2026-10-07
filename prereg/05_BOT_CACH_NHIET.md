@@ -291,3 +291,23 @@ Chiều dài (chỉ ghi, quy tắc R1): vệt thường 489–503 µm, nêm 511�
 5. ΔW không tách khỏi nhiễu: **không dùng làm chỉ báo** ở mô hình cách nhiệt (hiệu ứng ngược dấu với bột như đặc: −0.9 µm so với +2.7 µm, và nhiễu 1.9 µm).
 
 **Bảng chỉ báo cuối cùng của mô hình bột cách nhiệt (nêm − vệt thường; tham chiếu ± lệch lớn nhất giữa các biến thể):** độ sâu và độ xuyên **+18.3 ± 0.4 µm**; T_pk tại đáy lớp bột (50% quét) **+160 ± 11 K**; thời gian lưu trên T_sol **+222 ± 10 µs (+51%)**; tỉ số tốc độ nguội **0.543 ± 0.041**. Không dùng: chiều dài, độ rộng.
+
+## 18. Phạm vi của mô hình (ghi 10:42; theo yêu cầu người dùng, sau khi xem sơ đồ hình học `runs/Figures/geometry_overhang_2d.png`)
+
+Mục này mô tả **mô hình PINN đã dùng cho M2, M3 và các bảng chỉ báo** (bậc `B3s` vệt thường, `B3W0s` nêm; mô hình bột dẫn nhiệt như đặc `B3`, `B3W0` đã chạy trước đó có cùng hình học). Mọi báo cáo, bản thảo, luận văn phải dùng cách gọi dưới đây; không gọi kết quả là "mô phỏng quá trình in overhang" hay "kết quả support free".
+
+**Cách gọi đúng:** *mô hình PINN nhiệt (dẫn nhiệt + ẩn nhiệt nóng chảy + bay hơi) cho một đường quét đơn dọc mép phần rắn có mặt nghiêng 45° hướng xuống, trong miền hữu hạn, bột cách nhiệt với mặt nạ vùng đã chảy, một điều kiện công nghệ, chưa có dữ liệu ngoài.*
+
+**1. Hình học (đúng như sơ đồ):** miền 1500 × 480 × 240 µm (vệt thường: 1500 × 380 × 240 µm), lớp bột 60 µm ở trên cùng; phần rắn có mặt nghiêng 45° (mặt dưới hướng xuống), đỉnh nêm tại y = 0 ở đáy lớp bột; phía y < 0 là bột dưới phần nhô, đi xuống tới đáy miền (không có đế); phần rắn kéo dài đều theo x (hình lăng trụ). Vệt thường: lớp bột 60 µm trên nền rắn dày 180 µm, dùng làm mốc để lấy hiệu nêm − vệt thường.
+
+**2. Quá trình:** một đường quét đơn theo +x từ x = −550 µm đến +650 µm, chùm đi dọc y = 0 (đúng đỉnh nêm: một nửa chùm trên phần rắn, một nửa trên bột dưới phần nhô); 300 W (tăng dốc 10 µs), 0.8 m/s, bán kính chùm 40 µm, 1.5 ms. Nguồn nhiệt thể tích Beer–Lambert: α_s = 0.35 → α_eff = 0.422, β = 37,415 m⁻¹ (xuyên 26.7 µm), tương quan Moser 2019 cho bột kim loại sáng, **chưa đo hay hiệu chỉnh cho IN718 ở dự án này**.
+
+**3. Vật liệu và vật lý:** IN718 hiệu dụng (ρ = 8000, c_p = 600, k = 22 W/m·K; T_sol 1533 K, T_liq 1609 K; ẩn nhiệt qua nhiệt dung biểu kiến, σ = 150 K); dẫn nhiệt pha lỏng nhân 2.8 (xấp xỉ đối lưu Marangoni); bay hơi theo Fang (T_cap 6,000 K) ở mặt trên. Bột: nhiệt dung 0.55 lần; **dẫn nhiệt: (i) mô hình bột như đặc: bằng rắn (bột chỉ khác nhiệt dung); (ii) mô hình cách nhiệt: 0.02346 lần rắn (k_eff 0.516 W/m·K, Moser Eq. 12, ngoại suy cho IN718/argon) ngoài vùng đã chảy**, vùng đã chảy dùng mặt nạ tĩnh theo bao bể chảy cực đại (lặp ngoài cho tới hội tụ), mũi bể ở +47 µm; chuyển tiếp (mặt phân cách lớp bột, mép bao) rộng 10–90% = **30 µm** (giả định cỡ hạt D50 = 30 µm, **chưa kiểm độ nhạy**); nhiệt dung bột không đổi sau khi chảy.
+
+**4. Điều kiện biên:** mặt trên z = Lz: đoạn nhiệt trừ thông lượng bay hơi; **đáy z = 0 và bốn mặt bên: nhiệt độ môi trường (ràng buộc cứng)**; ban đầu: nhiệt độ môi trường. Hệ quả hình học: đáy miền đóng vai tấm làm mát cách lớp bột 180 µm, không phải đế thật; bột dưới phần nhô trong thực tế có thể dày hơn nhiều. **Độ nhạy theo độ sâu miền và theo các mặt bên chưa kiểm.**
+
+**5. Không có trong mô hình:** biến dạng hình học (kết khối, võng, dross, bắn tóe), dòng chảy chất lỏng chi tiết, nhiều đường quét (hatch), các lớp trước, tích lũy nhiệt giữa các đường, ứng suất, dịch chuyển đỉnh nêm, góc nêm khác 45°, công suất và tốc độ khác.
+
+**6. Cái mô hình cho biết (đã qua cổng trung thực và M3 cách nhiệt ỔN ĐỊNH):** hiệu nêm − vệt thường của độ sâu và độ xuyên **+18.3 ± 0.4 µm**, T_pk tại đáy lớp bột (50% quét) **+160 ± 11 K**, thời gian lưu trên T_sol tại điểm đó **+222 ± 10 µs**, tốc độ nguội **0.54 ± 0.04** lần; độ rộng và chiều dài **không** là chỉ báo. Mô hình bột như đặc cho +9.0 µm (cận dưới). Nhiễu là nhiễu của quy trình huấn luyện (ba biến thể, hai độc lập), **không** phải sai số so với thực tế.
+
+**7. Cái mô hình chưa cho biết:** không có tiêu chí in được (dross, võng, độ xuyên tới hạn); không có neo thực nghiệm hay phương pháp độc lập cho bài phi tuyến có nêm; độ nhạy theo độ rộng chuyển tiếp, độ sâu miền, sức chứa mạng (R3), công thức tối ưu (không có L-BFGS), α_s, k bột, góc nêm, vị trí chùm so với đỉnh nêm chưa kiểm.
