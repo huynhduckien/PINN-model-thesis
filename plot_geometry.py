@@ -51,7 +51,7 @@ def section_yz(ax, sc, tp):
     ax.text(12, -30, "laser, centre at y = 0 (scan comes out of the page)", color=LASER_C, fontsize=8.5, va="center", clip_on=False)
     ax.text(ys[0] + 6, zs[-1] + 22, "bottom: T held at ambient", fontsize=8.5, va="center")
     ax.text(-135, 28, "powder layer, 60 µm", fontsize=9, va="center", ha="center")
-    ax.text(-130, 150, "powder under the overhang\n(no substrate: powder down to the bottom)", fontsize=9, va="center", ha="center")
+    ax.text(-95, 150, "powder under the overhang\n(no substrate: powder\ndown to the bottom)", fontsize=9, va="center", ha="center")
     ax.text(150, 105, "solid part", fontsize=9, va="center", ha="center", color="white")
     ax.annotate("edge of the solid part, under the beam centre", xy=(0, tp), xytext=(-228, tp + 26), fontsize=8.5, arrowprops=dict(arrowstyle="-", lw=0.8))
 
