@@ -28,7 +28,8 @@ TOL = 0.61                                                                  # um
 
 
 def main():
-    hs = [float(a) for a in sys.argv[1:]] or [10.0, 5.0, 2.5]
+    verdict_only = sys.argv[1:] == ["verdict"]
+    hs = [] if verdict_only else ([float(a) for a in sys.argv[1:]] or [10.0, 5.0])
     sc, trk, p = R0.params()
     path = L.make_path(sc, trk)
     dom = dict(Lx=sc["domain"][0], Ly=sc["domain"][1], Lz=sc["domain"][2])
@@ -52,12 +53,15 @@ def main():
               f"closure {r['energy']['closure_relative']:.1e} ({r['seconds']:.0f} s FD, {res[f'{hu:g}']['seconds_r0']:.0f} s R0)", flush=True)
         OUT.parent.mkdir(parents=True, exist_ok=True)
         OUT.write_text(json.dumps(res, indent=2))
-    if all(k in res for k in ("10", "5", "2.5")):
-        e = {k: (abs(res[k]["dD"]), abs(res[k]["dW"])) for k in ("10", "5", "2.5")}
-        ok_tol = e["2.5"][0] <= TOL and e["2.5"][1] <= TOL
-        ok_mono = all(e["10"][i] > e["5"][i] > e["2.5"][i] for i in (0, 1))
-        ok_clo = all(res[k]["closure"] < 1e-9 for k in ("10", "5", "2.5"))
-        res["verdict"] = dict(ok=bool(ok_tol and ok_mono and ok_clo), tol_um=TOL, within_tol_at_2p5=bool(ok_tol), monotone=bool(ok_mono), closure=bool(ok_clo))
+    ks = sorted((k for k in res if k != "verdict"), key=float, reverse=True)           # tho -> min; prereg/07 A3: cham o luoi min nhat da chay
+    if len(ks) >= 2:
+        e = {k: (abs(res[k]["dD"]), abs(res[k]["dW"])) for k in ks}
+        fine = ks[-1]
+        ok_tol = e[fine][0] <= TOL and e[fine][1] <= TOL
+        ok_mono = all(e[a][i] > e[b][i] for a, b in zip(ks[:-1], ks[1:]) for i in (0, 1))
+        ok_clo = all(res[k]["closure"] < 1e-9 for k in ks)
+        res["verdict"] = dict(ok=bool(ok_tol and ok_mono and ok_clo), tol_um=TOL, grids_um=ks, finest_um=fine, within_tol_at_finest=bool(ok_tol),
+                              monotone_over_grids_run=bool(ok_mono), closure=bool(ok_clo), amendment="A3")
         OUT.write_text(json.dumps(res, indent=2))
         print("F1", "DAT" if res["verdict"]["ok"] else "TRUOT", json.dumps(res["verdict"]))
 

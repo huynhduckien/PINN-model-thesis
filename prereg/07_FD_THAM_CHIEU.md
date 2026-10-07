@@ -154,3 +154,16 @@ T_ms = T_amb + ΔT·G_x·G_y·G_z·w(τ), ΔT = 4500 K, G_x = ½(1+cos(2πx/L_x)
 Nghiệm bằng T_amb trên đáy và bốn mặt bên và tại t = 0, đạo hàm theo z bằng 0 ở mặt trên. Số hạng nguồn bù S = `L.pde`(θ_ms) + `L.q_volume`, tính bằng autograd ở mỗi bước tại tâm ô (nhân k T_c/r_b² để về W/m³); biên mặt trên: thông lượng ra = q_ev(T_s) + g, với g = −q_ev(T_ms mặt trên) để T_ms thỏa. Sai số: RMS của (T_FD − T_ms) trên mọi ô tại t = 40 µs. **Bậc quan sát p = log₂(e₅/e₂.₅) phải nằm trong [1.7, 2.3] ở cả bốn toán tử** (khoảng 2 ± 0.3 của bảng 4.4); ghi thêm p giữa 10 và 5 µm. **Mốc bậc cho 4.2:** p_MMS của ca C1, C2, C3, C4 là p quan sát (5 → 2.5 µm) của toán tử cùng tên (`B3`, `B3W0`, `B3s`, `B3W0s`).
 
 **4.** Các mục khác của 07 giữ nguyên.
+
+
+---
+
+## Sửa đổi A3 (2026-10-07 19:01, đồng hồ): F1 đo ở lưới mịn nhất đã chạy; quy tắc lưới thích ứng cho F2 (viết trước khi chạy F2)
+
+**Bối cảnh và công khai về thời điểm sửa.** Người dùng quyết: "nếu chạy tốt thì không cần 2.5 µm". F1 đã chạy ở 10 và 5 µm **trước** mục này và cho (`runs/FD/f1.json`): ở 10 µm: sâu_FD − sâu_R0 = −0.213 µm, rộng −0.259 µm, đóng năng lượng 3.9e-15; ở 5 µm: sâu −0.020 µm, rộng −0.087 µm, đóng năng lượng 2.1e-14 (R0 trùng S0.4: sâu 85.94, rộng 122.00, dài 520.16 µm). Tức đoạn sửa dưới đây **được viết sau khi đã thấy kết quả 10 và 5 µm của F1**, theo quyết định của người dùng, không phải đăng ký trước thuần túy. Không nới ngưỡng dung sai nào: nó chỉ đổi lưới dùng để chấm.
+
+**1. F1 (sửa).** Tiêu chí chấm ở **lưới mịn nhất đã chạy** thay vì cố định 2.5 µm: |sâu_FD − sâu_R0| ≤ **0.61 µm** và |rộng_FD − rộng_R0| ≤ **0.61 µm** ở lưới đó; sai số (sâu và rộng) giảm nghiêm ngặt qua các lưới đã chạy; đóng năng lượng < 1e-9 ở mọi lưới đã chạy. Lưới 2.5 µm **không** được chạy cho F1; vì vậy **không xác nhận** tính đơn điệu qua ba lưới và không có đo bậc hội tụ trên R0 (chỉ hai điểm). Chấm ở lưới thô hơn không làm tiêu chí dễ hơn (sai số ở 5 µm lớn hơn ở 2.5 µm).
+
+**2. F2 (quy tắc lưới thích ứng, khóa trước khi chạy).** Chạy từng toán tử ở 10 và 5 µm. Tính bậc quan sát p₁₀→₅ = log₂(e₁₀/e₅) (RMS). **Nếu p₁₀→₅ nằm trong [1.7, 2.3] ở cả bốn toán tử: F2 ĐẠT**, không chạy 2.5 µm (dùng p₁₀→₅ làm p_MMS cho mục 4.2). **Nếu bất kỳ toán tử nào ngoài khoảng đó:** chạy 2.5 µm cho **toán tử đó** (hộp thu nhỏ, rẻ), chấm theo p₅→₂.₅ ∈ [1.7, 2.3] đúng như bảng 4.4; nếu vẫn ngoài khoảng thì F2 TRƯỢT cho toán tử đó. Quy tắc dừng này chỉ dựa trên kết quả MMS, không dựa trên PINN.
+
+**3.** Quy tắc lưới thích ứng của mục 4.2 (giai đoạn B: C1 ở 2.5 µm luôn chạy) **chưa được sửa ở đây**; sẽ bàn riêng khi tới bước C1–C4, vì F1 hội tụ nhanh ở 5 µm không chứng minh được sơ đồ có bay hơi, ẩn nhiệt và mặt nạ cũng hội tụ nhanh.
