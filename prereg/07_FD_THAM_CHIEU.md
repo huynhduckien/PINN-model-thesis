@@ -137,3 +137,20 @@ Chỉ nói PINN có giải đúng **PDE hiện tại** trong ngân sách 10% hi�
 2. Cho các lượt chính (numerics `v2`) tránh đúng cái bẫy này: số bước = ceil(t_end/dt₀ − 1e-6) (xác định, không phụ thuộc 1 ulp của h). dt không vượt dt₀ quá 1e-6 tương đối, chắc chắn nằm trong hệ số an toàn 0.4.
 
 Hai lượt F0 lần đầu giữ nguyên trong `runs/FD/f0.json` (đổi tên thành `f0_run1.json` trước khi chạy lại).
+
+
+---
+
+## Sửa đổi A2 (2026-10-07 18:54, đồng hồ): làm rõ đặc tả F1, F2 và cách tổ chức mã `v2`; **không đổi ngưỡng nào**
+
+Viết **trước khi chạy F1 và F2**, sau khi viết mã nhưng chưa chạy mốc nào của F1, F2.
+
+**1. Tổ chức mã.** Numerics `v2` nằm trong `fdv2.py` (không nằm trong `fdref.py`); `fdref.py` giữ nguyên numerics `old` cho phép hồi quy F0. Nguồn laser và κ_s được tính **dạng tách biến** (nguồn = tích hàm của (x, y) và hàm của z; κ_s = 1 + (r−1)·s_κ(y,z)·(1 − σ_x(x,t)·e(y,z))) vì gọi `q_volume` / `maskphys.kappa_static` trên lưới 3D ở mỗi bước quá chậm. Công thức là của hai hàm gốc; để không chép bản riêng mà chưa kiểm, `smoke/fd_coef.py` so với chính hai hàm đó tại mọi tâm ô lưới 20 µm ở ba thời điểm (30, 60, 90% quét), ba bậc (B3W0s, B3s, B3W0), tiêu chí sai lệch tương đối lớn nhất < 1e-12. **Kết quả đã chạy lúc ghi mục này: ĐẠT** (κ_s: 0; nguồn: 4.4e-16 và 5.1e-16; κ_s mặt trên: 0; `runs/FD/coef.json`). Dạng nguồn trong `solve` dùng tích phân chính xác theo z trên từng ô (`zmode = "exact"`, prereg 3.2); phép kiểm so điểm giữa (`zmode = "mid"`).
+
+**2. F1 (làm rõ).** Chỉ báo của cả FD lẫn R0 đo bằng **cùng một hàm** `indicator.pool_dims`: FD qua nội suy tuyến tính theo tâm ô của trường lưới (kẹp ở biên), R0 qua nghiệm giải tích; tại **thời điểm của ảnh chụp 70% của chính lượt FD** (R0 tính lại ở thời điểm đó). Bước R0: `legacy/overhang_r0.py`, cấu hình `PHYS_A0` (bột tắt, ẩn nhiệt tắt, không bay hơi; α = 0.35, β = 1/40 µm). Tiêu chí giữ như bảng 4.4: ở 2.5 µm, |sâu_FD − sâu_R0| và |rộng_FD − rộng_R0| ≤ **0.61 µm**; sai số (sâu và rộng) giảm đơn điệu nghiêm ngặt khi lưới 10 → 5 → 2.5 µm; đóng năng lượng < 1e-9 ở cả ba lưới.
+
+**3. F2 (làm rõ).** MMS kiểm bốn toán tử của PINN: `B3` (vệt thường, `L.pde`), `B3W0` (nêm bột như đặc, `L.pde` với mặt nghiêng), `B3s` và `B3W0s` (cách nhiệt: `maskphys.pde_masked` sau `install`, bao T_max của `runs/ENV/B3_iter0.pt` và `runs/Fs/B3W0s_it0/envelope_next.pt`, độ rộng chuyển tiếp 30 µm như `config.RUNS[...]["soft"]`). Để số hạng nguồn bù tính được ở mọi bước, dùng **hộp thu nhỏ** L_x = 200 µm, L_y = 240 µm, L_z = 240 µm (z và các hàm hệ số tính từ cùng vị trí mặt phân giới và bao như bản đầy đủ) và **cửa sổ thời gian 40 µs**; với hai bậc cách nhiệt đặt laser **đứng yên** (`Pe = 0`, mũi bể x_front = 0 = tâm hộp) để κ_s không đổi theo thời gian (mặt nạ vẫn nhân vào toán tử; chuyển động của mũi bể không có đạo hàm theo thời gian trong PDE). Nghiệm chế tạo (đơn vị SI, tọa độ x, y từ tâm hộp, z từ đáy, τ = t/40 µs):
+T_ms = T_amb + ΔT·G_x·G_y·G_z·w(τ), ΔT = 4500 K, G_x = ½(1+cos(2πx/L_x)), G_y = ½(1+cos(2πy/L_y)), G_z = sin²(πz/(2L_z)), w = sin²(πτ/2).
+Nghiệm bằng T_amb trên đáy và bốn mặt bên và tại t = 0, đạo hàm theo z bằng 0 ở mặt trên. Số hạng nguồn bù S = `L.pde`(θ_ms) + `L.q_volume`, tính bằng autograd ở mỗi bước tại tâm ô (nhân k T_c/r_b² để về W/m³); biên mặt trên: thông lượng ra = q_ev(T_s) + g, với g = −q_ev(T_ms mặt trên) để T_ms thỏa. Sai số: RMS của (T_FD − T_ms) trên mọi ô tại t = 40 µs. **Bậc quan sát p = log₂(e₅/e₂.₅) phải nằm trong [1.7, 2.3] ở cả bốn toán tử** (khoảng 2 ± 0.3 của bảng 4.4); ghi thêm p giữa 10 và 5 µm. **Mốc bậc cho 4.2:** p_MMS của ca C1, C2, C3, C4 là p quan sát (5 → 2.5 µm) của toán tử cùng tên (`B3`, `B3W0`, `B3s`, `B3W0s`).
+
+**4.** Các mục khác của 07 giữ nguyên.
