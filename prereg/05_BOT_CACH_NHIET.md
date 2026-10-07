@@ -193,3 +193,43 @@ Với bột cách nhiệt, điểm đáy lớp bột dưới tâm chùm ở nêm
 2. **Độ rộng chuyển tiếp 30 µm là giả định cỡ hạt** (D50), không đo cho IN718 ở dự án này; kết quả cách nhiệt phụ thuộc nó (độ nhạy theo 15 và 45 µm chưa kiểm). Mô hình mềm không chứng minh bột cách nhiệt đúng.
 3. Hội tụ mặt nạ của vệt thường nằm đúng tại giới hạn lưới (lệch độ sâu 2.0 µm, nửa rộng 3.0 µm; lưới 2 µm = một ô); xấp xỉ mặt nạ tĩnh theo bao cực đại; nhiệt dung bột không đổi sau khi chảy; một điều kiện (300 W, 0.8 m/s), một góc 45°, α_s = 0.35 chưa hiệu chỉnh; chưa có dữ liệu thực nghiệm. Vệt thường cách nhiệt rộng hơn bột như đặc 7 µm (174.3 so với 167.2 µm): không có dữ liệu ngoài để nói bên nào gần thực tế hơn.
 4. Công thức tối ưu giữ nguyên (Adam, không L-BFGS); không rõ nó có đạt mức hội tụ tốt hơn nếu có L-BFGS (hướng S1) hay không.
+
+## 14. Sửa đổi 05d (09:35, trước khi viết mã và chạy): M3 cho mô hình bột cách nhiệt (mép mềm)
+
+Người dùng chọn M3 sau mục 13 và yêu cầu **chạy mốc test trước khi bắt đầu**. Mục đích: đo nhiễu của các Δ (nêm − vệt thường) ở mô hình cách nhiệt để biết ΔD = +18.3 µm, ΔT_pk, dwell +222 µs và tốc độ nguội 0.54× có tách khỏi nhiễu huấn luyện hay không. Tiêu chí dưới đây **khóa trước khi thấy số liệu biến thể**.
+
+**Tham chiếu** (đã có, mục 13): vệt thường `B3s` vòng 0 (`runs/Fs/B3s_it0`, bao `runs/ENV/B3_iter0.pt`) và nêm `B3W0s` vòng 1 (`runs/Fs/B3W0s_it1`, bao = `runs/Fs/B3W0s_it0/envelope_next.pt`).
+
+**Biến thể** (mỗi biến thể cho **cả hai hình học**, vì Δ cần cặp; mọi biến thể dùng cùng λ_E = 1, λ_P = 1000, lr 1e-4, Adam, mép mềm, `supervise`):
+| Biến thể | Cách tạo | Ngân sách |
+|---|---|---|
+| **M3a** (gấp đôi ngân sách) | tiếp tục từ trọng số cuối của tham chiếu, **cùng bao tham chiếu đã dùng ở lần cuối** | thêm 2,000 bước cố định, không dừng theo cổng; đo cổng đầy đủ ở cuối |
+| **M3b** (tập điểm khác) | **lặp lại toàn bộ quy trình F** với `--sobol-offset 10`: vệt thường 1 lần huấn luyện từ B3; nêm từ M2″ với bao vòng 0 (`runs/ENV/B3W0_iter0.pt`), rồi huấn luyện lại với bao kế tiếp của chính nó cho đến khi hội tụ (tối đa 3 lần huấn luyện lại) | quy tắc dừng của F (hai điểm kiểm liên tiếp đạt sau 2,000 bước, ≤ 6,000 bước, ≤ 45 phút mỗi lần) |
+| **M3c** (hạt giống khác) | như M3b nhưng `--seed 7` (không đổi tập điểm) | như M3b |
+Biến thể nêm lặp lại cả vòng lặp mặt nạ vì tham chiếu đã qua hai giai đoạn (vòng 0 với bao cũ, vòng 1 với bao mới); nhiễu của mặt nạ lặp là một phần của sự lặp lại của quy trình. Vì thế bao của biến thể M3b, M3c có thể khác bao tham chiếu một chút.
+
+**Hợp lệ.** M3b, M3c: mọi lần huấn luyện của hình học đó ĐẠT theo tiêu chí F (dừng `gates_passed`, cổng đầy đủ cuối đạt, `check_physics` 0 [WARN], ≤ 75 phút) và mặt nạ hội tụ. M3a: cổng đầy đủ cuối đạt và `check_physics` 0 [WARN]. **Cặp hợp lệ** = biến thể mà cả vệt thường lẫn nêm hợp lệ. Cần **≥ 2 cặp hợp lệ**; ít hơn thì "không kết luận".
+
+**Chỉ báo đo (từ trọng số cuối, CPU, bằng chính hàm `analysis.net_indicator`):** ở 70% quét: dài (chỉ ghi), W₊, W₋, D, P = max(D − 60 µm, 0), T_peak; **chu trình nhiệt tại (y = 0, đáy lớp bột) ở 50% quét** (T_pk, thời gian lưu, tốc độ nguội trung bình trên [T_sol, T_liq]); số đo 50% **thay** số đo 70% vì cửa sổ cắt cụt (mục 13 và `02` mục 20). Chiều dài không phải chỉ báo (quy tắc R1).
+
+**Tiêu chí ổn định (khóa):**
+- **(S-a)** so với tham chiếu, ở 70%, cho từng hình học và từng biến thể hợp lệ: |ΔD| ≤ 3 µm; |ΔW₊|, |ΔW₋| ≤ 5 µm. Chiều dài chỉ ghi.
+- **(S-b)** ổn định của các Δ (nêm − vệt thường) theo cặp hợp lệ, so với Δ của tham chiếu: |ΔD_v − ΔD_ref| ≤ 3 µm; |ΔT_pk,v − ΔT_pk,ref| ≤ 15 K; ở 50% quét |Δdwell_v − Δdwell_ref| ≤ 50 µs; |tỉ số nguội_v − tỉ số nguội_ref| ≤ 0.10. Các ngưỡng 15 K, 50 µs và 0.10 là **[ĐỀ XUẤT]** của tôi (nhiễu của chúng ở mô hình cách nhiệt chưa biết; chọn theo cỡ hiệu ứng: 161 K, 222 µs, 0.54).
+- **M3-cách-nhiệt ỔN ĐỊNH** khi có ≥ 2 cặp hợp lệ và mọi (S-a), (S-b) đạt trên mọi cặp hợp lệ. Tiêu chí lát thời gian của chiều dài (mục 7 của `02`) **không dùng ở đây**: nó đo khác biệt thật giữa hai hình học (mục 17, 18 của `02`), không đo nhiễu; ghi nhận, báo cáo δ_X(t) chỉ để mô tả.
+- **Tách khỏi nhiễu (M4-cách-nhiệt):** với mỗi Δ: |Δ_ref| ≥ 2 × max_v |Δ_v − Δ_ref| trên các cặp hợp lệ; ghi "tách" hay "không tách" cho ΔD, ΔP, ΔT_pk, Δdwell, tỉ số nguội, ΔW.
+
+**Mốc test S2.19 (chạy trước; trượt mục nào thì dừng, báo cáo, không chạy M3):**
+| ID | Kiểm | Tiêu chí |
+|---|---|---|
+| (a) | `analysis.net_indicator` thêm khóa `cycle50` (chu trình nhiệt ở 50% quét): B3 và M2″ so với số đo ở mục 13 (B3: lưu 466.5 µs, nguội 1.300e6 K/s; M2″: 495.0 µs, 1.345e6 K/s); các khóa cũ không đổi (so với `runs/M1/indicator.json`) | lưu ± 1.0 µs, nguội ± 1%; khóa cũ lệch 0 |
+| (b) | Logic thuần của `experiments/m3_ins.py`: (i) dựng lệnh cho M3a (khởi động từ trọng số cuối tham chiếu và bao đã dùng ở lần cuối, `--stop-gates 0`, 2,000 bước), M3b (`--sobol-offset 10`), M3c (`--seed 7`) bằng chế độ in lệnh; (ii) bộ đánh giá ổn định trên dữ liệu giả (6 trường hợp đạt/trượt cho (S-a), (S-b), số cặp hợp lệ) | lệnh đúng đối số; mọi trường hợp giả cho đúng kết luận |
+| (c) | Khói đầu-cuối của chính trình điều khiển (`--smoke`: 40 bước, kiểm 20, `--min-steps 20`, tối đa 1 lần huấn luyện lại, thư mục tạm): M3a, M3b, M3c cho cả hai hình học | mọi `run.json` DONE; tag đôi một khác nhau; M3a khởi động đúng từ trọng số tham chiếu; bao vòng sau của nêm lấy từ `envelope_next.pt` của vòng trước; `legacy/ckpt` không đổi |
+| (d) | Báo cáo (`report`) chạy trên **chỉ tham chiếu**: sinh bảng chỉ báo, tính cycle ở 50% từ trọng số, không lỗi | bảng của tham chiếu khớp mục 13 (D 89.52 / 107.83 µm; T_pk 2,815 / 2,976 K; dwell 50% 432.5 / 654.5 µs; nguội 50% 1.258e6 / 6.83e5 K/s) |
+| (e) | Hồi quy: tầng 2 (S2.1–S2.4), S2.13, S2.16 chạy lại | đạt |
+Trần GPU mốc test 15 phút (dừng ở 22.5). Dự đoán: đạt cả năm ngay lượt đầu 70%.
+
+**Lượt M3 đầy đủ (nếu S2.19 đạt):** thứ tự M3a, M3b, M3c; vệt thường trước nêm trong mỗi biến thể; trần mỗi lần huấn luyện 75 phút, tổng 120 phút (dừng ở 180). Ước lượng GPU: 8–9 lần huấn luyện × 6 phút ≈ 50–60 phút. **Trượt tiêu chí hợp lệ thì ghi, không chạy lại.**
+
+**Dự đoán (ghi trước, có thể sai).** Mỗi lần huấn luyện của M3b, M3c ĐẠT: 70% (cổng của mô hình cách nhiệt chỉ còn biên mỏng, E_id −8.8 mJ ở vệt thường); M3a hợp lệ 80%. ≥ 2 cặp hợp lệ: 75%. (S-a) đạt trên mọi biến thể hợp lệ: 55% (độ sâu: ± 3 µm; chưa biết nhiễu của mô hình cách nhiệt, loss lớn hơn 10 lần). (S-b): ΔD ± 3 µm 60%; ΔT_pk ± 15 K 70%; Δdwell ± 50 µs 55%; tỉ số nguội ± 0.10 60%. **M3-cách-nhiệt ỔN ĐỊNH** (mọi tiêu chí): 25%. ΔD tách khỏi nhiễu (|18.3| ≥ 2 × lệch lớn nhất): 70%; Δdwell và tỉ số nguội tách khỏi nhiễu: 65%.
+
+**Giới hạn (khóa).** Chỉ ba biến thể (một nối tiếp tham chiếu, hai độc lập), nên nhiễu là ước lượng thô; M3 đo phương sai của quy trình huấn luyện, **không** đo độ đúng của mô hình (độ rộng chuyển tiếp 30 µm, mặt nạ tĩnh, bột dẫn nhiệt từ tương quan ngoại suy, một điều kiện, chưa có dữ liệu thực nghiệm); sai lệch hệ thống do sức chứa mạng và do công thức tối ưu không có L-BFGS (R3, S1) chưa kiểm.
