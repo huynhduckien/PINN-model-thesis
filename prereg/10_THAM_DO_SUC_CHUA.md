@@ -44,3 +44,53 @@ Hàm mất mát: sai số bình phương trung bình của θ trên mẫu lấy 
 ## 5. Giới hạn (khóa)
 
 Một seed, một lần khớp mỗi (ca, nhánh); khớp có giám sát không tương đương huấn luyện bằng PDE; FD 10 µm làm mục tiêu (sai số FD 10 µm cỡ vài K ở đuôi và ~0.4 µm ở độ sâu, nhỏ so với 100+ K của PINN); mạng khớp có hàm mặt nạ cứng đầu ra nên khớp ở mép miền bị ràng buộc cố định ở T_amb; kết luận về sức chứa chỉ cho kiến trúc FNN sin với biến đổi đặc trưng hiện tại, không nói về các kiến trúc khác (Fourier features, chia miền). Kết quả này không đổi bảng chỉ báo và không phải PINN của hồ sơ.
+
+
+---
+
+## Kết quả 10 (2026-10-08 13:07, đồng hồ): SỨC CHỨA ĐỦ — sai số vùng sau chùm của PINN không phải do giới hạn sức chứa mạng
+
+**Bản chạy thử trước chạy chính thức (công khai):** trước khi chạy chính thức tôi đã chạy một lần thử 6000 bước nhánh A cho C3 (không ghi file, chỉ để kiểm mã) và thấy RMS ~52 K, lệch vùng sau chùm −2 K. Phân loại dưới đây là cơ học theo mục 3 nên không bị ảnh hưởng.
+
+**Chạy chính thức (`capacity_probe.py run`, 30000 bước Adam mỗi lần khớp, 3367 s tổng cho bốn lần khớp):**
+
+| | Tham số | RMS nóng 70% (K) | % của PINN F08 | Lệch vùng sau chùm | Lệch quanh chùm | Hội tụ (độ dốc cuối, %/1000 bước) |
+|---|---|---|---|---|---|---|
+| PINN F08, C3 | – | 135.3 | 100% | −152.3 K | −79.8 K | – |
+| **Khớp A (6×24), C3** | 3145 | **10.9** | **8.1%** | **−1.1 K** | +0.5 K | có (1.76) |
+| Khớp B (6×64), C3 | 21185 | 6.0 | 4.5% | +0.2 K | −0.3 K | có (1.89) |
+| PINN F08, C4 | – | 205.8 | 100% | −232.4 K | −85.7 K | – |
+| **Khớp A (6×24), C4** | 3145 | **12.6** | **6.1%** | **−2.2 K** | −0.3 K | có (1.94) |
+| Khớp B (6×64), C4 | 21185 | 6.9 | 3.4% | +0.1 K | +0.2 K | không (2.15; cận dưới) |
+
+**Phân loại nhánh A (mục 3): SỨC CHỨA ĐỦ** (RMS ≤ 25% PINN ở cả hai ca: 8.1% và 6.1%; \|lệch vùng sau chùm\| ≤ 25 K ở cả hai ca: 1.1 và 2.2 K). Nhánh B chỉ báo cáo (không cần vì A đủ): RMS thấp hơn A khoảng 1.8 lần.
+
+**Chỉ báo từ mạng khớp (C4 − C3), so với FD 5 µm (`delta_FD`):**
+
+| | FD 5 µm | Khớp A | Khớp B | tol (prereg 07) |
+|---|---|---|---|---|
+| ΔD (µm) | +26.77 | +26.68 | +26.70 | 1.83 |
+| ΔT_pk (K) | +179.9 | **+136.9** | +145.7 | 15.98 |
+| Δ thời gian lưu (µs) | +230.3 | +225.3 | +224.8 | 22.2 |
+
+ΔD và Δ lưu của mạng khớp nằm trong ngân sách. **ΔT_pk của mạng khớp lệch 43 K (A) và 34 K (B), vượt ngân sách 16 K** dù RMS toàn trường chỉ 11–13 K. Nguyên nhân từ số liệu: T_pk tại điểm chu trình của mạng khớp C3 là 2913.2 K (A) / 2918.2 K (B) so với FD 10 µm 2887.4 K (vượt +26 / +31 K), C4 là 3050.1 K / 3063.8 K so với 3065.1 K (−15 / −1 K); sai lệch trái dấu cộng vào hiệu. Đồng thời, T_pk tại điểm này nhạy với lưới FD: 10 µm cho 2887.4 / 3065.1 K và 5 µm cho 2863.4 / 3043.3 K (lệch 22–24 K mỗi ca, triệt tiêu một phần trong hiệu). T_pk tại một điểm trên mặt phân cách bột/đặc (có mép nhảy hệ số dẫn nhiệt) là chỉ báo **rất khắt khe**: ngay cả mạng khớp có giám sát cũng không đạt ngân sách 16 K.
+
+**Chấm dự đoán (mục 4):**
+
+| Dự đoán | Kết quả |
+|---|---|
+| A: SỨC CHỨA ĐỦ ~25%; GIỚI HẠN ~30%; KHÔNG KẾT LUẬN ~45% | **SỨC CHỨA ĐỦ** (loại có xác suất thấp nhất tôi ghi cùng với GIỚI HẠN) |
+| RMS nóng của A trong 30–100 K (~60%) | **sai**: 10.9–12.6 K |
+| nhánh B thấp hơn A ít nhất 2 lần (~65%) | **sai**: 1.8 lần ở cả hai ca (gần ngưỡng) |
+| ΔD của mạng khớp trong 1.83 µm (~50%) | **đúng** |
+| ΔT_pk của mạng khớp trong 16 K (~25%) | **sai**: lệch 43 K (A), 34 K (B) |
+| Δ lưu của mạng khớp trong 22.2 µs (~25%) | **đúng**: lệch 5 µs |
+| khớp A chưa hội tụ (~30%); B chưa hội tụ (~40%) | A hội tụ ở cả hai ca (sai); B chưa hội tụ ở C4, hội tụ ở C3 (đúng một phần) |
+| tổng thời gian dưới 1.5 giờ (~60%) | **đúng**: khoảng 1 giờ (3367 s khớp + hai lượt FD) |
+
+**Kết luận:**
+1. **Sai số của PINN (lệch vùng sau chùm −150…−230 K, RMS 135–206 K) không do giới hạn sức chứa**: mạng 6×24 hiện tại (3145 tham số) khớp trường FD với RMS 11–13 K và gần như không lệch ở vùng sau chùm. H2 (sức chứa) **không được ủng hộ** là nguyên nhân chính. Vấn đề nằm ở **tối ưu hoặc dạng loss**: PINN huấn luyện bằng phần dư PDE không tìm được vùng nghiệm mà mạng của nó biểu diễn được. Phân biệt hai khả năng này cần một phép đo nữa (loss PDE của PINN trên mạng khớp, xem hướng tiếp theo).
+2. **Cảnh báo về ΔT_pk:** chỉ báo này nhạy với lưới FD (22–24 K giữa 10 và 5 µm cho giá trị tuyệt đối) và với biểu diễn mạng (34–43 K cho Δ ngay cả khi khớp có giám sát). Ngân sách 16 K có thể không đạt được bằng bất kỳ PINN nào cùng kiến trúc; nên cân nhắc thay hoặc bổ sung chỉ báo bền hơn (đề xuất, chưa đăng ký).
+3. Hướng tiếp theo (không thuộc 10, cần đăng ký 11): đo **loss huấn luyện của PINN (phần dư PDE trên các điểm collocation) ở trọng số của mạng khớp** so với PINN đã huấn luyện (0.00545 / 0.00874). Nếu mạng khớp có loss thấp hơn rõ rệt thì PINN bị kẹt ở cực trị tồi hơn (vấn đề tối ưu: thử L-BFGS với mẫu cố định); nếu mạng khớp có loss **cao hơn**, hàm loss không phân biệt được nghiệm đúng với nghiệm sai (vấn đề dạng loss: trọng số, chuẩn hóa, hạng phần dư theo vùng).
+
+**Giới hạn:** một seed mỗi lần khớp; khớp có giám sát dễ hơn huấn luyện bằng PDE nhiều, nên kết quả chỉ nói nghiệm biểu diễn được, không nói PINN tìm được; mục tiêu khớp là FD 10 µm (sai khác với 5 µm ~22–24 K ở T_pk, ~0.4 µm ở độ sâu). Mạng khớp không dùng cho PINN của hồ sơ.
