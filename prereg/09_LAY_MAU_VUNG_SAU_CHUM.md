@@ -56,3 +56,52 @@ Một lần cho mỗi nhánh, sau khi cả hai ca xong: `experiments/pinn_cycles
 ## 5. Giới hạn (khóa)
 
 Một seed, một điều kiện, mặt nạ cố định (đúng FD), FD hai lưới 10 và 5 µm với giai đoạn B bỏ (A5). Chỉ trả lời việc lấy mẫu vùng sau chùm có sửa PINN cách nhiệt hay không; không nói về vật lý. Nhánh W thay đổi đồng thời bán kính sau và số điểm nên không tách riêng hai yếu tố (nếu có tác dụng, tách bằng 10). Kết quả CẢI THIỆN hoặc ĐẠT trên một seed chưa nói về độ lặp lại.
+
+
+---
+
+## Kết quả 09 (2026-10-08 11:54, đồng hồ): mở rộng lấy mẫu vùng sau chùm KHÔNG sửa được sai số vùng sau chùm; nhãn KHÔNG ĐỔI / XẤU HƠN
+
+**Huấn luyện (nhánh W, theo mục 2):** cả hai lượt chạy hết 10000 bước (C3 `B3s_16ad0fbb`: 2973 s, 0.297 s/bước; C4 `B3W0s_4bf339b8`: 3342 s, 0.333 s/bước), dừng vì ngân sách bước. Lấy mẫu mới: 626688 điểm (364544 ban đầu), 46357 điểm nhóm nguồn nằm cách chùm hơn 16 r_b (trước: 0), xa nhất 34.8 r_b. Cổng đầy đủ: C3 **đạt** (hụt nhiệt độ âm 0.96%, F08 0.72%); C4 **trượt cổng (b)** (hụt 1.61% > 1%, F08 1.26%), `check_physics` 1 cảnh báo. Loss (hạng phần dư PDE) C3 0.00498, C4 0.00840; **không so được trực tiếp với F08** vì tập điểm khác.
+
+**Chỉ tiêu chính (vùng sau chùm, 70% quét; `errormap_f09.json`, FD 10 µm):**
+
+| Ca | Mốc F08 | F09 (nhánh W) | Giảm | Mục tiêu (≥ 50%) |
+|---|---|---|---|---|
+| C3 | −152.3 K | **−152.4 K** | 0% | ≤ 76 K: **không** |
+| C4 | −232.4 K | **−193.1 K** | 17% | ≤ 116 K: **không** |
+
+**Chỉ tiêu chính không đạt ở cả hai ca.** Điều kiện không thoái lui: (i) ΔD vẫn ĐÚNG ✓; (ii) lệch vùng quanh chùm không quá 1.25 lần mốc: C3 −90.6 K (≤ 100 K ✓), C4 −94.4 K (≤ 107 K ✓); (iii) hụt cổng (b) của C4 không xấu hơn 1.26%: **vi phạm** (1.61%). **Nhãn: KHÔNG ĐỔI / XẤU HƠN.** Nhánh đối chứng (có điều kiện) **không chạy**, theo mục 2.
+
+**Đánh giá chính thức (`fd_compare.py compare --tag f09`, FD cố định, hai cận p = 2 và p = 1):**
+
+| Δ (nêm − vệt thường) | F08 (lệch) | F09 | FD | \|lệch\| F09 | tol | Phán quyết F09 (F08) |
+|---|---|---|---|---|---|---|
+| ΔD cách nhiệt (µm) | +26.01 (0.77) | **+25.97** | +26.77 | 0.80 | 1.83 | **ĐÚNG** (ĐÚNG) |
+| ΔT_pk (K) | +161.4 (18.5) | +159.3 | +179.9 | 20.6 | 15.98 | **SAI** (KHÔNG KẾT LUẬN) |
+| Δ thời gian lưu (µs) | +307.0 (76.7) | **+282.5** | +230.3 | 52.2 | 22.2 | **SAI** (SAI) |
+| tỉ số nguội | 0.549 | 0.480 | không xác định | – | 0.0457 | KHÔNG XÁC ĐỊNH |
+
+**Phán quyết bảng chỉ báo (C4 − C3): SAI.** Δ lưu gần FD hơn F08 (lệch 76.7 → 52.2 µs) nhưng vẫn SAI.
+
+**Chẩn đoán (chỉ báo cáo; F08 trong ngoặc):**
+- Độ sâu / rộng / dài (µm, tự ghi): C3 90.2 / 186.1 / 524 (90.4 / 186.5 / 514); C4 116.1 / 189.1 / 541 (116.4 / 193.8 / 587; FD 117.6 / 204.8 / 773): độ rộng và chiều dài của C4 **xấu đi**.
+- Trung bình (T_PINN − T_FD): vùng quanh chùm C3 −90.6 K (−79.8), C4 −94.4 K (−85.7); vùng sâu C4 +89.2 K (+13.6). Dọc đường (dọc / ngang / dọc x): C3 −55 / −78 / −123 K (−58 / −83 / −114), C4 −64 / −92 / −130 K (−58 / −84 / −123). T tại t = 1500 µs ở điểm chu trình 50%: C3 1153 K (FD 1350), C4 1501 K (FD 1640).
+- Phần dư PDE chuẩn hóa (trung vị / phân vị 90): C3 15.3% / 42.7% (14.1% / 43.1%), C4 20.9% / 70.7% (18.4% / 68.5%): không cải thiện.
+- Năng lượng lưu trữ so FD: C3 123.0 so 138.9 mJ (−11.4%; F08 −11.0%), C4 142.8 so 149.3 mJ (−4.3%; F08 −3.7%). E_id: C3 −7.7 mJ, C4 −4.3 mJ.
+
+**Chấm dự đoán (mục 4):**
+
+| Dự đoán | Kết quả |
+|---|---|
+| chỉ tiêu chính thành công ở cả hai ca (~30%) | **sai** (0% và 17%) |
+| ĐẠT (~8%); Δ lưu ĐÚNG (~20%); ΔT_pk ĐÚNG (~15%) | **sai** cả ba |
+| ΔD vẫn ĐÚNG (~65%) | **đúng** |
+| thiếu hụt năng lượng của C3 xuống dưới 6% (~35%) | **sai**: −11.4% |
+| tốc độ mỗi bước trong 0.26–0.34 s (~70%) | **đúng**: 0.297 và 0.333 s/bước (phép đo thử 200 bước cho 0.385, cao hơn thực tế) |
+| một lượt không dùng hết 10000 bước (~20%) | **sai**: cả hai dùng hết |
+| phần dư PDE trung vị giảm: C3 ~50%, C4 ~40% | **sai**: tăng nhẹ (14.1 → 15.3%; 18.4 → 20.9%) |
+
+**Kết luận về H3:** mở rộng lấy mẫu ra toàn bộ vùng sau chùm **không sửa** sai số vùng sau chùm: C3 không đổi (−152.4 so −152.3 K), C4 giảm 17% (−232 → −193 K), trong khi gần chùm và độ rộng của C4 hơi xấu đi. H3 **không được ủng hộ** như nguyên nhân chính. Cùng với 08 (huấn luyện thêm không sửa vùng sau chùm), có thể hai lần thử cho thấy lỗi ổn định và không đáp ứng với số bước hay mật độ điểm, nên nên nghiêng về nguyên nhân khác (sức chứa mạng, điều kiện hóa tối ưu, dạng loss). Về mặt logic, nghiệm FD thỏa PDE đến sai số rời rạc nên là một nghiệm có loss gần 0 về nguyên tắc; loss của PINN ở 5×10⁻³–9×10⁻³ vì vậy cho thấy PINN bị giới hạn bởi tối ưu hoặc sức chứa chứ không phải bởi dạng loss (suy luận, chưa kiểm bằng cách đo loss của nghiệm FD). Các hướng này cần đăng ký 10 trước.
+
+**Giới hạn:** một seed; một lần đánh giá cho mỗi nhánh; nhánh W đổi đồng thời bán kính sau và số điểm; nhánh đối chứng không chạy nên không tách được ảnh hưởng của huấn luyện thêm; C4 trượt cổng (b) nên không đủ điều kiện làm "PINN của hồ sơ".
