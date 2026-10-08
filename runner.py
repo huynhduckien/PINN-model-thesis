@@ -84,7 +84,7 @@ def build(a, dtype):
     exp = captured(L.check_process, sc, trk)
     if a.get("energy_lam") or a.get("pos_lam"):                         # prereg 03 muc 15, 18: so hang can bang nang luong + phat duong (mau ngau nhien moi buoc)
         import energy
-        _, model, _ = energy.make_data_terms(sc, path, anc, net, exp["E_total"])
+        _, model, _ = energy.make_data_terms(sc, path, anc, net, exp["E_total"], a.get("pos_topk", 0))
     else:
         _, model = L.make_data(sc, path, anc, net)
     return sc, trk, path, net, model, exp
@@ -280,13 +280,15 @@ def run(args):
         sampling = json.loads(args.sampling) if args.sampling else None
         if sampling:
             train["sampling"] = sampling                               # tag khac khi ghi de lay mau (prereg 09)
+        if args.pos_topk:
+            train["pos_topk"] = args.pos_topk                          # tag khac khi phat duong theo cuc tri (prereg 13)
         if args.seed != 42:
-            train["seed"] = args.seed                                  # tag khac khi doi hat giong (prereg 02b, M3c)
+            train["seed"] = args.seed                                 # tag khac khi doi hat giong (prereg 02b, M3c)
         if args.init:
             train["init"] = Path(args.init).stem                       # tag khac khi khoi dong tu trong so khac (M3a)
         a = dict(run=args.run, adam_iters=args.adam_iters, adam_lr=args.adam_lr, chunk=args.chunk, max_iters=args.max_iters, init=init,
                  tag=C.tag_of(args.run, train), monitor_every=args.monitor_every, stop_gates=args.stop_gates, time_cap_s=args.time_cap_s,
-                 sobol_offset=args.sobol_offset, energy_lam=args.energy_lam, pos_lam=args.pos_lam, min_steps=args.min_steps, seed=args.seed, envelope=args.envelope, sampling=sampling)
+                 sobol_offset=args.sobol_offset, energy_lam=args.energy_lam, pos_lam=args.pos_lam, pos_topk=args.pos_topk, min_steps=args.min_steps, seed=args.seed, envelope=args.envelope, sampling=sampling)
         st = dict(args=a, phase="adam")
         log(out, f"bat dau {a['run']} tag {a['tag']} (tag that {C.tag_of(a['run'])}), khoi dong am tu {init}")
     t0 = time.time() - st.get("elapsed", 0.0)                           # dong ho cong don qua cac lan resume
@@ -350,6 +352,7 @@ def add_run_args(r):
     r.add_argument("--sobol-offset", type=int, default=0)
     r.add_argument("--energy-lam", type=float, default=0.0)
     r.add_argument("--pos-lam", type=float, default=0.0)
+    r.add_argument("--pos-topk", type=int, default=0, help="phat duong chi tren K diem vi pham nhat trong 2^17 diem (prereg 13)")
     r.add_argument("--min-steps", type=int, default=0)
     r.add_argument("--seed", type=int, default=42)
     r.add_argument("--envelope")

@@ -39,8 +39,9 @@ def energy_term(sc, path, E_in, n=2**15):
     return term
 
 
-def positivity_term(sc, path, n=2**15):
-    """L_P = mean ReLU(-theta)^2 tren n diem deu moi buoc (prereg 03 muc 15, huong 2). theta = (T - T_amb)/T_c; phat nhiet do am, khong cat."""
+def positivity_term(sc, path, n=2**15, topk=0):
+    """L_P = mean ReLU(-theta)^2 tren n diem deu moi buoc (prereg 03 muc 15, huong 2). theta = (T - T_amb)/T_c; phat nhiet do am, khong cat.
+    topk > 0 (prereg 13): chi lay trung binh cua topk gia tri ReLU(-theta)^2 lon nhat trong n diem (nham vao cuc tri)."""
     Lx, Ly, Lz, te = sc["Lx_s"], sc["Ly_s"], sc["Lz_s"], path["t_end_s"]
     lo = np.array([-Lx/2, -Ly/2, 0.0, 0.0])
     span = np.array([Lx, Ly, Lz, te])
@@ -49,7 +50,8 @@ def positivity_term(sc, path, n=2**15):
         p = next(net.parameters())
         x = torch.rand(n, 4, dtype=p.dtype, device=p.device)
         x = x*torch.as_tensor(span, dtype=p.dtype, device=p.device) + torch.as_tensor(lo, dtype=p.dtype, device=p.device)
-        return torch.relu(-net(x)).pow(2).mean()
+        v = torch.relu(-net(x)).pow(2)
+        return torch.topk(v.flatten(), topk).values.mean() if topk else v.mean()
 
     return term
 
@@ -82,13 +84,13 @@ def make_data_energy(sc, path, anc, net, E_in):
     return data, dde.Model(data, net), term
 
 
-def make_data_terms(sc, path, anc, net, E_in):
+def make_data_terms(sc, path, anc, net, E_in, pos_topk=0):
     """Nhu `make_data_energy` nhung them so hang duong: tra ve (data, model, [L_E, L_P]); dung loss_weights = [1, 1, lam_E, lam_P]."""
     Lx, Ly, Lz = sc["Lx_s"], sc["Ly_s"], sc["Lz_s"]
     gxt = dde.geometry.GeometryXTime(dde.geometry.Cuboid([-Lx/2, -Ly/2, 0.0], [Lx/2, Ly/2, Lz]), dde.geometry.TimeDomain(0.0, path["t_end_s"]))
     on_top = lambda x, on_bnd: on_bnd and np.isclose(x[2], Lz)
     top = (dde.icbc.OperatorBC(gxt, lambda x, th, _: L.top_res(x, th, sc), on_top) if "ev" in sc else dde.icbc.NeumannBC(gxt, lambda x: 0.0, on_top))
-    terms = [energy_term(sc, path, E_in), positivity_term(sc, path)]
+    terms = [energy_term(sc, path, E_in), positivity_term(sc, path, 2**17, pos_topk) if pos_topk else positivity_term(sc, path)]
     data = EnergyTimePDE(gxt, lambda x, th: L.pde(x, th, sc, path), [top], anchors=anc, num_domain=0, num_boundary=0, num_initial=0, extras=terms)
     data.train_next_batch()
     return data, dde.Model(data, net), terms

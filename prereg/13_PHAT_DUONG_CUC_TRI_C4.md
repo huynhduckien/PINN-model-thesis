@@ -63,3 +63,36 @@ Một seed, một hình học (C3 giữ F08 như đã đạt cổng). Số hạn
 **Ngoại lệ (người dùng chọn):** checkpoint bước 5000 được xét như một ứng viên hoàn chỉnh. **Quy tắc đủ điều kiện của mục 3 giữ nguyên, không đổi:** (i) cổng đầy đủ đạt (a, b, c; b đã đo ở trên); (ii) hạng phần dư PDE trong loss ≤ 0.01748 (đã có: 0.008666). Cổng (a) và (c) chưa đo đầy đủ; đo bằng `runner.full_gate` (E_res, E_id, tỉ lệ năng lượng). Đủ điều kiện → PINN của C4, đánh giá FD **một lần** (mục 3). Không đủ điều kiện → PINN của C4 là PINN gốc `runs/Fs/B3W0s_it1`. Không huấn luyện thêm; không đổi ngưỡng nào.
 
 **Giới hạn:** ngoại lệ này được chọn sau khi thấy số cổng (b); lựa chọn dựa trên cổng huấn luyện (đặt trước FD), không dựa trên FD. Checkpoint huấn luyện 5000 bước (không phải 10000 như mục 2). D2 không được sửa lại cho các lượt sau.
+
+---
+
+## Kết quả 13 (2026-10-08 16:3x, đồng hồ): checkpoint bước 5000 ĐỦ ĐIỀU KIỆN; PINN của C4 = `runs/F13/B3W0s_c/B3W0s_8460306c.pt`
+
+**Quy trình thực tế (công khai):** lượt chạy khởi động 15:42; D2 kích hoạt ở bước 5000 (16:10:31), tiến trình bị dừng (A1); ngoại lệ A2 do người dùng chọn; `runner.eval_stage` chạy trên `last.pt` (bước 5000) cho `run.json`. Tốc độ: 0.23 s/bước ở các bước 1000–4000, đoạn 4000–5000 chậm hơn (8 phút 40 giây). Lượt này **không chạy hết 10000 bước**, nên dự đoán "hết 10000 bước trong 60 phút" không đánh giá được.
+
+**Điều kiện đủ điều kiện (mục 3, không đổi):** cổng đầy đủ **đạt** (a: E_res +2.4 mJ, E_id −4.1 mJ; b: T_min 296.6 K, hụt 0.027%; c: tỉ lệ năng lượng 0.930; check_physics 0 cảnh báo); phần dư PDE 0.008666 ≤ 0.01748. → **Đủ điều kiện, là PINN của C4.** (C3: F08, đạt cổng; quy tắc mục 1.)
+
+**FD (một lần, `experiments/verif_table.py`, FD 10 µm cho trường, 5 µm cho bể chảy, 70% quét):**
+
+| C4 | L2 vùng nóng | RMS nóng | Lệch TB nóng | Độ sâu | Độ rộng | Chiều dài |
+|---|---|---|---|---|---|---|
+| PINN gốc | 22.5% | 270 K | −195 K | −8.3% | −15.3% | −33% |
+| F08 (trượt cổng b) | 17.2% | 206 K | −126 K | −1.0% | −5.4% | −24% |
+| **F13 bước 5000 (PINN của hồ sơ)** | **18.9%** | 226 K | −149 K | **−0.7%** | **−5.7%** | **−26%** |
+
+ΔD (nêm − vết thường, độ sâu 70%): PINN của hồ sơ (C4 F13 116.8 − C3 F08 90.4) = **+26.4 µm**; FD 5 µm = 117.60 − 90.83 = **+26.8 µm**. Chỉ báo chu trình nhiệt (ΔT_pk, dwell, tỉ số làm nguội) **chưa tính** cho PINN này.
+
+**Chấm dự đoán (mục 4):**
+
+| Dự đoán | Kết quả |
+|---|---|
+| đạt cổng (b) sau 10000 bước ~60% | đạt ở bước 5000 (không chạy đến 10000) |
+| đạt (ii) PDE ≤ 0.01748 ~75% | **đúng** (0.00867) |
+| đủ điều kiện (cả hai + a, c) ~45% | **đúng** (nhờ ngoại lệ A2) |
+| độ sâu 70% trong ±3% FD ~75% | **đúng** (−0.7%) |
+| L2 vùng nóng 13–20% ~70% | **đúng** (18.9%) |
+| lệch TB nóng ≤ −100 K ~85% | **đúng** (−149 K) |
+| tốc độ ≤ 0.25 s/bước ~65% | một phần: 0.23 trong 4000 bước đầu, đoạn cuối 0.52 |
+| hết 10000 bước trong 60 phút ~80% | không đánh giá được (dừng ở 5000) |
+
+**Kết luận được và không được.** Phạt top-k làm cổng (b) đạt (hụt 1.26% → 0.027%, số điểm dưới T_amb − 5 K từ 7208 xuống 0) mà không phá phần dư PDE. Độ chính xác so với FD tương đương F08, hơi kém ở trường nhiệt (L2 18.9% so với 17.2%; lệch −149 so với −126 K). **Không sửa** được lệch lạnh vùng nóng, độ dài bể chảy (−26%) hay lệch ấm vùng lạnh xa chùm; đúng như dự đoán. **Giới hạn:** một seed, một lần chạy, 5000 bước; ngoại lệ A2 chọn sau khi thấy số cổng (b); số hạng top-k là thay đổi loss; không so được ý "do phạt top-k" với "do huấn luyện thêm 5000 bước" vì không có đối chứng huấn luyện thêm 5000 bước không top-k.
