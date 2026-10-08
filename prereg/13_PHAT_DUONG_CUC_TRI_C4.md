@@ -34,3 +34,20 @@ Ngày: 2026-10-08 15:45 (đồng hồ). Người dùng đồng ý: (1) chọn PI
 ## 5. Giới hạn (khóa)
 
 Một seed, một hình học (C3 giữ F08 như đã đạt cổng). Số hạng phạt top-k là thay đổi loss, ghi rõ trong luận văn. Quy tắc chọn PINN được viết **sau khi đã thấy** số FD của F08 và PINN gốc (cổng huấn luyện thì có trước FD; việc áp dụng nó làm quy tắc chọn là sau). Không kỳ vọng sửa lệch lạnh vùng sau chùm và lệch ấm vùng lạnh xa chùm; mục này chỉ nhằm cổng (b). Không đổi nghĩa cổng sau khi thấy số.
+
+---
+
+## Sửa đổi A1 (2026-10-08 15:46, đồng hồ): quy tắc dừng sớm theo monitor; viết sau khi đã khởi chạy (15:42) và **trước khi đọc bất kỳ dòng monitor nào**
+
+**Công khai về thời điểm.** Mục này thêm quy tắc dừng sớm vào mục 2, theo đề nghị của người dùng ("nếu quá sai mà không thấy cải thiện thì dừng trước 30 phút"). Lượt chạy đã bắt đầu lúc 15:42 với quy tắc cũ; chưa có dòng monitor nào được đọc khi viết mục này (log chỉ có dòng khởi động). Không dùng FD và không dùng cổng đầy đủ để dừng.
+
+**Số đo dùng để dừng** (lấy từ `last.pt`, `adam.monitor[*].loss_raw`, sau mỗi 1000 bước; `loss_raw = [PDE, biên, λ_E·L_E, λ_P·L_P]`). Chú ý: cổng nhẹ trong log chỉ có 2¹⁸ điểm nên không thấy được thống kê cực trị của cổng (b); vì vậy dùng chính số hạng phạt nhắm cực trị làm tín hiệu.
+
+**Quy tắc (khóa, kiểm tại bước 3000 và bước 5000; dừng ở lần đầu một điều kiện thỏa):**
+- **D1 (phá phần dư PDE):** `loss_raw[0]` > 0.01748 (2 × F08 C4) tại bước 3000 hoặc 5000 → dừng.
+- **D2 (không cải thiện số hạng nhắm cực trị):** tại bước 5000, `loss_raw[3]` ≥ 0.5 × `loss_raw[3]` tại bước 1000 → dừng.
+- Đồng hồ: bước 5000 xảy ra ở ~14–21 phút nếu tốc độ 0.17–0.25 s/bước; nếu tốc độ chậm hơn và bước 5000 chưa tới sau 30 phút kể từ 15:42 (tức 16:12) thì dừng ở đó với nhãn "chậm".
+- Dừng sớm = kết thúc tiến trình, không có checkpoint hoàn chỉnh, nên **không đủ điều kiện** (mục 3); PINN của C4 là PINN gốc theo quy tắc mục 1. Không thử lại trong mục này.
+- Qua được cả hai điểm kiểm thì chạy tiếp đến 10000 bước như mục 2.
+
+**Giới hạn:** các ngưỡng 0.5× và 0.01748 là **[QUY ƯỚC]** của tôi, đặt trước khi thấy monitor; D2 chỉ đo xu hướng của số hạng phạt chứ không chứng minh cổng (b) sẽ đạt.
