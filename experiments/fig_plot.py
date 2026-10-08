@@ -4,7 +4,7 @@
 Hinh 1: do sau va do rong be chay (vung T >= T_sol) theo khoang cach sau chum, FD va PINN (hai o, moi o hai duong).
 Hinh 2: mat cat ngang tai -73 um: FD | PINN | sai so (T_PINN - T_FD); FD va PINN chung thang mau.
 Hinh 3: mat cat doc x-do sau qua truc chum (y = y_chum): FD | PINN | sai so.
-Hinh 4: (a) T_PINN - T_FD theo do sau tai x - x_laser = -73, -150, -250, -400 um; (b) T(x) tai mat tren; (c) T(x) tai do sau 60 um (y = y_chum).
+Hinh 4 (2x2): (a),(b) T(do sau) tai x - x_laser = -73, -250 um; (c) T(x) tai mat tren; (d) T(x) tai do sau 60 um (y = y_chum); FD net den lien, PINN net cam dut.
 Do sau = L_z - z (0 o mat tren). Duong den lien nen trang = ranh gioi bot / ran (hinh hoc tinh). Nhan hinh tieng Anh (nhu hinh chuan).
 """
 import json
@@ -165,18 +165,19 @@ def fig3(f, M):
 def fig4(f, M):
     xr = f.xrel()
     a, b = f.longi()
-    fig, axs = plt.subplots(1, 3, figsize=(16, 4.0), constrained_layout=True)
     iy = int(np.argmin(np.abs(f.y - f.yb)))
-    for off, col in zip(OFFS, ("tab:red", "tab:orange", "tab:green", "tab:blue")):
+    fig, axs = plt.subplots(2, 2, figsize=(11, 8), constrained_layout=True)
+    for ax, off, t in ((axs[0, 0], -73.0, "(a)"), (axs[0, 1], -250.0, "(b)")):
         ta, tb = f.trans(off)
-        axs[0].plot(tb[iy] - ta[iy], f.dep, color=col, label=f"{off:.0f} µm")
-    axs[0].axvline(0.0, color="k", lw=0.8)
-    axs[0].set_xlabel("ΔT = T$_{PINN}$ − T$_{FD}$ (K)")
-    axs[0].set_ylabel("Depth (µm)")
-    axs[0].set_ylim(f.dep.max(), 0)
-    axs[0].set_title("(a) ΔT(depth) on the beam axis (legend: x − x$_{laser}$)", fontsize=9, loc="left")
-    axs[0].legend(fontsize=8, loc="lower right")
-    for ax, d, t in ((axs[1], 0.0, "(b) T(x) at the top surface"), (axs[2], 60.0, "(c) T(x) at 60 µm depth (powder-layer bottom)")):
+        ax.plot(ta[iy], f.dep, color="k", label="FD")
+        ax.plot(tb[iy], f.dep, color="tab:orange", ls="--", label="PINN")
+        ax.axvline(f.Tsol, color="0.6", lw=0.8)
+        ax.set_ylim(f.dep.max(), 0)
+        ax.set_xlabel("Temperature (K)")
+        ax.set_ylabel("Depth (µm)")
+        ax.set_title(f"{t} T(depth) on the beam axis, x − x$_{{laser}}$ = {off:.0f} µm", fontsize=9, loc="left")
+    axs[0, 0].legend(fontsize=9, loc="lower right")
+    for ax, d, t in ((axs[1, 0], 0.0, "(c) T(x) at the top surface"), (axs[1, 1], 60.0, "(d) T(x) at 60 µm depth (powder-layer bottom)")):
         i = int(np.argmin(np.abs(f.dep - d)))
         sel = (xr >= -900) & (xr <= 150)
         ax.plot(xr[sel], a[sel, i], color="k", label="FD")
@@ -185,8 +186,6 @@ def fig4(f, M):
         ax.set_xlabel("x − x$_{laser}$ (µm)")
         ax.set_ylabel("Temperature (K)")
         ax.set_title(t, fontsize=9, loc="left")
-    axs[0].legend(fontsize=7)
-    axs[1].legend(fontsize=8)
     fig.suptitle(f"{TITLE[f.case]}: temperature profiles, 70% of scan (grey line = T$_{{sol}}$)", fontsize=10)
     fig.savefig(OUT/f"{f.case}_fig4_profiles.png", dpi=190)
     plt.close(fig)
