@@ -51,3 +51,15 @@ Một seed, một hình học (C3 giữ F08 như đã đạt cổng). Số hạn
 - Qua được cả hai điểm kiểm thì chạy tiếp đến 10000 bước như mục 2.
 
 **Giới hạn:** các ngưỡng 0.5× và 0.01748 là **[QUY ƯỚC]** của tôi, đặt trước khi thấy monitor; D2 chỉ đo xu hướng của số hạng phạt chứ không chứng minh cổng (b) sẽ đạt.
+
+---
+
+## Sửa đổi A2 (2026-10-08 16:2x, đồng hồ): D2 kích hoạt ở bước 5000; người dùng chọn ngoại lệ — xét checkpoint bước 5000 như ứng viên hoàn chỉnh; viết **trước** khi chạy cổng đầy đủ (a, c) và FD
+
+**Sự kiện (công khai).** Bước 5000 tới lúc 16:10:31 (trước mốc "chậm" 16:12). D1 không kích hoạt (PDE 0.008666 ≤ 0.01748). **D2 kích hoạt** (λ_P·L_P 7.444×10⁻⁶ ≥ 0.5 × 2.993×10⁻⁶ ở bước 1000). Tiến trình bị dừng theo A1; `runs/F13/B3W0s_c/last.pt` (bước 5000) còn nguyên. **Sau khi D2 kích hoạt** tôi đã đo cổng (b) trên 2²¹ điểm (seed 101, chỉ đọc, không FD) cho checkpoint này: T_min 296.6 K, hụt 0.03%, không điểm nào thấp hơn T_amb − 5 K (C4 F08: 231.5 K, hụt 1.26%, 7208 điểm). Tôi đã thấy số này **trước** khi viết A2.
+
+**Lỗi thiết kế của D2 (thừa nhận).** Mốc so sánh là một lần lấy mẫu ở bước 1000, vốn đã rất thấp (3×10⁻⁶) và dao động mạnh giữa các bước (3×10⁻⁶ → 5.4×10⁻⁵ → 1.5×10⁻⁵ → 8.4×10⁻⁶ → 7.4×10⁻⁶), nên D2 gần như chắc chắn kích hoạt dù mục tiêu đã đạt.
+
+**Ngoại lệ (người dùng chọn):** checkpoint bước 5000 được xét như một ứng viên hoàn chỉnh. **Quy tắc đủ điều kiện của mục 3 giữ nguyên, không đổi:** (i) cổng đầy đủ đạt (a, b, c; b đã đo ở trên); (ii) hạng phần dư PDE trong loss ≤ 0.01748 (đã có: 0.008666). Cổng (a) và (c) chưa đo đầy đủ; đo bằng `runner.full_gate` (E_res, E_id, tỉ lệ năng lượng). Đủ điều kiện → PINN của C4, đánh giá FD **một lần** (mục 3). Không đủ điều kiện → PINN của C4 là PINN gốc `runs/Fs/B3W0s_it1`. Không huấn luyện thêm; không đổi ngưỡng nào.
+
+**Giới hạn:** ngoại lệ này được chọn sau khi thấy số cổng (b); lựa chọn dựa trên cổng huấn luyện (đặt trước FD), không dựa trên FD. Checkpoint huấn luyện 5000 bước (không phải 10000 như mục 2). D2 không được sửa lại cho các lượt sau.
