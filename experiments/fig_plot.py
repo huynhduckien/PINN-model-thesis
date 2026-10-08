@@ -22,6 +22,8 @@ OUT = ROOT/"runs"/"Figures"/"pinn_vs_fd"
 UM = 1e6
 OFFS = (-73.0, -150.0, -250.0, -400.0)
 LEVELS = ((None, "k", "T$_{sol}$"), (1000.0, "tab:blue", "1000 K"), (600.0, "tab:green", "600 K"))
+NOTE = {"C3": "Dotted line: bottom of the 60 µm powder layer on the solid substrate (plain track, no wedge). Not the melt-pool boundary; the black line is T$_{sol}$.",
+        "C4": "Dotted line: static powder/solid boundary (bottom of the 60 µm powder layer and the 45° wedge face). Not the melt-pool boundary; the black line is T$_{sol}$."}
 TITLE = {"C3": "Plain track, insulated powder", "C4": "Wedge (overhang), insulated powder"}
 
 
@@ -93,7 +95,7 @@ def fig1(f, M):
     for ax, k, lab in ((axs[0], 0, "Pool depth (µm)"), (axs[1], 1, "Pool width (µm)")):
         ax.plot(xr[sel], res["FD"][k][sel], color="k", lw=1.8, label="FD")
         ax.plot(xr[sel], res["PINN"][k][sel], color="tab:orange", lw=1.8, ls="--", label="PINN")
-        ax.axvline(-73, color="0.6", lw=0.8, ls=":")
+        ax.axvline(-73, color="0.6", lw=0.8, ls=":", label="section of Fig. 2" if k == 0 else None)
         ax.set_xlabel("x − x$_{laser}$ (µm)")
         ax.set_ylabel(lab)
         ax.set_ylim(bottom=0)
@@ -133,12 +135,14 @@ def three(fig, axs, A, B, xs, ys, f, vmax_T, aspect_equal=True, xlabel="y (µm)"
 
 def fig2(f, M, off=-73.0):
     a, b = f.trans(off)
-    fig, axs = plt.subplots(1, 3, figsize=(16, 3.9), constrained_layout=True, sharey=True)
+    fig, axs = plt.subplots(1, 3, figsize=(16, 4.3), constrained_layout=True, sharey=True)
+    fig.get_layout_engine().set(rect=(0, 0.07, 1, 0.93))                      # chua cho o cho chu thich o day hinh
     lim = three(fig, axs, a, b, f.yu, f.dep, f, max(a.max(), b.max()))
     for ax in axs:
         interface(ax, f, color="w")
     axs[0].set_ylabel("Depth (µm)")
     fig.suptitle(f"{TITLE[f.case]}: transverse section {abs(off):.0f} µm behind the laser centre, 70% of scan", fontsize=10)
+    fig.text(0.01, 0.005, NOTE[f.case], fontsize=8, color="0.25", ha="left", va="bottom")
     fig.savefig(OUT/f"{f.case}_fig2_transverse.png", dpi=190)
     plt.close(fig)
     M["fig2"] = dict(off_um=off, err_colour_limit_K=lim, mean_err_hot_K=float((b - a)[a > 600].mean()), rms_err_hot_K=float(np.sqrt(((b - a)[a > 600]**2).mean())))
