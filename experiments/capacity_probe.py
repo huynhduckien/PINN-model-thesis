@@ -7,6 +7,7 @@ Du lieu: FD fdv2 10 um, anh chup T tai t_k = 5 + 10k us (k = 0..149); giu lai 75
 """
 import gc
 import json
+import os
 import sys
 import time
 from pathlib import Path
@@ -30,6 +31,8 @@ FD = ROOT/"runs"/"FD"
 EVAL_FRACS = (0.5, 0.7, 0.9)
 STEPS, BATCH, LR0, LR1, T_HOT = 30000, 2**19, 2e-3, 1e-5, 600.0
 ARMS = {"A": 24, "B": 64}
+SUFFIX = os.environ.get("PROBE_SUFFIX", "")                                   # prereg/11: _r2 -> khop lai nhanh A va LUU trong so, khong de ket qua cua prereg/10
+ARMS_RUN = os.environ.get("ARMS_ONLY", "AB")
 THRESH = dict(sufficient_frac=0.25, sufficient_wake_K=25.0, limited_frac=0.75)
 
 
@@ -122,12 +125,13 @@ def fit_arm(case, arm, sc, path, dom, r, T_tr, t_tr, ev):
     t5, T5 = L.cycle(net, sc, path, 0.5, sc["t_powder"])
     out["indicator"] = dict(depth_um=d7["depth_um"], width_um=d7["w_plus_um"] + d7["w_minus_um"], length_um=d7["length_um"],
                             cycle50=indicator.cycle_metrics(t5, T5, sc["T_solidus"], sc["T_liquidus"]))
+    torch.save({k: v.detach().cpu() for k, v in net.state_dict().items()}, FD/f"capacity_{case}_{arm}{SUFFIX}.pt")
     return out
 
 
 def run_all():
     for case in ("C3", "C4"):
-        todo = [a for a in ARMS if not (FD/f"capacity_{case}_{a}.json").exists()]
+        todo = [a for a in ARMS if a in ARMS_RUN and not (FD/f"capacity_{case}_{a}{SUFFIX}.json").exists()]
         if not todo:
             continue
         sc, path, dom, r, T_tr, t_tr, ev = make_data(case)
@@ -137,7 +141,7 @@ def run_all():
             torch.cuda.empty_cache()
             with gpu_lock():
                 res = fit_arm(case, arm, sc, path, dom, r, T_tr, t_tr, ev)
-            (FD/f"capacity_{case}_{arm}.json").write_text(json.dumps(res, indent=2, default=float))
+            (FD/f"capacity_{case}_{arm}{SUFFIX}.json").write_text(json.dumps(res, indent=2, default=float))
             e = res["eval"]["0.7"]
             print(f"{case} nhanh {arm} ({res['params']} tham so): RMS nong {res['rms_hot_all_times']:.1f} K (70%: {e['rms_hot']:.1f}), sau chum {e['wake_mean']:+.1f} K, "
                   f"quanh chum {e['focus_mean']:+.1f} K, hoi tu {res['converged']} (doc {res['slope_pct_per_1000']:.2f}%/1000), "

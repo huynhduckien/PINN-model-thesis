@@ -41,3 +41,38 @@ Báo cáo kèm: loss biên, năng lượng, dương, tổng có trọng số; ph
 ## 5. Giới hạn (khóa)
 
 Một seed, một lần khớp mỗi ca; mạng khớp là một điểm trong lân cận nghiệm FD chứ không phải nghiệm đúng; loss của DeepXDE phụ thuộc chuẩn hóa và bộ điểm collocation mặc định (không phải bộ điểm của nhánh W ở 09); kết quả nói về PINN F08 (30 µm, mặt nạ cố định), không nói về mọi cấu hình. Không đổi bảng chỉ báo, không phải PINN của hồ sơ.
+
+
+---
+
+## Kết quả 11 (2026-10-08 13:40, đồng hồ): phân loại theo quy tắc là DẠNG LOSS (L), nhưng phép đo có nhược điểm thiết kế nên không đủ để kết luận
+
+**Khớp lại nhánh A (có lưu trọng số):** tái lập đúng kết quả của 10 (xác định ở mức in ra): C3 RMS nóng 11.3 K (70%: 10.9 K), lệch sau chùm −1.1 K, 643 s; C4 12.7 K (12.6 K), −2.2 K, 313 s. Điều kiện chấp nhận (≤ 25% RMS PINN) thỏa.
+
+**Loss huấn luyện** (cùng mã `runner`/DeepXDE, điểm collocation mặc định, `λ_E = 1`, `λ_P = 1000`; thành phần [phần dư PDE, biên mặt trên, năng lượng, dương]; hai thành phần cuối trung bình 20 lần):
+
+| Ca | PINN F08 | Mạng khớp A | R = PDE(khớp)/PDE(PINN) |
+|---|---|---|---|
+| C3 | [0.00545, 0.00044, 0.00020, 0.00005] | [4.222, 0.494, 0.0198, 0.0021] | **774** |
+| C4 | [0.00874, 0.00036, 0.00025, 0.00004] | [4.051, 0.533, 0.0157, 0.0030] | **464** |
+
+Loss của PINN F08 trùng số đã ghi trong `run.json` (0.00545; 0.00874). **Phần dư tương đối (trung vị / phân vị 90), ~350 điểm gần chùm:** PINN C3 0.141 / 0.431, mạng khớp 0.360 / 2.032; PINN C4 0.184 / 0.685, mạng khớp 0.425 / 1.357.
+
+**Phân loại theo mục 3: DẠNG LOSS (L)** (R ≥ 1.0 ở cả hai ca).
+
+**Nhược điểm thiết kế của chính tôi (phải ghi cùng kết quả):** mạng khớp được tối ưu để khớp **giá trị** nhiệt độ, không khớp đạo hàm, nên đạo hàm bậc hai của nó (vào phần dư PDE) nhiễu và loss rất lớn dù giá trị chỉ lệch 11–13 K. Ước lượng thô trong mục 4 của 11 ("phần dư ~1% nên loss khớp có thể thấp") **sai nhiều bậc độ lớn**. Chênh lệch phần dư tương đối trung vị giữa mạng khớp và PINN chỉ cỡ 2.5 lần, còn loss chênh 500–800 lần: loss bị chi phối bởi đuôi (phân vị 90 của mạng khớp 136–203%), tức vài điểm có phần dư rất lớn. Vì vậy "R ≥ 1.0" **không chứng minh** loss ưu tiên nghiệm sai: nó chỉ cho thấy một mạng chính xác về giá trị nhưng không chính xác về đạo hàm có loss PDE cao, điều hiển nhiên. Phép đo này **không phân biệt được** tối ưu (T) với dạng loss (L). Điều nó cho thấy chắc chắn: loss PDE trên điểm collocation **không phải thước đo của sai số giá trị**; PINN F08 (loss 0.005–0.009, sai số nhiệt độ 135–206 K RMS) có loss thấp hơn hơn 500 lần so với mạng chính xác về giá trị (11–13 K RMS), nên loss thấp không bảo đảm nghiệm đúng.
+
+**Chấm dự đoán (mục 4):**
+
+| Dự đoán | Kết quả |
+|---|---|
+| TỐI ƯU ~35%, DẠNG LOSS ~35%, KHÔNG KẾT LUẬN ~30% | **DẠNG LOSS** theo quy tắc (nhưng xem nhược điểm thiết kế ở trên) |
+| R của C3, C4 cùng phía ngưỡng 1.0 (~65%) | **đúng** (774 và 464) |
+| phần dư tương đối trung vị của mạng khớp thấp hơn PINN ≥ 2 lần ở cả hai ca (~45%) | **sai**: cao hơn 2.6 và 2.3 lần |
+| RMS nóng khớp lại trong ±30% so với lần khớp ở 10 (~75%) | **đúng** (trùng) |
+| tổng thời gian dưới 45 phút (~70%) | **đúng** (~25 phút) |
+| (mục 4, lý giải) phần dư của mạng khớp ~1% nên loss thấp | **sai nhiều bậc độ lớn** |
+
+**Hướng tiếp theo (cần đăng ký 12):** cách phân biệt (T) và (L) không bị nhiễu đạo hàm: khởi động từ trọng số mạng khớp rồi **tinh chỉnh bằng chính loss PINN** (không dữ liệu) vài nghìn bước. Nếu loss PDE giảm về mức của PINN (≤ 0.009) **trong khi sai số giá trị so với FD vẫn thấp** (RMS nóng ≤ 30 K, lệch vùng sau chùm ≤ 25 K) thì tồn tại nghiệm chính xác có loss thấp và PINN F08 bị kẹt ở cực trị tồi (T). Nếu loss giảm nhưng trường dịch về nghiệm sai của PINN (lệch vùng sau chùm tiến về −150 K) thì hàm loss ưa nghiệm sai (L). Lưu ý: nếu (T) đúng, khởi động từ mạng khớp dùng dữ liệu FD nên **không** dùng được cho PINN của hồ sơ; kết quả chỉ chỉ hướng (đổi tối ưu, không đổi hàm loss).
+
+**Giới hạn:** một seed, một lần khớp mỗi ca; kết quả nói về PINN F08 (30 µm, mặt nạ cố định, điểm collocation mặc định), không nói về mọi cấu hình; mạng khớp không phải PINN của hồ sơ.
