@@ -47,7 +47,7 @@ def evaluate(net, sc, path, dom, r):
     return out
 
 
-def run_case(case):
+def run_case(case, max_seg=MAX_SEG):
     run, envp = CASES[case]
     sc, path = setup(case)
     dom = dict(Lx=sc["domain"][0], Ly=sc["domain"][1], Lz=sc["domain"][2])
@@ -66,7 +66,7 @@ def run_case(case):
     model.compile("adam", lr=1e-4, loss_weights=[1.0, 1.0, 1.0, 1000.0])
     traj = [dict(step=0, **{"eval": evaluate(net, sc, path, dom, r)})]
     stop_at = None
-    for k in range(1, MAX_SEG + 1):
+    for k in range(1, max_seg + 1):
         lh, _ = model.train(iterations=SEG, display_every=SEG)
         loss = [float(v) for v in lh.loss_train[-1]]
         ev = evaluate(net, sc, path, dom, r)
@@ -97,7 +97,7 @@ def run_case(case):
                      np.column_stack([xl, np.zeros(len(xl)), np.full(len(xl), zq)])])
     rel = residual_stats(net, sc, path, pts, 0.7*te)
     maskphys.uninstall()
-    res = dict(case=case, stop=stop_at or "het_20000_buoc", loss_pde_F08=loss_f08, loss_pde_final=traj[-1].get("loss", [None])[0], baseline_F08=base,
+    res = dict(case=case, stop=stop_at or f"het_{max_seg*SEG}_buoc", loss_pde_F08=loss_f08, loss_pde_final=traj[-1].get("loss", [None])[0], baseline_F08=base,
                final_eval_0p7=e, trajectory=traj, residual_rel_final=rel, classification=cls)
     (FD/f"finetune_{case}.json").write_text(json.dumps(res, indent=2, default=float))
     print(f"{case}: dung ({res['stop']}), loss PDE cuoi {res['loss_pde_final']:.5f} (F08 {loss_f08:.5f}), RMS nong(70%) {e['rms_hot']:.1f} K (F08 {base['rms_hot_0p7']:.1f}), "
@@ -107,10 +107,15 @@ def run_case(case):
 
 def main():
     runner._imports()
+    args = sys.argv[1:]
+    cases = args[args.index("--cases") + 1].split(",") if "--cases" in args else ["C3", "C4"]       # prereg/12 A1: --cases C4 --max-seg 2
+    max_seg = int(args[args.index("--max-seg") + 1]) if "--max-seg" in args else MAX_SEG
     out = {}
-    for case in ("C3", "C4"):
+    for case in cases:
         with gpu_lock():
-            out[case] = run_case(case)
+            out[case] = run_case(case, max_seg)
+    if len(cases) < 2:
+        return
     cl = [out[c]["classification"] for c in out]
     overall = "TOI UU (T)" if all(c == "TOI UU (T)" for c in cl) else ("DANG LOSS (L)" if all(c == "DANG LOSS (L)" for c in cl) else "KHONG KET LUAN / HON HOP")
     print("PHAN LOAI CHUNG:", overall, cl)

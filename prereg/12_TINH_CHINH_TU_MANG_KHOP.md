@@ -48,3 +48,29 @@ Ngày: 2026-10-08 13:42 (đồng hồ). Người dùng đồng ý đề xuất n
 ## 5. Giới hạn (khóa)
 
 Một seed, một lần chạy mỗi ca; lấy mẫu mặc định (không nhánh W); "loss ≤ 2× loss PINN" là mốc quy ước; điểm đánh giá là điểm dừng, không phải cực trị; khởi tạo từ mạng khớp là đường đi hẹp trong không gian tham số nên (T) chỉ chứng minh tồn tại cực trị tốt gần mạng khớp chứ không chứng minh PINN từ khởi tạo ngẫu nhiên tìm được nó; (L) chứng minh hàm loss kéo trường ra khỏi vùng chính xác **theo hướng gradient của Adam ở lr này**, không chứng minh mọi cực trị của loss đều sai. Không đổi bảng chỉ báo, không phải PINN của hồ sơ.
+
+
+---
+
+## Sửa đổi A1 (2026-10-08 14:30, đồng hồ): dừng sớm C3 ở bước 12500 và chạy C4 ngắn (5000 bước); viết sau khi đã thấy quỹ đạo C3
+
+**Công khai về thời điểm.** Mục này đổi điều kiện dừng đã khóa ở mục 2 **sau khi đã thấy quỹ đạo C3 đến bước 12500**, theo quyết định của người dùng (dừng và chạy C4 ngắn để kiểm hiện tượng có lặp lại ở hình học nêm). Lý do: loss PDE giảm quá chậm (0.233 → 0.144 → 0.122 → 0.113 → 0.108) so với mức dừng 0.0109, nên nhãn theo mục 3 gần như chắc chắn là KHÔNG KẾT LUẬN (loss chưa đạt mức PINN) dù chạy hết 20000 bước; chạy hết tốn thêm ~1.6–2.3 giờ mà ít thông tin thêm.
+
+**Quỹ đạo C3 (log `runs/FD/finetune.log`; trọng số các đoạn `runs/FD/ft_C3_seg1…5.pt`; tiến trình bị dừng ở đoạn 6, không có `finetune_C3.json`):**
+
+| Bước | Loss [PDE, biên, năng lượng, dương] | RMS nóng 70% (K) | Lệch vùng sau chùm | Lệch quanh chùm |
+|---|---|---|---|---|
+| 0 (mạng khớp) | [4.222, 0.494, 0.0198, 0.0021] | 10.9 | −1.1 | +0.5 |
+| 2500 | [0.2334, 0.0361, 0.0494, 0.0072] | 374.0 | −284.8 | −137.2 |
+| 5000 | [0.1443, 0.0285, 0.0073, 0.0074] | 393.4 | −333.9 | −70.9 |
+| 7500 | [0.1221, 0.0242, 0.0088, 0.0061] | 432.7 | −403.1 | −41.0 |
+| 10000 | [0.1125, 0.0209, 0.0103, 0.0045] | 457.0 | −440.6 | −11.9 |
+| 12500 | [0.1076, 0.0176, 0.0032, 0.0067] | 462.4 | −442.7 | +22.6 |
+
+Mốc PINN F08 (70%): loss PDE 0.00545, RMS nóng 135.3 K, lệch sau chùm −152.3 K. **Nhãn C3 (theo mục 3): KHÔNG KẾT LUẬN (loss chưa đạt mức PINN)**, chưa đủ để chọn (T) hay (L).
+
+**C4 ngắn (khóa trước khi chạy):** cùng thiết kế mục 2 (cùng siêu tham số, khởi tạo từ `runs/FD/capacity_C4_A_r2.pt`), nhưng **chỉ 2 đoạn = 5000 bước** (`finetune_from_fit.py --cases C4 --max-seg 2`). Dừng sớm hơn nếu loss PDE ≤ 2 × loss PINN F08 (≤ 0.01748) hoặc loss không hữu hạn. Tiêu chí "hiện tượng lặp lại ở nêm" (khóa, đối chiếu quỹ đạo C3 ở bước 5000: RMS nóng 393 K = 2.9 lần mốc PINN F08): **LẶP LẠI** nếu RMS nóng (70%) của C4 ở bước 5000 ≥ 1.5 × mốc PINN F08 của C4 (≥ 309 K) **và** lệch vùng sau chùm ≤ −116 K; **KHÔNG LẶP LẠI** nếu RMS nóng ≤ mốc PINN F08 (≤ 205.8 K); **KHÔNG RÕ** còn lại **[QUY ƯỚC: 1.5×, −116 K]**. Phân loại (T)/(L) theo mục 3 chỉ áp dụng nếu loss đạt mức PINN (khó xảy ra ở 5000 bước).
+
+**Dự đoán C4 (ghi trước):** LẶP LẠI ~65%; KHÔNG RÕ ~25%; KHÔNG LẶP LẠI ~10%. Loss PDE ở bước 5000 vẫn > 0.0175 (chưa đạt mức dừng): ~90%. Tổng thời gian dưới 30 phút: ~60%.
+
+**Giới hạn:** hai ca với độ dài khác nhau (C3 12500 bước, C4 5000 bước) nên không so được ở bước lớn; một seed; kết luận (T)/(L) vẫn không thể có từ 12; kết quả chỉ nói về xu hướng của đường đi giảm loss từ mạng khớp ở lr 1e-4.
