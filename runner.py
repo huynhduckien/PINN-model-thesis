@@ -80,7 +80,7 @@ def build(a, dtype):
     torch.cuda.empty_cache()
     dde.config.set_default_float(dtype)
     dde.config.set_random_seed(a.get("seed", 42))
-    sc, trk, path, net, anc, _ = C.build(a["run"], a.get("sobol_offset", 0), a.get("envelope"))
+    sc, trk, path, net, anc, _ = C.build(a["run"], a.get("sobol_offset", 0), a.get("envelope"), a.get("sampling"))
     exp = captured(L.check_process, sc, trk)
     if a.get("energy_lam") or a.get("pos_lam"):                         # prereg 03 muc 15, 18: so hang can bang nang luong + phat duong (mau ngau nhien moi buoc)
         import energy
@@ -277,13 +277,16 @@ def run(args):
         if args.envelope:
             import maskphys
             train["envelope"] = maskphys.load_envelope(args.envelope).sha()      # tag co bam bao be chay
+        sampling = json.loads(args.sampling) if args.sampling else None
+        if sampling:
+            train["sampling"] = sampling                               # tag khac khi ghi de lay mau (prereg 09)
         if args.seed != 42:
             train["seed"] = args.seed                                  # tag khac khi doi hat giong (prereg 02b, M3c)
         if args.init:
             train["init"] = Path(args.init).stem                       # tag khac khi khoi dong tu trong so khac (M3a)
         a = dict(run=args.run, adam_iters=args.adam_iters, adam_lr=args.adam_lr, chunk=args.chunk, max_iters=args.max_iters, init=init,
                  tag=C.tag_of(args.run, train), monitor_every=args.monitor_every, stop_gates=args.stop_gates, time_cap_s=args.time_cap_s,
-                 sobol_offset=args.sobol_offset, energy_lam=args.energy_lam, pos_lam=args.pos_lam, min_steps=args.min_steps, seed=args.seed, envelope=args.envelope)
+                 sobol_offset=args.sobol_offset, energy_lam=args.energy_lam, pos_lam=args.pos_lam, min_steps=args.min_steps, seed=args.seed, envelope=args.envelope, sampling=sampling)
         st = dict(args=a, phase="adam")
         log(out, f"bat dau {a['run']} tag {a['tag']} (tag that {C.tag_of(a['run'])}), khoi dong am tu {init}")
     t0 = time.time() - st.get("elapsed", 0.0)                           # dong ho cong don qua cac lan resume
@@ -350,6 +353,7 @@ def add_run_args(r):
     r.add_argument("--min-steps", type=int, default=0)
     r.add_argument("--seed", type=int, default=42)
     r.add_argument("--envelope")
+    r.add_argument("--sampling", help="chuoi JSON ghi de config.SAMPLING, vd '{\"src_back\": 36.0, \"n_int_src\": 524288}' (prereg 09)")
 
 
 if __name__ == "__main__":

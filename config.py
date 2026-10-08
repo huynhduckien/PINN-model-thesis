@@ -92,13 +92,13 @@ def clamp_output(net):
     return net
 
 
-def build(run, sobol_offset=0, envelope=None):
+def build(run, sobol_offset=0, envelope=None, sampling=None):
     """sc, trk, path, net, anchors, group (chua dung DeepXDE data; make_data goi rieng khi can). sobol_offset > 0: tap diem khac (prereg 02, M3b)."""
     import anchors as A
     sc = scales(run)
     trk = L.make_track(sc)
     path = L.make_path(sc, trk)
-    anchors, group = A.build_anchors(sc, trk, SAMPLING, path, sobol_offset)
+    anchors, group = A.build_anchors(sc, trk, dict(SAMPLING, **(sampling or {})), path, sobol_offset)      # sampling: ghi de SAMPLING (prereg 09)
     net = L.build_net(sc, path, NETWORK)
     if RUNS[run].get("clamp"):
         clamp_output(net)

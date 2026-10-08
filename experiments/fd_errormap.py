@@ -27,7 +27,7 @@ from fd_fieldcheck import ONLY, TAG, pinn_net, setup
 from lock import gpu_lock
 
 L = C.L
-OUT = ROOT/"runs"/"FD"/("errormap_f08.json" if TAG == "f08" else "errormap.json")
+OUT = ROOT/"runs"/"FD"/(f"errormap_{TAG}.json" if TAG else "errormap.json")
 FRACS = (0.5, 0.7, 0.9)
 
 

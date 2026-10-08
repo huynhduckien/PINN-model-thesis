@@ -28,15 +28,17 @@ BOUNDS = (2.0, 1.0)                           # A5: p = 2 (A4: min(p_quan sat, 2
 
 
 TAG = sys.argv[sys.argv.index("--tag") + 1] if "--tag" in sys.argv else None
-if TAG == "f08":                                                                    # prereg/08: C3, C4 la PINN cach nhiet huan luyen lai; C1, C2 giu nguyen
-    PINN = dict(PINN, C3=ROOT/"runs"/"F08"/"B3s_c"/"run.json", C4=ROOT/"runs"/"F08"/"B3W0s_c"/"run.json")
-    CMP = ROOT/"runs"/"FD"/"compare_f08.json"
+_DIRS = {"f08": ("F08", "B3s_c", "B3W0s_c"), "f09": ("F09", "B3s_w", "B3W0s_w")}
+if TAG in _DIRS:                                                                    # prereg/08, 09: C3, C4 la PINN cach nhiet huan luyen lai; C1, C2 giu nguyen
+    _d, _a, _b = _DIRS[TAG]
+    PINN = dict(PINN, C3=ROOT/"runs"/_d/_a/"run.json", C4=ROOT/"runs"/_d/_b/"run.json")
+    CMP = ROOT/"runs"/"FD"/f"compare_{TAG}.json"
 
 
 def pinn_ind(c):
     d = json.loads(PINN[c].read_text(encoding="utf-8"))
     d = dict(d.get("indicator", d))
-    cyc = json.loads((ROOT/"runs"/"FD"/("pinn_cycles_f08.json" if TAG == "f08" and c in ("C3", "C4") else "pinn_cycles.json")).read_text())
+    cyc = json.loads((ROOT/"runs"/"FD"/(f"pinn_cycles_{TAG}.json" if TAG in _DIRS and c in ("C3", "C4") else "pinn_cycles.json")).read_text())
     d["cycle50"] = cyc[c]["cycle50"]
     return d
 

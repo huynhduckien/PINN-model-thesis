@@ -22,12 +22,12 @@ import fdv2
 import maskphys
 from fd_cases import CASES
 from lock import gpu_lock
-from pinn_cycles import CK, F08
+from pinn_cycles import CK, tagged
 
 L = C.L
-TAG = os.environ.get("PINN_TAG")                                               # prereg/08: PINN_TAG=f08 -> checkpoint cach nhiet huan luyen lai (C3, C4)
+TAG = os.environ.get("PINN_TAG")                                               # prereg/08, 09: PINN_TAG=f08|f09 -> checkpoint cach nhiet huan luyen lai (C3, C4)
 ONLY = os.environ.get("ONLY")
-OUT = ROOT/"runs"/"FD"/("fieldcheck_f08.json" if TAG == "f08" else "fieldcheck.json")
+OUT = ROOT/"runs"/"FD"/(f"fieldcheck_{TAG}.json" if TAG else "fieldcheck.json")
 ENVP = {c: v[1] for c, v in CASES.items()}
 
 
@@ -44,7 +44,7 @@ def setup(case):
 
 def pinn_net(case, sc, path):
     net = L.build_net(sc, path, C.NETWORK)
-    net.load_state_dict(torch.load(F08[case][1] if TAG == "f08" and case in F08 else CK[case][1], map_location="cpu"))
+    net.load_state_dict(torch.load(tagged(TAG)[case][1] if TAG and case in tagged(TAG) else CK[case][1], map_location="cpu"))
     return net
 
 

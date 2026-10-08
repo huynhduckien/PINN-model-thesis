@@ -31,9 +31,17 @@ CK = {
 F08 = {"C3": ("B3s", RUNS/"F08"/"B3s_c"/"B3s_92803317.pt"), "C4": ("B3W0s", RUNS/"F08"/"B3W0s_c"/"B3W0s_98431da4.pt")}      # prereg/08: PINN cach nhiet huan luyen lai
 
 
+def tagged(tag):
+    """Checkpoint C3, C4 theo the: f08 (prereg/08), f09 (prereg/09, doc tag tu run.json cua cac thu muc runs/F09)."""
+    if tag == "f08":
+        return F08
+    d = {"C3": ("B3s", RUNS/"F09"/"B3s_w"), "C4": ("B3W0s", RUNS/"F09"/"B3W0s_w")}
+    return {c: (run, p/f"{json.loads((p/'run.json').read_text(encoding='utf-8'))['tag']}.pt") for c, (run, p) in d.items()}
+
+
 def main():
     tag = sys.argv[sys.argv.index("--tag") + 1] if "--tag" in sys.argv else None
-    ckpts = F08 if tag == "f08" else CK
+    ckpts = tagged(tag) if tag in ("f08", "f09") else CK
     out = {}
     for c, (run, ck) in ckpts.items():
         gc.collect()
@@ -51,7 +59,7 @@ def main():
             m["t_end_us"] = float(t[-1]*1e6)
             out[c][key] = m
         print(c, json.dumps({k: {a: round(b, 3) for a, b in v.items()} for k, v in out[c].items()}), flush=True)
-    (RUNS/"FD"/("pinn_cycles_f08.json" if tag == "f08" else "pinn_cycles.json")).write_text(json.dumps(out, indent=2, default=float))
+    (RUNS/"FD"/(f"pinn_cycles_{tag}.json" if tag else "pinn_cycles.json")).write_text(json.dumps(out, indent=2, default=float))
 
 
 if __name__ == "__main__":
