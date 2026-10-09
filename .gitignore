@@ -2,3 +2,6 @@ runs/
 __pycache__/
 *.pyc
 .run.lock
+
+# Tài li?u tham kh?o và ph?n bi?n (không dua lên GitHub)
+tailieu/
