@@ -24,7 +24,28 @@ from .physics import Properties  # noqa: E402
 from .stefan import Neumann  # noqa: E402
 
 
-def build_and_train(case: StefanCase, iters: int, n_domain: int, seed: int):
+class MixedGeometryXTime:
+    """Lấy mẫu miền: một phần đồng đều, một phần dồn vào vùng gần mặt chảy (0 đến x_ref, mọi thời điểm)."""
+
+    @staticmethod
+    def make(base, x_ref: float, frac_refined: float, t_end: float):
+        import deepxde as dde
+
+        class _Mixed(dde.geometry.GeometryXTime):
+            def random_points(self, n, random="pseudo"):
+                n_ref = int(n * frac_refined)
+                n_uni = n - n_ref
+                pts_uni = super().random_points(n_uni, random=random)
+                rng = np.random.default_rng()
+                pts_ref = np.column_stack([rng.uniform(0.0, x_ref, n_ref),
+                                           rng.uniform(0.0, t_end, n_ref)])
+                return np.vstack([pts_uni, pts_ref]).astype(pts_uni.dtype)
+
+        return _Mixed(base.geometry, base.timedomain)
+
+
+def build_and_train(case: StefanCase, iters: int, n_domain: int, seed: int,
+                    sampling: str = "uniform", x_ref: float = 0.56):
     import deepxde as dde
     import torch
 
@@ -55,6 +76,9 @@ def build_and_train(case: StefanCase, iters: int, n_domain: int, seed: int):
     geom = dde.geometry.Interval(0.0, L_s)
     timedomain = dde.geometry.TimeDomain(0.0, t_s)
     geomtime = dde.geometry.GeometryXTime(geom, timedomain)
+    if sampling == "mixed":
+        geomtime = MixedGeometryXTime.make(geomtime, x_ref=x_ref, frac_refined=0.5,
+                                           t_end=t_s)
 
     bc_left = dde.icbc.DirichletBC(
         geomtime, lambda x: np.ones((len(x), 1)),
@@ -116,6 +140,7 @@ def main() -> None:
     ap.add_argument("--n-domain", type=int, default=4000)
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--out", type=str, default="runs/gate_stefan")
+    ap.add_argument("--sampling", choices=["uniform", "mixed"], default="uniform")
     args = ap.parse_args()
 
     case = StefanCase()
@@ -123,9 +148,10 @@ def main() -> None:
     out.mkdir(parents=True, exist_ok=True)
     write_manifest(out / "manifest.json", "gate_stefan_1d", case,
                    extra={"iters": args.iters, "n_domain": args.n_domain, "seed": args.seed,
-                          "sampling": "uniform (chưa thích ứng)",
+                          "sampling": args.sampling,
                           "criteria": "chưa khóa (prereg/08)"})
-    model, T_m, sx, st, L_s, _ = build_and_train(case, args.iters, args.n_domain, args.seed)
+    model, T_m, sx, st, L_s, _ = build_and_train(case, args.iters, args.n_domain, args.seed,
+                                                 sampling=args.sampling)
     taus = [0.5, 1.0, 2.5, 5.0]
     result = evaluate(model, case, T_m, sx, st, L_s, taus)
     (out / "summary.json").write_text(json.dumps(result, indent=2), encoding="utf-8")
