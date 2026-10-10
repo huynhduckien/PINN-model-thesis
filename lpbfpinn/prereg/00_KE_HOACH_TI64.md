@@ -162,5 +162,6 @@ Chưa khóa: vị trí cụ thể và công thức. Sẽ khóa trước khi ch�
 - Hệ quả đối với kế hoạch:
   - Bài overhang không có nghiệm giải tích, nên kiểm chứng chỉ còn: cân bằng năng lượng toàn miền, hội tụ theo lưới và số điểm lấy mẫu, độ nhạy tham số, và đối chiếu định tính với vật lý (ví dụ hướng và độ lớn của nhiệt độ đỉnh, tốc độ nguội).
   - Cổng Stefan 1D không đổi, vì dùng nghiệm Neumann giải tích, không dùng FD.
-  - **Đề xuất chờ duyệt:** kiểm chứng bằng nghiệm nhân tạo (method of manufactured solutions) cho phương trình 3D với tính chất hằng số, để kiểm tra residual và biên mà không cần FD.
-  - Chưa cập nhật: cách đánh giá chỉ báo overhang (mục 7) vẫn cần chốt; nó không phụ thuộc FD.
+  - **Đã duyệt ngày 2026-10-10:** kiểm chứng bằng nghiệm nhân tạo (method of manufactured solutions) cho phương trình 3D với tính chất hằng số, để kiểm tra residual và điều kiện biên mà không cần FD.
+  - **Đã duyệt ngày 2026-10-10:** bài overhang không còn tham chiếu số; cổng Stefan không đổi.
+  - Chưa chốt: cách đánh giá chỉ báo overhang (mục 7).
