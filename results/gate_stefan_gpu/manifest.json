@@ -1,0 +1,30 @@
+{
+  "run": "gate_stefan_1d",
+  "created_utc": "2026-10-10T04:15:26+00:00",
+  "git_head": "b14c0b3b09a6cc5c25d585a559c13162ec014d61",
+  "versions": {
+    "torch": "2.5.1+cu121",
+    "deepxde": "1.15.0"
+  },
+  "config": {
+    "rho": 4106.0,
+    "cp": 838.0,
+    "k": 33.1,
+    "L_f": 290000.0,
+    "T_sol": 1878.0,
+    "T_liq": 1928.0,
+    "T_i": 298.0,
+    "T_b": 2400.0,
+    "length": 0.0006,
+    "t_end": 0.0005,
+    "x_scale": 0.0001,
+    "t_scale": 0.0001
+  },
+  "extra": {
+    "iters": 20000,
+    "n_domain": 4000,
+    "seed": 0,
+    "sampling": "uniform",
+    "criteria": "chưa khóa (prereg/08)"
+  }
+}
