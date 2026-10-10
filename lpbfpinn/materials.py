@@ -45,6 +45,21 @@ def liquid_fraction_derivative(T: torch.Tensor, mat: Material) -> torch.Tensor:
     return inside.to(T.dtype) / (mat.T_liq - mat.T_sol)
 
 
+def liquid_fraction_smooth(T: torch.Tensor, mat: Material) -> torch.Tensor:
+    """Tỷ lệ lỏng trơn: smoothstep 3u² − 2u³ với u = (T − T_sol)/ΔT, bằng 0 và 1 ở hai đầu.
+
+    Tổng nhiệt ẩn không đổi (∫dg/dT dT = 1). Dùng để kiểm tra độ nhạy, không thay lựa chọn A đã khóa.
+    """
+    u = torch.clamp((T - mat.T_sol) / (mat.T_liq - mat.T_sol), 0.0, 1.0)
+    return 3.0 * u**2 - 2.0 * u**3
+
+
+def liquid_fraction_derivative_smooth(T: torch.Tensor, mat: Material) -> torch.Tensor:
+    """d/dT của smoothstep: 6u(1 − u)/ΔT trong khoảng, 0 ngoài khoảng."""
+    u = torch.clamp((T - mat.T_sol) / (mat.T_liq - mat.T_sol), 0.0, 1.0)
+    return 6.0 * u * (1.0 - u) / (mat.T_liq - mat.T_sol)
+
+
 def moser(powder: Powder, mat: Material) -> dict[str, float]:
     """Tương quan Moser (2019), phương trình 10–12, theo α_s và d50 của bột.
 

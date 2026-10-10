@@ -42,3 +42,14 @@ def test_moser_matches_prereg_values():
     assert out["alpha_eff"] == pytest.approx(0.355, abs=0.002)
     assert out["penetration_m"] * 1e6 == pytest.approx(28.5, abs=0.3)
     assert math.isfinite(out["k_ratio"])
+
+
+def test_smooth_latent_integrates_to_one_and_matches_derivative():
+    mat = Material()
+    T = torch.linspace(mat.T_sol, mat.T_liq, 20001, dtype=torch.float64)
+    dg = M.liquid_fraction_derivative_smooth(T, mat)
+    integral = torch.trapezoid(dg, T).item()
+    assert integral == pytest.approx(1.0, rel=1e-6)
+    g = M.liquid_fraction_smooth(T, mat)
+    num = torch.gradient(g, spacing=float(T[1] - T[0]))[0]
+    assert torch.allclose(num[10:-10], dg[10:-10], rtol=1e-3, atol=1e-6)

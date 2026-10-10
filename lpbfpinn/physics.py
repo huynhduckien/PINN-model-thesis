@@ -18,9 +18,10 @@ class Properties:
     """Tính chất theo nhiệt độ; `constant` ghi đè bằng hằng số (dùng cho kiểm chứng Stefan)."""
 
     def __init__(self, mat: Material, constant: dict[str, float] | None = None,
-                 powder_ratio_k: float = 1.0, porosity: float = 0.0):
+                 powder_ratio_k: float = 1.0, porosity: float = 0.0, latent_mode: str = "linear"):
         self.mat = mat
         self.constant = constant or {}
+        self.latent_mode = latent_mode     # "linear" (lựa chọn A, đã khóa) hoặc "smooth" (kiểm tra độ nhạy)
         self.r_k = powder_ratio_k          # k_bột / k_rắn (Moser), dùng trong vùng bột
         self.porosity = porosity           # φ, dùng cho nhiệt dung thể tích của bột
 
@@ -46,6 +47,8 @@ class Properties:
             mat = Material(T_sol=self.constant["T_sol"], T_liq=self.constant["T_liq"])
         else:
             mat = self.mat
+        if self.latent_mode == "smooth":
+            return L_f * M.liquid_fraction_derivative_smooth(T, mat)
         return L_f * M.liquid_fraction_derivative(T, mat)
 
     def capacity(self, T: torch.Tensor, s: torch.Tensor) -> torch.Tensor:
@@ -58,7 +61,8 @@ class Properties:
 
     def conductivity(self, T: torch.Tensor, s: torch.Tensor, M_hist: torch.Tensor) -> torch.Tensor:
         """k_eff = k(T)·g_L(T)·[1 + (r_k − 1)·s·(1 − M)], với g_L = 1 + (f_L − 1)·g(T)."""
-        gL = 1.0 + (self.mat.f_L - 1.0) * M.liquid_fraction(T, self.mat)
+        g = M.liquid_fraction(T, self.mat)
+        gL = 1.0 + (self.mat.f_L - 1.0) * g
         powder = 1.0 + (self.r_k - 1.0) * s * (1.0 - M_hist)
         return self.k(T) * gL * powder
 
