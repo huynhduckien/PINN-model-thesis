@@ -66,7 +66,7 @@ class EarlyGeometryXTime:
 
 def build_and_train(case: StefanCase, iters: int, n_domain: int, seed: int,
                     sampling: str = "uniform", x_ref: float = 0.56, lbfgs_iters: int = 0,
-                    latent_mode: str = "linear", hard_bc: bool = False):
+                    latent_mode: str = "linear", hard_bc: bool = False, t_ref: float = 1.0):
     import deepxde as dde
     import torch
 
@@ -102,7 +102,7 @@ def build_and_train(case: StefanCase, iters: int, n_domain: int, seed: int,
         geomtime = MixedGeometryXTime.make(geomtime, x_ref=x_ref, frac_refined=0.5,
                                            t_end=t_s)
     elif sampling == "early":
-        geomtime = EarlyGeometryXTime.make(geomtime, frac_early=0.5, t_ref=1.0, L_s=L_s)
+        geomtime = EarlyGeometryXTime.make(geomtime, frac_early=0.5, t_ref=t_ref, L_s=L_s)
 
     ic = dde.icbc.IC(
         geomtime, lambda x: np.zeros((len(x), 1)),
@@ -181,6 +181,7 @@ def main() -> None:
     ap.add_argument("--lbfgs", type=int, default=0, help="so vong L-BFGS sau Adam (0 = tat)")
     ap.add_argument("--latent", choices=["linear", "smooth"], default="linear")
     ap.add_argument("--hard-bc", action="store_true", help="cung hoa bien x=0 va x=L bang output transform")
+    ap.add_argument("--t-ref", type=float, default=1.0, help="can tren cua tau (don vi t_scale) cho lay mau som")
     args = ap.parse_args()
 
     case = StefanCase()
@@ -189,11 +190,12 @@ def main() -> None:
     write_manifest(out / "manifest.json", "gate_stefan_1d", case,
                    extra={"iters": args.iters, "n_domain": args.n_domain, "seed": args.seed,
                           "sampling": args.sampling, "lbfgs": args.lbfgs, "latent": args.latent,
-                          "hard_bc": args.hard_bc,
+                          "hard_bc": args.hard_bc, "t_ref": args.t_ref,
                           "criteria": "chưa khóa (prereg/08)"})
     model, T_m, sx, st, L_s, _ = build_and_train(case, args.iters, args.n_domain, args.seed,
                                                  sampling=args.sampling, lbfgs_iters=args.lbfgs,
-                                                 latent_mode=args.latent, hard_bc=args.hard_bc)
+                                                 latent_mode=args.latent, hard_bc=args.hard_bc,
+                                                 t_ref=args.t_ref)
     taus = [0.5, 1.0, 2.5, 5.0]
     opt = "adam" if args.lbfgs == 0 else f"adam+lbfgs({args.lbfgs})"
     result = evaluate(model, case, T_m, sx, st, L_s, taus, optimizer=opt)
