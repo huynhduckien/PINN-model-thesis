@@ -1,0 +1,63 @@
+"""Cấu hình lượt chạy: dataclass SI, xuất manifest JSON.
+
+Mỗi tham số ghi nguồn hoặc trạng thái. Tham số "CHƯA KHÓA" không được dùng cho lượt chạy chính.
+"""
+from __future__ import annotations
+
+from dataclasses import dataclass
+
+
+@dataclass(frozen=True)
+class Material:
+    name: str = "Ti-6Al-4V"
+    T_amb: float = 298.0            # K, giả định nhiệt độ phòng
+    T_sol: float = 1878.0           # K, Cook & Ritchie 2023, bảng 2
+    T_liq: float = 1928.0           # K, Cook & Ritchie 2023, bảng 2
+    L_f: float = 2.90e5             # J/kg, Cook & Ritchie 2023, bảng 2
+    T_b: float = 3315.0             # K, Cook & Ritchie 2023, bảng 2
+    L_v0: float = 9.83e6            # J/kg tại 0 K, Cook & Ritchie 2023, bảng 2
+    T_c: float = 7845.0             # K, Cook & Ritchie 2023, bảng 2
+    M_mol: float = 0.0467           # kg/mol, Cook & Ritchie 2023, bảng 2
+    phi_evap: float = 0.82          # Cook & Ritchie 2023, phương trình 11
+    T_cap: float = 6000.0           # K, giới hạn tính bay hơi (tham số triển khai, chưa có trong prereg)
+    h_c: float = 40.0               # W/m²K, Cook & Ritchie 2023, phương trình 14
+    emissivity: float = 0.3         # CHƯA CÓ NGUỒN, chỉ dùng cho độ nhạy
+    f_L: float = 1.0                # hệ số chỉ dùng làm độ nhạy (2.8)
+
+
+@dataclass(frozen=True)
+class Powder:
+    porosity: float = 0.60          # khóa theo prereg: mật độ đóng gói khoảng 40%
+    alpha_s: float = 0.27           # khóa theo prereg: Cook & Ritchie 2023, 1.07 µm
+    d50: float = 30e-6              # CHƯA KHÓA: nhà cung cấp Aimtek 30–36 µm, cần duyệt
+    k_gas: float = 0.0177           # CHƯA KHÓA: giá trị tham khảo argon, chưa xác minh NIST
+    interface_width: float = 30e-6  # m, giá trị cấu hình cũ, chưa có nguồn
+
+
+@dataclass(frozen=True)
+class Process:
+    power: float = 300.0            # W, khóa theo prereg
+    speed: float = 0.8              # m/s, khóa theo prereg
+    r_b: float = 40e-6              # m, khóa theo prereg
+    ramp_length: float = 10e-6      # m, đoạn khởi động (cấu hình cũ)
+
+
+@dataclass(frozen=True)
+class StefanCase:
+    """Bài toán kiểm chứng Stefan 1D (cổng bắt buộc, prereg mục 8).
+
+    Tính chất hằng số để so sánh với nghiệm Neumann. Giá trị lấy từ bảng 2 của Cook & Ritchie
+    tại gần T_sol, T_liq (ρ 4106 và c 838 ở 1878 K; k 33.1 W/m·K ở 1878 K).
+    """
+    rho: float = 4106.0
+    cp: float = 838.0
+    k: float = 33.1
+    L_f: float = 2.90e5
+    T_sol: float = 1878.0
+    T_liq: float = 1928.0
+    T_i: float = 298.0              # K, nhiệt độ ban đầu
+    T_b: float = 2400.0             # K, biên nóng x = 0 (lớn hơn T_liq)
+    length: float = 6e-4            # m, miền đủ lớn để coi như bán vô hạn
+    t_end: float = 5e-4             # s
+    x_scale: float = 1e-4           # m, thang tọa độ cho mạng
+    t_scale: float = 1e-4           # s, thang thời gian cho mạng
