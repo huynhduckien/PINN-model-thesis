@@ -1,0 +1,18 @@
+{
+  "B": {
+    "t_above_Tsol_s": 0.0,
+    "T_peak_K": 431.415283203125
+  },
+  "A": {
+    "t_above_Tsol_s": 0.0,
+    "T_peak_K": 303.5359191894531
+  },
+  "delta_t_B_minus_A_s": 0.0,
+  "outer_history": [
+    {
+      "outer": 1,
+      "mean_abs_dM": 0.0
+    }
+  ],
+  "device": "cuda:0"
+}
