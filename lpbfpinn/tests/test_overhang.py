@@ -71,3 +71,15 @@ def test_focus_points_lie_near_laser_at_their_time():
     assert inside_x.all()
     assert (y_m >= 0).all() and (y_m <= oh.R_FOCUS + 1e-12).all()
     assert (z_m >= oh.Z_MAX - oh.Z_FOCUS - 1e-12).all() and (z_m <= oh.Z_MAX + 1e-12).all()
+
+
+def test_stop_rule_requires_some_melting():
+    from lpbfpinn.overhang import should_stop
+    # ΔM nhỏ nhưng chưa có ô nóng chảy: không được dừng
+    assert not should_stop(0.0, np.zeros((2, 2)), 0.05)
+    # ΔM nhỏ và đã có ô nóng chảy: dừng
+    M = np.zeros((2, 2))
+    M[0, 0] = 0.4
+    assert should_stop(0.01, M, 0.05)
+    # ΔM còn lớn: tiếp tục
+    assert not should_stop(0.2, M, 0.05)

@@ -219,6 +219,14 @@ def grid_temperature(model, grid: dict, chunk: int = 200_000) -> np.ndarray:
     return out.reshape(grid["nx"], grid["ny"], grid["nz"], grid["nt"])
 
 
+def should_stop(change: float, M: np.ndarray, threshold: float) -> bool:
+    """Dừng khi M ổn định VÀ đã có ít nhất một ô nóng chảy (M > 0).
+
+    Điều kiện chỉ dựa trên ΔM sẽ dừng sớm khi vùng nóng chảy chưa hình thành (ΔM = 0 vì M vẫn bằng 0).
+    """
+    return change < threshold and float(np.max(M)) > 0.0
+
+
 def update_M(model, grid: dict) -> tuple[np.ndarray, float]:
     """Cập nhật M từ nghiệm hiện tại; trả về M mới và sai khác trung bình so với M cũ."""
     T = grid_temperature(model, grid)
@@ -277,9 +285,10 @@ def main() -> None:
     for k in range(args.outer):
         model.train(iterations=steps, display_every=max(steps // 2, 1))
         _, change = update_M(model, grid)
-        history.append({"outer": k + 1, "mean_abs_dM": change})
-        print(f"vong {k + 1}: trung binh |dM| = {change:.4f}", flush=True)
-        if change < args.stop_change:
+        M_now = M_STATE["tensor"].detach().cpu().numpy()
+        history.append({"outer": k + 1, "mean_abs_dM": change, "max_M": float(M_now.max())})
+        print(f"vong {k + 1}: trung binh |dM| = {change:.4f}, max M = {M_now.max():.3f}", flush=True)
+        if should_stop(change, M_now, args.stop_change):
             break
     model.save(str(out / "model"), verbose=0)
     result = indicator(model)
