@@ -101,7 +101,7 @@ def evaluate(model, n: int = 16, times=(0.05, 0.25, 0.5, 1.0)) -> dict:
         pts = np.column_stack([X.ravel(), Y.ravel(), Z.ravel(), np.full(X.size, t)])
         pred = model.predict(pts).reshape(-1)
         import torch
-        ex = exact(torch.tensor(pts, dtype=torch.float32)).numpy().reshape(-1)
+        ex = exact(torch.tensor(pts, dtype=torch.float32)).cpu().numpy().reshape(-1)
         scale = float(np.max(np.abs(ex))) or 1.0
         rows.append({
             "t": t,
@@ -125,6 +125,7 @@ def main() -> None:
                           "t_ref": 0.5, "frac_early": 0.5, "hard_bc_ic": True,
                           "solution": "S(x,y,z)*(1-exp(-3t))"})
     model = build_and_train(args.iters, args.n_domain, args.seed)
+    model.save(str(out / "model"), verbose=0)
     result = evaluate(model)
     import torch
     result["device"] = str(next(model.net.parameters()).device)
