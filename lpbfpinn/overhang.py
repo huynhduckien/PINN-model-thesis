@@ -130,7 +130,7 @@ def pde_terms(x, T, grid: dict):
 
 
 def build_problem(n_domain: int, seed: int, iters: int, grid: dict, focus_frac: float = 0.5,
-                  pde_weight: float = 1.0, lr: float = 1e-3):
+                  pde_weight: float = 1.0, lr: float = 1e-3, moving_frame: bool = False):
     import deepxde as dde
 
     dde.config.set_random_seed(seed)
@@ -199,6 +199,14 @@ def build_problem(n_domain: int, seed: int, iters: int, grid: dict, focus_frac: 
         return MAT.T_amb + x[:, 2:3] * S_T * y
 
     net.apply_output_transform(hard_bottom)
+    if moving_frame:
+        # Mạng nhận ξ = x − x_l(t) thay vì x: nguồn đứng yên trong đầu vào. PDE và biên vẫn tính theo x vật lý
+        # nhờ chain rule, nên chỉ đổi cách biểu diễn của mạng.
+        def to_moving(x):
+            x_l = X_START / L_S + PROC.speed * T_S / L_S * x[:, 3:4]
+            return torch.cat([x[:, 0:1] - x_l, x[:, 1:]], dim=1)
+
+        net.apply_feature_transform(to_moving)
     model = dde.Model(data, net)
     model.compile("adam", lr=lr, loss_weights=[pde_weight, 1, 1, 1, 1, 1, IC_WEIGHT])
     device = next(net.parameters()).device
@@ -279,6 +287,7 @@ def main() -> None:
     ap.add_argument("--dz-um", type=float, default=10.0)
     ap.add_argument("--nt", type=int, default=30)
     ap.add_argument("--focus-frac", type=float, default=0.5, help="ti le diem lay mau quanh tam laser")
+    ap.add_argument("--moving-frame", action="store_true", help="mang nhan xi = x - x_l(t) thay vi x")
     args = ap.parse_args()
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
@@ -286,10 +295,11 @@ def main() -> None:
     write_manifest(out / "manifest.json", "overhang_3d", {"Ly": Y_MAX, "Lz": Z_MAX, "Z_POW": Z_POW,
                                                           "X_START": X_START, "X_END": X_END},
                    extra={"iters": args.iters, "n_domain": args.n_domain, "seed": args.seed,
-                          "focus_frac": args.focus_frac, "outer": args.outer, "stop_change": args.stop_change, "grid": grid,
+                          "focus_frac": args.focus_frac, "moving_frame": args.moving_frame, "outer": args.outer, "stop_change": args.stop_change, "grid": grid,
                           "t_end_s": T_END})
     steps = max(args.iters // args.outer, 1)
-    model = build_problem(args.n_domain, args.seed, args.iters, grid, focus_frac=args.focus_frac)
+    model = build_problem(args.n_domain, args.seed, args.iters, grid, focus_frac=args.focus_frac,
+                          moving_frame=args.moving_frame)
     history = []
     for k in range(args.outer):
         model.train(iterations=steps, display_every=max(steps // 2, 1))
