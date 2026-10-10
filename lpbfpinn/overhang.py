@@ -109,6 +109,26 @@ def focus_points(n: int, rng: np.random.Generator) -> np.ndarray:
     return np.column_stack([x / L_S, y / L_S, z / L_S, tau])
 
 
+def pde_terms(x, T, grid: dict):
+    """Các hạng của residual PDE (chưa chia SCALE_RES): C·∂T/∂t, div(k∇T), q. Dùng chung cho loss và chẩn đoán."""
+    import deepxde as dde
+
+    Tt = dde.grad.jacobian(T, x, i=0, j=3) / T_S
+    grads = [dde.grad.jacobian(T, x, i=0, j=c) / L_S for c in range(3)]
+    y_m = x[:, 1:2] * L_S
+    z_m = x[:, 2:3] * L_S
+    x_m = x[:, 0:1] * L_S
+    t_m = x[:, 3:4] * T_S
+    s = powder_index(y_m, z_m)
+    k = PROPS.conductivity(T, s, lookup_M(x, grid))
+    div = 0.0
+    for c in range(3):
+        div = div + dde.grad.jacobian(k * grads[c], x, i=0, j=c) / L_S
+    C = PROPS.capacity(T, s)
+    q = beer_lambert_source(x_m, y_m, z_m, t_m, MS["alpha_eff"], MS["beta"], PROC, Z_MAX, X_START)
+    return C * Tt, div, q
+
+
 def build_problem(n_domain: int, seed: int, iters: int, grid: dict, focus_frac: float = 0.5,
                   pde_weight: float = 1.0, lr: float = 1e-3):
     import deepxde as dde
@@ -128,20 +148,8 @@ def build_problem(n_domain: int, seed: int, iters: int, grid: dict, focus_frac: 
     geomtime = _Focus(cuboid, base.timedomain)
 
     def pde(x, T):
-        Tt = dde.grad.jacobian(T, x, i=0, j=3) / T_S
-        grads = [dde.grad.jacobian(T, x, i=0, j=c) / L_S for c in range(3)]
-        y_m = x[:, 1:2] * L_S
-        z_m = x[:, 2:3] * L_S
-        x_m = x[:, 0:1] * L_S
-        t_m = x[:, 3:4] * T_S
-        s = powder_index(y_m, z_m)
-        k = PROPS.conductivity(T, s, lookup_M(x, grid))
-        div = 0.0
-        for c in range(3):
-            div = div + dde.grad.jacobian(k * grads[c], x, i=0, j=c) / L_S
-        C = PROPS.capacity(T, s)
-        q = beer_lambert_source(x_m, y_m, z_m, t_m, MS["alpha_eff"], MS["beta"], PROC, Z_MAX, X_START)
-        return (C * Tt - div - q) / SCALE_RES
+        ct, div, q = pde_terms(x, T, grid)
+        return (ct - div - q) / SCALE_RES
 
     def top_bc(inputs, T, X):
         Tz = dde.grad.jacobian(T, inputs, i=0, j=2) / L_S

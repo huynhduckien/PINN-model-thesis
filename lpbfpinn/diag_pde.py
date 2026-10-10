@@ -16,8 +16,8 @@ import numpy as np  # noqa: E402
 import torch  # noqa: E402
 
 from .overhang import (  # noqa: E402
-    L_S, T_END, T_S, TAU_END, X_MAX, X_MIN, Y_MAX, Z_MAX,
-    build_problem, focus_points, make_grid,
+    L_S, SCALE_RES, T_END, T_S, TAU_END, X_MAX, X_MIN, Y_MAX, Z_MAX,
+    build_problem, focus_points, make_grid, pde_terms,
 )
 
 
@@ -36,6 +36,25 @@ def pde_residual_sq(model, pts: np.ndarray) -> np.ndarray:
     T = model.net(x)
     res = model.data.pde(x, T)
     return (res.detach().cpu().numpy().ravel()) ** 2
+
+
+def term_report(model, pts: np.ndarray, grid: dict, n_top: int = 10) -> dict:
+    """Phân rã residual theo hạng C·∂T/∂t, div(k∇T), q (đơn vị SCALE_RES) cho các điểm tệ nhất."""
+    x = torch.tensor(pts, dtype=torch.float32, device=next(model.net.parameters()).device, requires_grad=True)
+    T = model.net(x)
+    ct, div, q = pde_terms(x, T, grid)
+    ct, div, q = (v.detach().cpu().numpy().ravel() / SCALE_RES for v in (ct, div, q))
+    res = ct - div - q
+    order = np.argsort(res ** 2)[::-1]
+    rms = {"ct": float(np.sqrt(np.mean(ct ** 2))), "div": float(np.sqrt(np.mean(div ** 2))),
+           "q": float(np.sqrt(np.mean(q ** 2)))}
+    rows = []
+    for i in order[:n_top]:
+        x_, y_, z_, tau = pts[i]
+        rows.append({"x_um": x_ * L_S * 1e6, "y_um": y_ * L_S * 1e6, "z_um": z_ * L_S * 1e6,
+                     "t_s": tau * T_S, "ct": float(ct[i]), "div": float(div[i]), "q": float(q[i]),
+                     "res": float(res[i])})
+    return {"rms_all_points": rms, "worst": rows}
 
 
 def summarize(sq: np.ndarray, pts: np.ndarray) -> dict:
@@ -96,6 +115,7 @@ def main() -> None:
         "focus_frac": args.focus_frac, "rounds": args.rounds, "add_per_round": args.add_per_round,
         "uniform": summarize(pde_residual_sq(model, pts_uni), pts_uni),
         "focus": summarize(pde_residual_sq(model, pts_foc), pts_foc),
+        "terms_focus": term_report(model, pts_foc, grid),
     }
     (out / "diag.json").write_text(json.dumps(result, indent=2), encoding="utf-8")
     print(json.dumps(result, indent=2))
