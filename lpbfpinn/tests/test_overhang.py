@@ -1,6 +1,7 @@
 import math
 
 import numpy as np
+import numpy as np
 import pytest
 import torch
 
@@ -34,3 +35,24 @@ def test_measurement_points_are_in_pure_phase():
     z = torch.tensor([125e-6, 5e-6], dtype=torch.float64)
     s = powder_index(y, z)
     assert (s > 0.9).all()
+
+
+def test_consolidation_is_monotone_and_causal():
+    from lpbfpinn.overhang import consolidation_from_T
+    # T tăng theo thời gian: M phải không giảm; T dưới T_sol: M = 0; T trên T_liq: M = 1
+    times = np.linspace(0.0, 1.0, 5)
+    T = np.array([[1500.0, 1900.0, 1700.0, 2000.0, 1500.0]])  # một ô: lên nóng rồi nguội
+    M = consolidation_from_T(T, times)[0]
+    assert np.all(np.diff(M) >= 0)
+    assert M[0] == 0.0
+    assert M[1] > 0.0
+    assert M[-1] == pytest.approx(1.0)
+
+
+def test_lookup_M_returns_grid_values():
+    from lpbfpinn import overhang as oh
+    grid = oh.make_grid(100e-6, 100e-6, 1e-4)
+    oh.M_STATE["tensor"] = torch.zeros((grid["nx"], grid["ny"], grid["nz"], grid["nt"]))
+    oh.M_STATE["tensor"][0, 0, 0, 0] = 0.7
+    inp = torch.tensor([[(X_MIN_SCALED := oh.X_MIN / oh.L_S), 0.0, 0.0, 0.0]], dtype=torch.float32)
+    assert oh.lookup_M(inp, grid).item() == pytest.approx(0.7)

@@ -53,6 +53,30 @@ MS = moser(POW, MAT)
 PROPS = Properties(MAT, powder_ratio_k=MS["k_ratio"], porosity=POW.porosity)
 
 
+# Trạng thái cố kết M(x, y, z, t) trên lưới; cập nhật giữa các vòng lặp ngoài (prereg mục 5)
+M_STATE: dict = {"tensor": None}
+
+
+def consolidation_from_T(T: np.ndarray, times: np.ndarray) -> np.ndarray:
+    """M = cực đại tích lũy theo thời gian của tỷ lệ lỏng g(T) (trục thời gian là trục cuối)."""
+    g = np.clip((T - MAT.T_sol) / (MAT.T_liq - MAT.T_sol), 0.0, 1.0)
+    return np.maximum.accumulate(g, axis=-1)
+
+
+def lookup_M(inputs: torch.Tensor, grid: dict) -> torch.Tensor:
+    """Tra M theo ô gần nhất (hằng số từng ô): đạo hàm theo x của M bằng 0, xem ghi chú mục 5."""
+    M = M_STATE["tensor"]
+    x_m = inputs[:, 0] * L_S
+    y_m = inputs[:, 1] * L_S
+    z_m = inputs[:, 2] * L_S
+    t_m = inputs[:, 3] * T_S
+    ix = torch.clamp(torch.round((x_m - grid["x0"]) / grid["dx"]).long(), 0, grid["nx"] - 1)
+    iy = torch.clamp(torch.round((y_m - grid["y0"]) / grid["dy"]).long(), 0, grid["ny"] - 1)
+    iz = torch.clamp(torch.round((z_m - grid["z0"]) / grid["dz"]).long(), 0, grid["nz"] - 1)
+    it = torch.clamp(torch.round(t_m / grid["dt"]).long(), 0, grid["nt"] - 1)
+    return M[ix, iy, iz, it].unsqueeze(1)
+
+
 def powder_index(y: torch.Tensor, z: torch.Tensor) -> torch.Tensor:
     """Chỉ số bột s ∈ [0,1] theo hình học nêm (y, z tính bằng mét)."""
     d = torch.maximum(z - Z_POW, (Z_POW - z - y) / math.sqrt(2.0))
@@ -60,7 +84,18 @@ def powder_index(y: torch.Tensor, z: torch.Tensor) -> torch.Tensor:
     return 0.5 * (1.0 + torch.tanh(d / a))
 
 
-def build_problem(n_domain: int, seed: int, iters: int, t_ref: float = 0.5, frac_early: float = 0.5):
+def make_grid(dx: float, dz: float, dt: float) -> dict:
+    x0, y0, z0 = X_MIN, 0.0, 0.0
+    nx = int(round((X_MAX - X_MIN) / dx)) + 1
+    ny = int(round(Y_MAX / dx)) + 1
+    nz = int(round(Z_MAX / dz)) + 1
+    nt = int(round(T_END / dt)) + 1
+    return {"x0": x0, "y0": y0, "z0": z0, "dx": dx, "dy": dx, "dz": dz, "dt": T_END / (nt - 1),
+            "nx": nx, "ny": ny, "nz": nz, "nt": nt}
+
+
+def build_problem(n_domain: int, seed: int, iters: int, grid: dict, t_ref: float = 0.5,
+                  frac_early: float = 0.5):
     import deepxde as dde
 
     dde.config.set_random_seed(seed)
@@ -89,7 +124,7 @@ def build_problem(n_domain: int, seed: int, iters: int, t_ref: float = 0.5, frac
         x_m = x[:, 0:1] * L_S
         t_m = x[:, 3:4] * T_S
         s = powder_index(y_m, z_m)
-        k = PROPS.conductivity(T, s, torch.zeros_like(T))
+        k = PROPS.conductivity(T, s, lookup_M(x, grid))
         div = 0.0
         for c in range(3):
             div = div + dde.grad.jacobian(k * grads[c], x, i=0, j=c) / L_S
@@ -100,7 +135,7 @@ def build_problem(n_domain: int, seed: int, iters: int, t_ref: float = 0.5, frac
     def top_bc(inputs, T, X):
         Tz = dde.grad.jacobian(T, inputs, i=0, j=2) / L_S
         s = powder_index(inputs[:, 1:2] * L_S, inputs[:, 2:3] * L_S)
-        k = PROPS.conductivity(T, s, torch.zeros_like(T))
+        k = PROPS.conductivity(T, s, lookup_M(inputs, grid))
         return (-k * Tz - top_outflux(T, MAT)) / SCALE_BC
 
     def lateral_bc(axis):
@@ -108,7 +143,7 @@ def build_problem(n_domain: int, seed: int, iters: int, t_ref: float = 0.5, frac
             import deepxde as dde
             Tn = dde.grad.jacobian(T, inputs, i=0, j=axis) / L_S
             s = powder_index(inputs[:, 1:2] * L_S, inputs[:, 2:3] * L_S)
-            return PROPS.conductivity(T, s, torch.zeros_like(T)) * Tn / SCALE_BC
+            return PROPS.conductivity(T, s, lookup_M(inputs, grid)) * Tn / SCALE_BC
         return f
 
     def on_top(x, on):
@@ -147,6 +182,9 @@ def build_problem(n_domain: int, seed: int, iters: int, t_ref: float = 0.5, frac
     net.apply_output_transform(hard_bottom)
     model = dde.Model(data, net)
     model.compile("adam", lr=1e-3, loss_weights=[1, 1, 1, 1, 1, 1, IC_WEIGHT])
+    device = next(net.parameters()).device
+    if M_STATE["tensor"] is None:
+        M_STATE["tensor"] = torch.zeros((grid["nx"], grid["ny"], grid["nz"], grid["nt"]), device=device)
     return model
 
 
@@ -155,6 +193,32 @@ def temperature(model, pts_m: np.ndarray) -> np.ndarray:
     scaled = np.column_stack([pts_m[:, 0] / L_S, pts_m[:, 1] / L_S,
                               pts_m[:, 2] / L_S, pts_m[:, 3] / T_S])
     return model.predict(scaled.astype(np.float32)).reshape(-1)
+
+
+def grid_temperature(model, grid: dict, chunk: int = 200_000) -> np.ndarray:
+    """Nhiệt độ trên toàn lưới (nx, ny, nz, nt) để cập nhật M."""
+    xs = grid["x0"] + grid["dx"] * np.arange(grid["nx"])
+    ys = grid["y0"] + grid["dy"] * np.arange(grid["ny"])
+    zs = grid["z0"] + grid["dz"] * np.arange(grid["nz"])
+    ts = grid["dt"] * np.arange(grid["nt"])
+    X, Y, Z, Tm = np.meshgrid(xs, ys, zs, ts, indexing="ij")
+    pts = np.column_stack([X.ravel(), Y.ravel(), Z.ravel(), Tm.ravel()])
+    out = np.empty(pts.shape[0], dtype=np.float64)
+    for i in range(0, pts.shape[0], chunk):
+        out[i:i + chunk] = temperature(model, pts[i:i + chunk])
+    return out.reshape(grid["nx"], grid["ny"], grid["nz"], grid["nt"])
+
+
+def update_M(model, grid: dict) -> tuple[np.ndarray, float]:
+    """Cập nhật M từ nghiệm hiện tại; trả về M mới và sai khác trung bình so với M cũ."""
+    T = grid_temperature(model, grid)
+    times = grid["dt"] * np.arange(grid["nt"])
+    M_new = consolidation_from_T(T, times)
+    M_old = M_STATE["tensor"].detach().cpu().numpy()
+    change = float(np.mean(np.abs(M_new - M_old)))
+    M_STATE["tensor"] = torch.as_tensor(M_new, dtype=torch.float32,
+                                        device=M_STATE["tensor"].device)
+    return M_new, change
 
 
 def indicator(model, n_t: int = 2000) -> dict:
@@ -182,17 +246,33 @@ def main() -> None:
     ap.add_argument("--n-domain", type=int, default=20000)
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--out", type=str, default="runs/overhang")
+    ap.add_argument("--outer", type=int, default=4, help="so vong lap ngoai cho lich su pha")
+    ap.add_argument("--stop-change", type=float, default=0.05, help="dung neu trung binh |dM| < nguong")
+    ap.add_argument("--dx-um", type=float, default=20.0)
+    ap.add_argument("--dz-um", type=float, default=10.0)
+    ap.add_argument("--nt", type=int, default=30)
     args = ap.parse_args()
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
+    grid = make_grid(args.dx_um * 1e-6, args.dz_um * 1e-6, T_END / (args.nt - 1))
     write_manifest(out / "manifest.json", "overhang_3d", {"Ly": Y_MAX, "Lz": Z_MAX, "Z_POW": Z_POW,
                                                           "X_START": X_START, "X_END": X_END},
                    extra={"iters": args.iters, "n_domain": args.n_domain, "seed": args.seed,
-                          "history": "M=0 (vong lap ngoai chua cai)", "t_end_s": T_END})
-    model = build_problem(args.n_domain, args.seed, args.iters)
-    model.train(iterations=args.iters, display_every=max(args.iters // 10, 1))
+                          "outer": args.outer, "stop_change": args.stop_change, "grid": grid,
+                          "t_end_s": T_END})
+    steps = max(args.iters // args.outer, 1)
+    model = build_problem(args.n_domain, args.seed, args.iters, grid)
+    history = []
+    for k in range(args.outer):
+        model.train(iterations=steps, display_every=max(steps // 2, 1))
+        _, change = update_M(model, grid)
+        history.append({"outer": k + 1, "mean_abs_dM": change})
+        print(f"vong {k + 1}: trung binh |dM| = {change:.4f}", flush=True)
+        if change < args.stop_change:
+            break
     model.save(str(out / "model"), verbose=0)
     result = indicator(model)
+    result["outer_history"] = history
     result["device"] = str(next(model.net.parameters()).device)
     (out / "summary.json").write_text(json.dumps(result, indent=2), encoding="utf-8")
     print(json.dumps(result, indent=2))
