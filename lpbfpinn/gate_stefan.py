@@ -131,7 +131,8 @@ def evaluate(model, case: StefanCase, T_m: float, sx: float, st: float, L_s: flo
             "front_rel_err": abs(front_pred - front_ex) / front_ex if front_ex > 0 else float("nan"),
             "T_rel_L2_near_front": err_L2,
         })
-    return {"lambda": nm.lam, "kappa": nm.kappa, "T_m": T_m, "rows": rows}
+    device = str(next(model.net.parameters()).device)
+    return {"lambda": nm.lam, "kappa": nm.kappa, "T_m": T_m, "device": device, "rows": rows}
 
 
 def main() -> None:
@@ -155,6 +156,7 @@ def main() -> None:
     taus = [0.5, 1.0, 2.5, 5.0]
     result = evaluate(model, case, T_m, sx, st, L_s, taus)
     (out / "summary.json").write_text(json.dumps(result, indent=2), encoding="utf-8")
+    print(f"device={result['device']}")
     for r in result["rows"]:
         print(f"tau={r['tau']:<4} front_exact={r['front_exact_m']*1e6:8.2f} µm  "
               f"front_pred={r['front_pred_m']*1e6:8.2f} µm  rel_err={r['front_rel_err']:.3f}  "
