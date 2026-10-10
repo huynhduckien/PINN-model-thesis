@@ -99,14 +99,26 @@ Hàm Gauss σ = 150 K của IN718 đã bỏ.
 
 Với h_c = 40 W/m²·K (Cook & Ritchie: không ảnh hưởng đáng kể trong vùng nóng). Chạy độ nhạy ε ∈ {0.2, 0.3, 0.6} và h_c ∈ {20, 40}.
 
-## 7. Chỉ báo overhang
+## 7. Chỉ báo overhang (đã duyệt ngày 2026-10-10)
 
-Giá trị tuyệt đối tại vị trí cố định (ví dụ điểm dưới đáy vùng treo):
-- nhiệt độ đỉnh tại vị trí cố định;
-- thời gian lưu trên T_sol;
-- tốc độ nguội qua khoảng T_sol → T_liq.
+Hình học (mục 12): phần rắn là tam giác phía bên phải trên; mép treo là đường chéo 45° từ (y=0, z=180 µm) đến (y=180 µm, z=0); bột nằm bên dưới đường chéo.
 
-Chưa khóa: vị trí cụ thể và công thức. Sẽ khóa trước khi chạy bài chính.
+- **Điểm B (không hỗ trợ):** ngay dưới mép treo, gần đầu nhọn, y ≈ 30 µm, z ≈ 150 µm. Bột bên dưới, khối rắn phía trên mỏng, nhiệt khó thoát.
+- **Điểm A (có hỗ trợ):** ngay dưới mép treo, gần chân rắn, y ≈ 150 µm, z ≈ 30 µm. Khối rắn phía trên dày, nhiệt có đường dẫn về đế.
+- Đo tại thời điểm laser đi qua mỗi điểm (cùng x với tâm laser khi đó).
+
+**Chỉ báo chính:** thời gian lưu trên T_sol tại B, t_B = thời gian từ lúc T vượt T_sol đến lúc T giảm dưới T_sol.
+**Chênh lệch chính:** Δt = t_B − t_A.
+
+**Chỉ báo phụ (mô tả):**
+- Nhiệt độ đỉnh tại A và B. Nếu đỉnh vượt 4000 K, ghi chú rằng kết quả chỉ mang tính định hướng do bay hơi chi phối.
+- Tốc độ nguội tại B qua khoảng T_sol → T_liq.
+
+**Không có ngưỡng.** Chỉ báo chỉ mô tả định lượng và so sánh giữa các cấu hình.
+
+**Báo cáo:**
+- Giá trị trung bình và độ phân tán trên ít nhất 3 seed. Coi là ổn định nếu độ phân tán dưới 10% trung bình.
+- Độ nhạy: thay α_s (0.27 và 0.33), h_c (20 và 40), φ và L_v. Kết luận về dấu và độ lớn của Δt được xem là đúng nếu thay đổi dưới 10%.
 
 ## 8. Lấy mẫu thích ứng và kiểm chứng
 
@@ -165,3 +177,5 @@ Chưa khóa: vị trí cụ thể và công thức. Sẽ khóa trước khi ch�
   - **Đã duyệt ngày 2026-10-10:** kiểm chứng bằng nghiệm nhân tạo (method of manufactured solutions) cho phương trình 3D với tính chất hằng số, để kiểm tra residual và điều kiện biên mà không cần FD.
   - **Đã duyệt ngày 2026-10-10:** bài overhang không còn tham chiếu số; cổng Stefan không đổi.
   - Chưa chốt: cách đánh giá chỉ báo overhang (mục 7).
+
+- 2026-10-10: duyệt chỉ báo overhang (mục 7): điểm A và B theo hình học mục 12, chỉ báo chính là t_B(T_sol) và Δt = t_B − t_A.
