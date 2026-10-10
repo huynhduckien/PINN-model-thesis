@@ -26,3 +26,11 @@ def test_deep_point_below_interface_is_powder():
     y = torch.tensor([30e-6], dtype=torch.float64)
     z = torch.tensor([125e-6], dtype=torch.float64)
     assert powder_index(y, z).item() > 0.9
+
+
+def test_measurement_points_are_in_pure_phase():
+    # B và A cách mặt treo 25 µm: chỉ số bột thuần (s > 0.9 bên bột, s < 0.1 bên rắn)
+    y = torch.tensor([30e-6, 150e-6], dtype=torch.float64)
+    z = torch.tensor([125e-6, 5e-6], dtype=torch.float64)
+    s = powder_index(y, z)
+    assert (s > 0.9).all()

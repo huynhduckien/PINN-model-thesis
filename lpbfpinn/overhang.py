@@ -160,13 +160,13 @@ def temperature(model, pts_m: np.ndarray) -> np.ndarray:
 def indicator(model, n_t: int = 2000) -> dict:
     """Chỉ báo overhang (mục 7): t_B và Δt = t_B − t_A tại điểm đo cố định dọc theo đường quét.
 
-    B: y = 30 µm, z = 145 µm (dưới mặt treo 5 µm; mặt treo tại z = 150 µm).
-    A: y = 150 µm, z = 25 µm (dưới mặt treo 5 µm; mặt treo tại z = 30 µm).
+    B: y = 30 µm, z = 125 µm (dưới mặt treo 25 µm; mặt treo tại z = 150 µm).
+    A: y = 150 µm, z = 5 µm (dưới mặt treo 25 µm; mặt treo tại z = 30 µm). A cách đáy 5 µm.
     Điểm đo cố định tại x = 0 (giữa đường quét); laser đi qua khi t = (0 − X_START)/v.
     """
     t = np.linspace(0.0, T_END, n_t)
     out = {}
-    for name, (y, z) in {"B": (30e-6, 145e-6), "A": (150e-6, 25e-6)}.items():
+    for name, (y, z) in {"B": (30e-6, 125e-6), "A": (150e-6, 5e-6)}.items():
         pts = np.column_stack([np.zeros_like(t), np.full_like(t, y), np.full_like(t, z), t])
         T = temperature(model, pts)
         above = T > MAT.T_sol
