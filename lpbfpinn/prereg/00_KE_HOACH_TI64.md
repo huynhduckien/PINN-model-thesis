@@ -25,6 +25,8 @@ Mọi thay đổi sau khi khóa phải ghi lại kèm ngày giờ, không sửa 
 | ΔT = T_liq − T_sol | 50 K | Hệ quả |
 | L_f | 2.90×10⁵ J/kg | Cook & Ritchie 2023, bảng 2 |
 | T_b | 3315 K | Cook & Ritchie 2023, bảng 2 |
+| T_amb (nhiệt độ môi trường và ban đầu) | 298 K | Khóa ngày 2026-10-10 theo phản hồi review PR #1. Dùng cho đáy, biên trên (đối lưu, bức xạ) và điều kiện ban đầu. |
+| p_amb (áp suất khí quyển, bay hơi) | 101325 Pa | Khóa ngày 2026-10-10 theo phản hồi review PR #1. Áp suất khí quyển chuẩn. |
 | L_v(0) | 9.83×10⁶ J/kg | Cook & Ritchie 2023, bảng 2 |
 | L_v(T) | L_v(0)·√(1 − T²/T_c²), T_c = 7845 K | Cook & Ritchie 2023, phương trình 12 |
 | M (khối lượng mol) | 0.0467 kg/mol | Cook & Ritchie 2023, bảng 2 (trung bình có trọng số hợp kim) |
@@ -86,6 +88,7 @@ Hàm Gauss σ = 150 K của IN718 đã bỏ.
 
 ## 6. Biên
 
+- Điều kiện ban đầu: T(x, y, z, 0) = T_amb = 298 K trên toàn miền (cứng).
 - Đáy: T = T_amb (cứng).
 - Hai biên bên: cách nhiệt, ∂T/∂n = 0. Cần kiểm tra trong code.
 - Biên trên:
