@@ -109,7 +109,8 @@ def focus_points(n: int, rng: np.random.Generator) -> np.ndarray:
     return np.column_stack([x / L_S, y / L_S, z / L_S, tau])
 
 
-def build_problem(n_domain: int, seed: int, iters: int, grid: dict, focus_frac: float = 0.5):
+def build_problem(n_domain: int, seed: int, iters: int, grid: dict, focus_frac: float = 0.5,
+                  pde_weight: float = 1.0, lr: float = 1e-3):
     import deepxde as dde
 
     dde.config.set_random_seed(seed)
@@ -191,7 +192,7 @@ def build_problem(n_domain: int, seed: int, iters: int, grid: dict, focus_frac: 
 
     net.apply_output_transform(hard_bottom)
     model = dde.Model(data, net)
-    model.compile("adam", lr=1e-3, loss_weights=[1, 1, 1, 1, 1, 1, IC_WEIGHT])
+    model.compile("adam", lr=lr, loss_weights=[pde_weight, 1, 1, 1, 1, 1, IC_WEIGHT])
     device = next(net.parameters()).device
     if M_STATE["tensor"] is None:
         M_STATE["tensor"] = torch.zeros((grid["nx"], grid["ny"], grid["nz"], grid["nt"]), device=device)
