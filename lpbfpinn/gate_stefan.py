@@ -45,7 +45,7 @@ class MixedGeometryXTime:
 
 
 def build_and_train(case: StefanCase, iters: int, n_domain: int, seed: int,
-                    sampling: str = "uniform", x_ref: float = 0.56):
+                    sampling: str = "uniform", x_ref: float = 0.56, lbfgs_iters: int = 0):
     import deepxde as dde
     import torch
 
@@ -97,11 +97,15 @@ def build_and_train(case: StefanCase, iters: int, n_domain: int, seed: int,
     model = dde.Model(data, net)
     model.compile("adam", lr=1e-3)
     losshistory, _ = model.train(iterations=iters, display_every=max(iters // 10, 1))
+    if lbfgs_iters > 0:
+        dde.optimizers.config.set_LBFGS_options(maxiter=lbfgs_iters)
+        model.compile("L-BFGS")
+        losshistory, _ = model.train(display_every=max(lbfgs_iters // 5, 1))
     return model, T_m, sx, st, L_s, t_s
 
 
 def evaluate(model, case: StefanCase, T_m: float, sx: float, st: float, L_s: float,
-             taus: list[float]) -> dict:
+             taus: list[float], optimizer: str = "adam") -> dict:
     nm = Neumann(T_b=case.T_b, T_m=T_m, T_i=case.T_i, rho=case.rho, cp=case.cp,
                  k=case.k, L=case.L_f)
     xs = np.linspace(0.0, L_s, 4001)
@@ -132,7 +136,8 @@ def evaluate(model, case: StefanCase, T_m: float, sx: float, st: float, L_s: flo
             "T_rel_L2_near_front": err_L2,
         })
     device = str(next(model.net.parameters()).device)
-    return {"lambda": nm.lam, "kappa": nm.kappa, "T_m": T_m, "device": device, "rows": rows}
+    return {"lambda": nm.lam, "kappa": nm.kappa, "T_m": T_m, "device": device,
+            "optimizer": optimizer, "rows": rows}
 
 
 def main() -> None:
@@ -142,6 +147,7 @@ def main() -> None:
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--out", type=str, default="runs/gate_stefan")
     ap.add_argument("--sampling", choices=["uniform", "mixed"], default="uniform")
+    ap.add_argument("--lbfgs", type=int, default=0, help="so vong L-BFGS sau Adam (0 = tat)")
     args = ap.parse_args()
 
     case = StefanCase()
@@ -149,12 +155,13 @@ def main() -> None:
     out.mkdir(parents=True, exist_ok=True)
     write_manifest(out / "manifest.json", "gate_stefan_1d", case,
                    extra={"iters": args.iters, "n_domain": args.n_domain, "seed": args.seed,
-                          "sampling": args.sampling,
+                          "sampling": args.sampling, "lbfgs": args.lbfgs,
                           "criteria": "chưa khóa (prereg/08)"})
     model, T_m, sx, st, L_s, _ = build_and_train(case, args.iters, args.n_domain, args.seed,
-                                                 sampling=args.sampling)
+                                                 sampling=args.sampling, lbfgs_iters=args.lbfgs)
     taus = [0.5, 1.0, 2.5, 5.0]
-    result = evaluate(model, case, T_m, sx, st, L_s, taus)
+    opt = "adam" if args.lbfgs == 0 else f"adam+lbfgs({args.lbfgs})"
+    result = evaluate(model, case, T_m, sx, st, L_s, taus, optimizer=opt)
     (out / "summary.json").write_text(json.dumps(result, indent=2), encoding="utf-8")
     print(f"device={result['device']}")
     for r in result["rows"]:
