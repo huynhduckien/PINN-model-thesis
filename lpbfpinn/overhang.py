@@ -109,8 +109,11 @@ def focus_points(n: int, rng: np.random.Generator) -> np.ndarray:
     return np.column_stack([x / L_S, y / L_S, z / L_S, tau])
 
 
-def pde_terms(x, T, grid: dict):
-    """Các hạng của residual PDE (chưa chia SCALE_RES): C·∂T/∂t, div(k∇T), q. Dùng chung cho loss và chẩn đoán."""
+def pde_terms(x, T, grid: dict, source_scale: float = 1.0):
+    """Các hạng của residual PDE (chưa chia SCALE_RES): C·∂T/∂t, div(k∇T), q. Dùng chung cho loss và chẩn đoán.
+
+    source_scale nhân nguồn laser (mặc định 1, dùng cho thí nghiệm độ nhạy).
+    """
     import deepxde as dde
 
     Tt = dde.grad.jacobian(T, x, i=0, j=3) / T_S
@@ -126,11 +129,12 @@ def pde_terms(x, T, grid: dict):
         div = div + dde.grad.jacobian(k * grads[c], x, i=0, j=c) / L_S
     C = PROPS.capacity(T, s)
     q = beer_lambert_source(x_m, y_m, z_m, t_m, MS["alpha_eff"], MS["beta"], PROC, Z_MAX, X_START)
-    return C * Tt, div, q
+    return C * Tt, div, source_scale * q
 
 
 def build_problem(n_domain: int, seed: int, iters: int, grid: dict, focus_frac: float = 0.5,
-                  pde_weight: float = 1.0, lr: float = 1e-3, moving_frame: bool = False):
+                  pde_weight: float = 1.0, lr: float = 1e-3, moving_frame: bool = False,
+                  source_scale: float = 1.0):
     import deepxde as dde
 
     dde.config.set_random_seed(seed)
@@ -148,7 +152,7 @@ def build_problem(n_domain: int, seed: int, iters: int, grid: dict, focus_frac: 
     geomtime = _Focus(cuboid, base.timedomain)
 
     def pde(x, T):
-        ct, div, q = pde_terms(x, T, grid)
+        ct, div, q = pde_terms(x, T, grid, source_scale)
         return (ct - div - q) / SCALE_RES
 
     def top_bc(inputs, T, X):
