@@ -65,6 +65,9 @@ def main() -> None:
     ap.add_argument("--focus-frac", type=float, default=0.5)
     ap.add_argument("--pde-weight", type=float, default=1.0)
     ap.add_argument("--lr", type=float, default=1e-3)
+    ap.add_argument("--rounds", type=int, default=1, help="so dot huan luyen; giua cac dot them diem thich nghi")
+    ap.add_argument("--add-per-round", type=int, default=0, help="so diem residual lon nhat them sau moi dot")
+    ap.add_argument("--n-pool", type=int, default=20000, help="so diem ung vien de chon diem thich nghi")
     ap.add_argument("--out", type=str, default="runs/diag_pde")
     args = ap.parse_args()
 
@@ -73,14 +76,24 @@ def main() -> None:
     grid = make_grid(20e-6, 10e-6, T_END / 29)
     model = build_problem(args.n_domain, args.seed, args.iters, grid, focus_frac=args.focus_frac,
                           pde_weight=args.pde_weight, lr=args.lr)
-    model.train(iterations=args.iters, display_every=max(args.iters // 4, 1))
+    rng_pool = np.random.default_rng(999)
+    steps = max(args.iters // args.rounds, 1)
+    for r in range(args.rounds):
+        model.train(iterations=steps, display_every=max(steps // 2, 1))
+        if r < args.rounds - 1 and args.add_per_round > 0:
+            half = args.n_pool // 2
+            pool = np.vstack([uniform_points(half, rng_pool), focus_points(half, rng_pool)])
+            sq = pde_residual_sq(model, pool)
+            worst = pool[np.argsort(sq)[::-1][:args.add_per_round]]
+            model.data.add_anchors(worst)
+            print(f"dot {r + 1}: them {len(worst)} diem, residual^2 lon nhat trong nhom = {sq.max():.3e}", flush=True)
 
     rng = np.random.default_rng(12345)
     pts_uni = uniform_points(args.n_eval, rng)
     pts_foc = focus_points(args.n_eval, rng)
     result = {
         "iters": args.iters, "pde_weight": args.pde_weight, "lr": args.lr,
-        "focus_frac": args.focus_frac,
+        "focus_frac": args.focus_frac, "rounds": args.rounds, "add_per_round": args.add_per_round,
         "uniform": summarize(pde_residual_sq(model, pts_uni), pts_uni),
         "focus": summarize(pde_residual_sq(model, pts_foc), pts_foc),
     }
