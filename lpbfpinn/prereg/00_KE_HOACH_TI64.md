@@ -11,7 +11,7 @@ Mọi thay đổi sau khi khóa phải ghi lại kèm ngày giờ, không sửa 
 - Đầu ra: T(x,y,z,t) đầy đủ trên miền overhang. Chỉ báo là giá trị tuyệt đối tại vị trí cố định (mục 7).
 - Không dự đoán ứng suất, biến dạng, hay võng (giai đoạn sau).
 - Không hiệu chỉnh FEA trong suy luận (nhánh riêng sau này).
-- Không dùng FD/FEA trong loss. FD chỉ là tham chiếu kiểm chứng.
+- Không dùng FD/FEA trong loss. Không dùng FD/FEA làm tham chiếu kiểm chứng; kiểm chứng dựa trên nghiệm giải tích, cân bằng năng lượng và hội tụ (mục 8).
 - Bay hơi giữ (300 W, khôi phục bay hơi).
 - DeepXDE làm thư viện nền. Code viết mới trong `lpbfpinn/`.
 - Cấu hình bằng dataclass Python; mỗi lượt chạy có manifest JSON.
@@ -99,14 +99,26 @@ Hàm Gauss σ = 150 K của IN718 đã bỏ.
 
 Với h_c = 40 W/m²·K (Cook & Ritchie: không ảnh hưởng đáng kể trong vùng nóng). Chạy độ nhạy ε ∈ {0.2, 0.3, 0.6} và h_c ∈ {20, 40}.
 
-## 7. Chỉ báo overhang
+## 7. Chỉ báo overhang (đã duyệt ngày 2026-10-10)
 
-Giá trị tuyệt đối tại vị trí cố định (ví dụ điểm dưới đáy vùng treo):
-- nhiệt độ đỉnh tại vị trí cố định;
-- thời gian lưu trên T_sol;
-- tốc độ nguội qua khoảng T_sol → T_liq.
+Hình học (mục 12): phần rắn là tam giác phía bên phải trên; mép treo là đường chéo 45° từ (y=0, z=180 µm) đến (y=180 µm, z=0); bột nằm bên dưới đường chéo.
 
-Chưa khóa: vị trí cụ thể và công thức. Sẽ khóa trước khi chạy bài chính.
+- **Điểm B (không hỗ trợ):** ngay dưới mép treo, gần đầu nhọn, y ≈ 30 µm, z ≈ 150 µm. Bột bên dưới, khối rắn phía trên mỏng, nhiệt khó thoát.
+- **Điểm A (có hỗ trợ):** ngay dưới mép treo, gần chân rắn, y ≈ 150 µm, z ≈ 30 µm. Khối rắn phía trên dày, nhiệt có đường dẫn về đế.
+- Đo tại thời điểm laser đi qua mỗi điểm (cùng x với tâm laser khi đó).
+
+**Chỉ báo chính:** thời gian lưu trên T_sol tại B, t_B = thời gian từ lúc T vượt T_sol đến lúc T giảm dưới T_sol.
+**Chênh lệch chính:** Δt = t_B − t_A.
+
+**Chỉ báo phụ (mô tả):**
+- Nhiệt độ đỉnh tại A và B. Nếu đỉnh vượt 4000 K, ghi chú rằng kết quả chỉ mang tính định hướng do bay hơi chi phối.
+- Tốc độ nguội tại B qua khoảng T_sol → T_liq.
+
+**Không có ngưỡng.** Chỉ báo chỉ mô tả định lượng và so sánh giữa các cấu hình.
+
+**Báo cáo:**
+- Giá trị trung bình và độ phân tán trên ít nhất 3 seed. Coi là ổn định nếu độ phân tán dưới 10% trung bình.
+- Độ nhạy: thay α_s (0.27 và 0.33), h_c (20 và 40), φ và L_v. Kết luận về dấu và độ lớn của Δt được xem là đúng nếu thay đổi dưới 10%.
 
 ## 8. Lấy mẫu thích ứng và kiểm chứng
 
@@ -121,7 +133,7 @@ Chưa khóa: vị trí cụ thể và công thức. Sẽ khóa trước khi ch�
 1. Cân bằng năng lượng trong mọi lượt chạy (nhiệt đưa vào = tích lũy + tổn thất).
 2. Hội tụ theo số điểm lấy mẫu và số vòng lặp ngoài.
 3. Độ nhạy: α_s (0.27, 0.33), f_L (1, 2.8), h_c, ε, φ, φ_bột.
-4. Đối chiếu với FD không tham gia loss.
+4. Kiểm chứng không dùng FD/FEA: nghiệm giải tích khi có, cân bằng năng lượng, hội tụ theo lưới và số vòng. Kiểm chứng bằng nghiệm nhân tạo (MMS) đề xuất chờ duyệt, xem mục 13.
 
 ## 9. Việc còn mở (không chặn việc viết code)
 
@@ -155,3 +167,15 @@ Chưa khóa: vị trí cụ thể và công thức. Sẽ khóa trước khi ch�
 - Mặt treo là mặt chéo 45° của phần rắn, hướng về phía bột. Bột nằm phía trên mặt treo, rắn nằm phía dưới và bên phải.
 - Lưu ý: chiều rộng 380 µm thay cho 480 µm của cấu hình cũ.
 - Nguồn bài báo cụ thể: chờ bạn cung cấp tên bài để ghi đầy đủ.
+
+## 13. Cập nhật ngày 2026-10-10: bỏ FD làm tham chiếu kiểm chứng
+
+- Thay đổi: không dùng FD/FEA làm tham chiếu kiểm chứng, cũng không dùng trong loss. Mục 1 và mục 8 đã cập nhật.
+- Hệ quả đối với kế hoạch:
+  - Bài overhang không có nghiệm giải tích, nên kiểm chứng chỉ còn: cân bằng năng lượng toàn miền, hội tụ theo lưới và số điểm lấy mẫu, độ nhạy tham số, và đối chiếu định tính với vật lý (ví dụ hướng và độ lớn của nhiệt độ đỉnh, tốc độ nguội).
+  - Cổng Stefan 1D không đổi, vì dùng nghiệm Neumann giải tích, không dùng FD.
+  - **Đã duyệt ngày 2026-10-10:** kiểm chứng bằng nghiệm nhân tạo (method of manufactured solutions) cho phương trình 3D với tính chất hằng số, để kiểm tra residual và điều kiện biên mà không cần FD.
+  - **Đã duyệt ngày 2026-10-10:** bài overhang không còn tham chiếu số; cổng Stefan không đổi.
+  - Chưa chốt: cách đánh giá chỉ báo overhang (mục 7).
+
+- 2026-10-10: duyệt chỉ báo overhang (mục 7): điểm A và B theo hình học mục 12, chỉ báo chính là t_B(T_sol) và Δt = t_B − t_A.
