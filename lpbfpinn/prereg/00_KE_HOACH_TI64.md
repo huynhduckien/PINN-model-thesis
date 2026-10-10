@@ -11,7 +11,7 @@ Mọi thay đổi sau khi khóa phải ghi lại kèm ngày giờ, không sửa 
 - Đầu ra: T(x,y,z,t) đầy đủ trên miền overhang. Chỉ báo là giá trị tuyệt đối tại vị trí cố định (mục 7).
 - Không dự đoán ứng suất, biến dạng, hay võng (giai đoạn sau).
 - Không hiệu chỉnh FEA trong suy luận (nhánh riêng sau này).
-- Không dùng FD/FEA trong loss. FD chỉ là tham chiếu kiểm chứng.
+- Không dùng FD/FEA trong loss. Không dùng FD/FEA làm tham chiếu kiểm chứng; kiểm chứng dựa trên nghiệm giải tích, cân bằng năng lượng và hội tụ (mục 8).
 - Bay hơi giữ (300 W, khôi phục bay hơi).
 - DeepXDE làm thư viện nền. Code viết mới trong `lpbfpinn/`.
 - Cấu hình bằng dataclass Python; mỗi lượt chạy có manifest JSON.
@@ -121,7 +121,7 @@ Chưa khóa: vị trí cụ thể và công thức. Sẽ khóa trước khi ch�
 1. Cân bằng năng lượng trong mọi lượt chạy (nhiệt đưa vào = tích lũy + tổn thất).
 2. Hội tụ theo số điểm lấy mẫu và số vòng lặp ngoài.
 3. Độ nhạy: α_s (0.27, 0.33), f_L (1, 2.8), h_c, ε, φ, φ_bột.
-4. Đối chiếu với FD không tham gia loss.
+4. Kiểm chứng không dùng FD/FEA: nghiệm giải tích khi có, cân bằng năng lượng, hội tụ theo lưới và số vòng. Kiểm chứng bằng nghiệm nhân tạo (MMS) đề xuất chờ duyệt, xem mục 13.
 
 ## 9. Việc còn mở (không chặn việc viết code)
 
@@ -155,3 +155,12 @@ Chưa khóa: vị trí cụ thể và công thức. Sẽ khóa trước khi ch�
 - Mặt treo là mặt chéo 45° của phần rắn, hướng về phía bột. Bột nằm phía trên mặt treo, rắn nằm phía dưới và bên phải.
 - Lưu ý: chiều rộng 380 µm thay cho 480 µm của cấu hình cũ.
 - Nguồn bài báo cụ thể: chờ bạn cung cấp tên bài để ghi đầy đủ.
+
+## 13. Cập nhật ngày 2026-10-10: bỏ FD làm tham chiếu kiểm chứng
+
+- Thay đổi: không dùng FD/FEA làm tham chiếu kiểm chứng, cũng không dùng trong loss. Mục 1 và mục 8 đã cập nhật.
+- Hệ quả đối với kế hoạch:
+  - Bài overhang không có nghiệm giải tích, nên kiểm chứng chỉ còn: cân bằng năng lượng toàn miền, hội tụ theo lưới và số điểm lấy mẫu, độ nhạy tham số, và đối chiếu định tính với vật lý (ví dụ hướng và độ lớn của nhiệt độ đỉnh, tốc độ nguội).
+  - Cổng Stefan 1D không đổi, vì dùng nghiệm Neumann giải tích, không dùng FD.
+  - **Đề xuất chờ duyệt:** kiểm chứng bằng nghiệm nhân tạo (method of manufactured solutions) cho phương trình 3D với tính chất hằng số, để kiểm tra residual và biên mà không cần FD.
+  - Chưa cập nhật: cách đánh giá chỉ báo overhang (mục 7) vẫn cần chốt; nó không phụ thuộc FD.
