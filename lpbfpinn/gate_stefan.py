@@ -44,6 +44,26 @@ class MixedGeometryXTime:
         return _Mixed(base.geometry, base.timedomain)
 
 
+class EarlyGeometryXTime:
+    """Lấy mẫu theo thời gian: một phần điểm dồn vào τ ∈ [0, t_ref] (thời gian đầu), còn lại đồng đều."""
+
+    @staticmethod
+    def make(base, frac_early: float, t_ref: float, L_s: float):
+        import deepxde as dde
+
+        class _Early(dde.geometry.GeometryXTime):
+            def random_points(self, n, random="pseudo"):
+                n_early = int(n * frac_early)
+                n_uni = n - n_early
+                pts_uni = super().random_points(n_uni, random=random)
+                rng = np.random.default_rng()
+                pts_early = np.column_stack([rng.uniform(0.0, L_s, n_early),
+                                             rng.uniform(0.0, t_ref, n_early)])
+                return np.vstack([pts_uni, pts_early]).astype(pts_uni.dtype)
+
+        return _Early(base.geometry, base.timedomain)
+
+
 def build_and_train(case: StefanCase, iters: int, n_domain: int, seed: int,
                     sampling: str = "uniform", x_ref: float = 0.56, lbfgs_iters: int = 0,
                     latent_mode: str = "linear", hard_bc: bool = False):
@@ -81,6 +101,8 @@ def build_and_train(case: StefanCase, iters: int, n_domain: int, seed: int,
     if sampling == "mixed":
         geomtime = MixedGeometryXTime.make(geomtime, x_ref=x_ref, frac_refined=0.5,
                                            t_end=t_s)
+    elif sampling == "early":
+        geomtime = EarlyGeometryXTime.make(geomtime, frac_early=0.5, t_ref=1.0, L_s=L_s)
 
     ic = dde.icbc.IC(
         geomtime, lambda x: np.zeros((len(x), 1)),
@@ -155,7 +177,7 @@ def main() -> None:
     ap.add_argument("--n-domain", type=int, default=4000)
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--out", type=str, default="runs/gate_stefan")
-    ap.add_argument("--sampling", choices=["uniform", "mixed"], default="uniform")
+    ap.add_argument("--sampling", choices=["uniform", "mixed", "early"], default="uniform")
     ap.add_argument("--lbfgs", type=int, default=0, help="so vong L-BFGS sau Adam (0 = tat)")
     ap.add_argument("--latent", choices=["linear", "smooth"], default="linear")
     ap.add_argument("--hard-bc", action="store_true", help="cung hoa bien x=0 va x=L bang output transform")
