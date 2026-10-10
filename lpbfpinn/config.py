@@ -27,7 +27,7 @@ class Material:
 
 @dataclass(frozen=True)
 class Powder:
-    porosity: float = 0.60          # khóa theo prereg: mật độ đóng gói khoảng 40%
+    porosity: float = 0.405         # khóa theo prereg 2026-10-10: Zhang et al. 2019, p = 1 − 2.63/4.42
     alpha_s: float = 0.27           # khóa theo prereg: Cook & Ritchie 2023, 1.07 µm
     d50: float = 30e-6              # khóa theo prereg 2026-10-10: Li et al. 2022
     k_gas: float = 0.01772          # khóa theo prereg 2026-10-10: Li et al. 2022
