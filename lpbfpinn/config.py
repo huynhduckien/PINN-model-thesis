@@ -21,7 +21,7 @@ class Material:
     phi_evap: float = 0.82          # Cook & Ritchie 2023, phương trình 11
     T_cap: float = 6000.0           # K, giới hạn tính bay hơi (tham số triển khai, chưa có trong prereg)
     h_c: float = 40.0               # W/m²K, Cook & Ritchie 2023, phương trình 14
-    emissivity: float = 0.3         # CHƯA CÓ NGUỒN, chỉ dùng cho độ nhạy
+    emissivity: float = 0.35        # Masoomi 2017 qua Zhang 2019, bề mặt lớp hoạt động
     f_L: float = 1.0                # hệ số chỉ dùng làm độ nhạy (2.8)
 
 
