@@ -57,6 +57,22 @@ def term_report(model, pts: np.ndarray, grid: dict, n_top: int = 10, source_scal
     return {"rms_all_points": rms, "worst": rows}
 
 
+def time_probe(model, n_tau: int = 30) -> dict:
+    """T tại các điểm cố định trong không gian (mặt trên, y = 0) khi τ thay đổi: có biến thiên theo thời gian không."""
+    taus = np.linspace(0.0, TAU_END, n_tau)
+    out = {}
+    for x_um in (-300.0, 0.0, 300.0, 500.0):
+        pts = np.column_stack([np.full(n_tau, x_um * 1e-6 / L_S), np.zeros(n_tau),
+                               np.full(n_tau, 230e-6 / L_S), taus])
+        T = model.predict(pts).ravel()
+        out[f"x{int(x_um)}um_z230um"] = {
+            "T_min_K": float(T.min()), "T_max_K": float(T.max()),
+            "range_K": float(T.max() - T.min()),
+            "t_at_max_s": float(taus[int(T.argmax())] * T_S),
+        }
+    return out
+
+
 def summarize(sq: np.ndarray, pts: np.ndarray) -> dict:
     order = np.argsort(sq)[::-1]
     top = max(int(0.01 * len(sq)), 1)
@@ -120,6 +136,7 @@ def main() -> None:
         "uniform": summarize(pde_residual_sq(model, pts_uni), pts_uni),
         "focus": summarize(pde_residual_sq(model, pts_foc), pts_foc),
         "terms_focus": term_report(model, pts_foc, grid, source_scale=args.source_scale),
+        "time_probe": time_probe(model),
     }
     (out / "diag.json").write_text(json.dumps(result, indent=2), encoding="utf-8")
     print(json.dumps(result, indent=2))
