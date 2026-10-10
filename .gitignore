@@ -5,3 +5,6 @@ __pycache__/
 
 # Tài li?u tham kh?o và ph?n bi?n (không dua lên GitHub)
 tailieu/
+
+# moi truong ao tren may cuc bo
+.venv/
