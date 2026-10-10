@@ -34,8 +34,8 @@ Mọi thay đổi sau khi khóa phải ghi lại kèm ngày giờ, không sửa 
 | h_c (đối lưu, biên trên) | 40 W/m²·K | Cook & Ritchie 2023, phương trình 14 |
 | α_s (hấp thụ, chuẩn) | 0.27 | Cook & Ritchie 2023, tập chế độ dẫn nhiệt, 1.07 µm |
 | φ_bột (độ rỗng) | 0.60 | Mật độ đóng gói khoảng 40% ([Springer 10.1007/s40516-022-00185-3](https://link.springer.com/article/10.1007/s40516-022-00185-3)) |
-| d50 | Chưa có nguồn | Giá trị IN718 cũ (30 µm). Không dùng cho đến khi có nguồn. |
-| k_gas (argon) | Chưa có nguồn | Giả định 0.018 W/m·K. Không dùng cho đến khi kiểm tra. |
+| d50 | 30 µm | Khóa ngày 2026-10-10 theo đề xuất đã được duyệt. Li et al. 2022 (Powder Technology 397:117012), bột Ti-6Al-4V 15–45 µm, d50 = 30 µm, là giả định phổ biến trong mô phỏng SLM. Không phải đo đạc trên bột cụ thể. |
+| k_gas (argon) | 0.01772 W/m·K | Khóa ngày 2026-10-10 theo đề xuất đã được duyệt. Li et al. 2022, k của pha khí (argon) = 1.772×10⁻² W/m·K. Bài không ghi nhiệt độ áp dụng. |
 | ε (bức xạ, biên trên) | Chưa có nguồn | Giả định 0.3, chỉ chạy độ nhạy. |
 | f_L | 1 (chuẩn) | Độ nhạy 2.8 |
 
@@ -133,4 +133,5 @@ Chưa khóa: vị trí cụ thể và công thức. Sẽ khóa trước khi ch�
 
 ## 10. Nhật ký thay đổi
 
+- 2026-10-10: khóa d50 = 30 µm và k_gas = 0.01772 W/m·K theo Li et al. 2022.
 - 2026-10-10: khóa mục 2 theo quyết định của bạn. Thay α_s 0.35 → 0.27; T_sol/T_liq 1873/1923 → 1878/1928; L_v 9.0 MJ/kg hằng số → công thức Cook; M 0.04787 → 0.0467; φ_bay hơi 1 → 0.82; h_c 20 → 40.

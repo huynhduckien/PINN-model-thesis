@@ -25,7 +25,6 @@ DDE_BACKEND=pytorch python -m lpbfpinn.gate_stefan --iters 20000 --out runs/gate
 
 ## Giới hạn đã biết
 
-- `d50` và `k_gas` chưa có nguồn đã duyệt (prereg mục 2): `config.Powder` đánh dấu CHƯA KHÓA.
 - Lấy mẫu thích ứng gần T_sol–T_liq chưa được cài; cổng Stefan dùng lấy mẫu đồng đều.
 - Tiêu chí đạt/không đạt của cổng chưa khóa; script chỉ ghi số liệu.
 - Ngưỡng `T_cap = 6000 K` của bay hơi là tham số triển khai, chưa có trong prereg.

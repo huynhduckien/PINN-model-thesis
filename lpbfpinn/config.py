@@ -29,8 +29,8 @@ class Material:
 class Powder:
     porosity: float = 0.60          # khóa theo prereg: mật độ đóng gói khoảng 40%
     alpha_s: float = 0.27           # khóa theo prereg: Cook & Ritchie 2023, 1.07 µm
-    d50: float = 30e-6              # CHƯA KHÓA: nhà cung cấp Aimtek 30–36 µm, cần duyệt
-    k_gas: float = 0.0177           # CHƯA KHÓA: giá trị tham khảo argon, chưa xác minh NIST
+    d50: float = 30e-6              # khóa theo prereg 2026-10-10: Li et al. 2022
+    k_gas: float = 0.01772          # khóa theo prereg 2026-10-10: Li et al. 2022
     interface_width: float = 30e-6  # m, giá trị cấu hình cũ, chưa có nguồn
 
 
