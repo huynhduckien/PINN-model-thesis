@@ -56,3 +56,18 @@ def test_lookup_M_returns_grid_values():
     oh.M_STATE["tensor"][0, 0, 0, 0] = 0.7
     inp = torch.tensor([[(X_MIN_SCALED := oh.X_MIN / oh.L_S), 0.0, 0.0, 0.0]], dtype=torch.float32)
     assert oh.lookup_M(inp, grid).item() == pytest.approx(0.7)
+
+
+def test_focus_points_lie_near_laser_at_their_time():
+    from lpbfpinn import overhang as oh
+    rng = np.random.default_rng(0)
+    pts = oh.focus_points(2000, rng)
+    x_m = pts[:, 0] * oh.L_S
+    y_m = pts[:, 1] * oh.L_S
+    z_m = pts[:, 2] * oh.L_S
+    tau = pts[:, 3]
+    x_l = oh.X_START + oh.PROC.speed * tau * oh.T_S
+    inside_x = (np.abs(x_m - x_l) <= oh.R_FOCUS + 1e-12) | (x_m == oh.X_MIN) | (x_m == oh.X_MAX)
+    assert inside_x.all()
+    assert (y_m >= 0).all() and (y_m <= oh.R_FOCUS + 1e-12).all()
+    assert (z_m >= oh.Z_MAX - oh.Z_FOCUS - 1e-12).all() and (z_m <= oh.Z_MAX + 1e-12).all()

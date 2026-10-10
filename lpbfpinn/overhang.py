@@ -94,8 +94,22 @@ def make_grid(dx: float, dz: float, dt: float) -> dict:
             "nx": nx, "ny": ny, "nz": nz, "nt": nt}
 
 
-def build_problem(n_domain: int, seed: int, iters: int, grid: dict, t_ref: float = 0.5,
-                  frac_early: float = 0.5):
+R_FOCUS = 3 * 40e-6      # bán kính vùng lấy mẫu quanh tâm laser: 3 r_b (prereg mục 4)
+Z_FOCUS = 100e-6         # vùng lấy mẫu theo z: 100 µm dưới mặt trên (độ xuyên Beer–Lambert ~27 µm)
+
+
+def focus_points(n: int, rng: np.random.Generator) -> np.ndarray:
+    """Điểm (x, y, z, τ) tập trung quanh tâm laser x_l(t) = X_START + v·t, đơn vị co L_S, T_S."""
+    tau = rng.uniform(0.0, TAU_END, n)
+    x_l = X_START + PROC.speed * tau * T_S
+    x = rng.uniform(x_l - R_FOCUS, x_l + R_FOCUS)
+    x = np.clip(x, X_MIN, X_MAX)
+    y = rng.uniform(0.0, R_FOCUS, n)
+    z = rng.uniform(Z_MAX - Z_FOCUS, Z_MAX, n)
+    return np.column_stack([x / L_S, y / L_S, z / L_S, tau])
+
+
+def build_problem(n_domain: int, seed: int, iters: int, grid: dict, focus_frac: float = 0.5):
     import deepxde as dde
 
     dde.config.set_random_seed(seed)
@@ -103,18 +117,14 @@ def build_problem(n_domain: int, seed: int, iters: int, grid: dict, t_ref: float
     cuboid = dde.geometry.Cuboid([X_MIN / L_S, 0.0, 0.0], [X_MAX / L_S, Y_MAX / L_S, Z_MAX / L_S])
     base = dde.geometry.GeometryXTime(cuboid, dde.geometry.TimeDomain(0.0, TAU_END))
 
-    class _Early(dde.geometry.GeometryXTime):
+    class _Focus(dde.geometry.GeometryXTime):
         def random_points(self, n, random="pseudo"):
-            n_early = int(n * frac_early)
-            pts_uni = super().random_points(n - n_early, random=random)
-            rng = np.random.default_rng()
-            lo = np.array([X_MIN / L_S, 0.0, 0.0])
-            hi = np.array([X_MAX / L_S, Y_MAX / L_S, Z_MAX / L_S])
-            xyz = rng.uniform(lo, hi, (n_early, 3))
-            tau = rng.uniform(0.0, t_ref, (n_early, 1))
-            return np.vstack([pts_uni, np.hstack([xyz, tau])]).astype(pts_uni.dtype)
+            n_focus = int(n * focus_frac)
+            pts_uni = super().random_points(n - n_focus, random=random)
+            pts_focus = focus_points(n_focus, np.random.default_rng())
+            return np.vstack([pts_uni, pts_focus]).astype(pts_uni.dtype)
 
-    geomtime = _Early(cuboid, base.timedomain)
+    geomtime = _Focus(cuboid, base.timedomain)
 
     def pde(x, T):
         Tt = dde.grad.jacobian(T, x, i=0, j=3) / T_S
@@ -251,6 +261,7 @@ def main() -> None:
     ap.add_argument("--dx-um", type=float, default=20.0)
     ap.add_argument("--dz-um", type=float, default=10.0)
     ap.add_argument("--nt", type=int, default=30)
+    ap.add_argument("--focus-frac", type=float, default=0.5, help="ti le diem lay mau quanh tam laser")
     args = ap.parse_args()
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
@@ -258,10 +269,10 @@ def main() -> None:
     write_manifest(out / "manifest.json", "overhang_3d", {"Ly": Y_MAX, "Lz": Z_MAX, "Z_POW": Z_POW,
                                                           "X_START": X_START, "X_END": X_END},
                    extra={"iters": args.iters, "n_domain": args.n_domain, "seed": args.seed,
-                          "outer": args.outer, "stop_change": args.stop_change, "grid": grid,
+                          "focus_frac": args.focus_frac, "outer": args.outer, "stop_change": args.stop_change, "grid": grid,
                           "t_end_s": T_END})
     steps = max(args.iters // args.outer, 1)
-    model = build_problem(args.n_domain, args.seed, args.iters, grid)
+    model = build_problem(args.n_domain, args.seed, args.iters, grid, focus_frac=args.focus_frac)
     history = []
     for k in range(args.outer):
         model.train(iterations=steps, display_every=max(steps // 2, 1))
