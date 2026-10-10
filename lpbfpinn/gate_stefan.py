@@ -66,7 +66,8 @@ class EarlyGeometryXTime:
 
 def build_and_train(case: StefanCase, iters: int, n_domain: int, seed: int,
                     sampling: str = "uniform", x_ref: float = 0.56, lbfgs_iters: int = 0,
-                    latent_mode: str = "linear", hard_bc: bool = False, t_ref: float = 1.0):
+                    latent_mode: str = "linear", hard_bc: bool = False, t_ref: float = 1.0,
+                    decay_steps: int = 0, decay_rate: float = 0.5):
     import deepxde as dde
     import torch
 
@@ -126,7 +127,10 @@ def build_and_train(case: StefanCase, iters: int, n_domain: int, seed: int,
         net.apply_output_transform(
             lambda x, y: (1.0 - x[:, 0:1] / L_s) + (x[:, 0:1] / L_s) * (1.0 - x[:, 0:1] / L_s) * y)
     model = dde.Model(data, net)
-    model.compile("adam", lr=1e-3)
+    if decay_steps > 0:
+        model.compile("adam", lr=1e-3, decay=("step", decay_steps, decay_rate))
+    else:
+        model.compile("adam", lr=1e-3)
     losshistory, _ = model.train(iterations=iters, display_every=max(iters // 10, 1))
     if lbfgs_iters > 0:
         dde.optimizers.config.set_LBFGS_options(maxiter=lbfgs_iters)
@@ -182,6 +186,8 @@ def main() -> None:
     ap.add_argument("--latent", choices=["linear", "smooth"], default="linear")
     ap.add_argument("--hard-bc", action="store_true", help="cung hoa bien x=0 va x=L bang output transform")
     ap.add_argument("--t-ref", type=float, default=1.0, help="can tren cua tau (don vi t_scale) cho lay mau som")
+    ap.add_argument("--decay-steps", type=int, default=0, help="giam toc do hoc moi N vong (0 = khong giam)")
+    ap.add_argument("--decay-rate", type=float, default=0.5)
     args = ap.parse_args()
 
     case = StefanCase()
@@ -191,11 +197,13 @@ def main() -> None:
                    extra={"iters": args.iters, "n_domain": args.n_domain, "seed": args.seed,
                           "sampling": args.sampling, "lbfgs": args.lbfgs, "latent": args.latent,
                           "hard_bc": args.hard_bc, "t_ref": args.t_ref,
+                          "decay_steps": args.decay_steps, "decay_rate": args.decay_rate,
                           "criteria": "chưa khóa (prereg/08)"})
     model, T_m, sx, st, L_s, _ = build_and_train(case, args.iters, args.n_domain, args.seed,
                                                  sampling=args.sampling, lbfgs_iters=args.lbfgs,
                                                  latent_mode=args.latent, hard_bc=args.hard_bc,
-                                                 t_ref=args.t_ref)
+                                                 t_ref=args.t_ref, decay_steps=args.decay_steps,
+                                                 decay_rate=args.decay_rate)
     taus = [0.5, 1.0, 2.5, 5.0]
     opt = "adam" if args.lbfgs == 0 else f"adam+lbfgs({args.lbfgs})"
     result = evaluate(model, case, T_m, sx, st, L_s, taus, optimizer=opt)
