@@ -1,0 +1,22 @@
+{
+  "run": "mms3d",
+  "created_utc": "2026-10-10T10:19:26+00:00",
+  "git_head": "8a11725439a68df7996c596773508cfab312f353",
+  "versions": {
+    "torch": "2.14.1+cu130",
+    "deepxde": "1.15.0"
+  },
+  "config": {
+    "rho_c": 1.0,
+    "k": 1.0
+  },
+  "extra": {
+    "iters": 20000,
+    "n_domain": 20000,
+    "seed": 0,
+    "t_ref": 0.5,
+    "frac_early": 0.5,
+    "hard_bc_ic": true,
+    "solution": "S(x,y,z)*(1-exp(-3t))"
+  }
+}
