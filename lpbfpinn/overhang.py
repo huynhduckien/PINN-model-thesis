@@ -143,7 +143,8 @@ def build_problem(n_domain: int, seed: int, iters: int, grid: dict, focus_frac: 
                   pde_weight: float = 1.0, lr: float = 1e-3, moving_frame: bool = False,
                   source_scale: float = 1.0, bounded_T: bool = False,
                   tau0: float = 0.0, tau1: float = TAU_END, net=None, prev_net=None, scale_bc: float = SCALE_BC,
-                  x_fixed: float | None = None, hard_ic: bool = False, t_mode: str = "linear"):
+                  x_fixed: float | None = None, hard_ic: bool = False, t_mode: str = "linear",
+                  neg_penalty: bool = False):
     """Dựng bài toán. Huấn luyện theo cửa sổ thời gian: [tau0, tau1], IC lấy từ prev_net, tái dùng net nếu truyền vào."""
     import deepxde as dde
 
@@ -211,6 +212,16 @@ def build_problem(n_domain: int, seed: int, iters: int, grid: dict, focus_frac: 
         dde.icbc.OperatorBC(geomtime, lateral_bc(1), on_y1),
         ic,
     ]
+    if neg_penalty:
+        # Phạt một phía: max(0, T_amb − T)/S_T tại các điểm cố định trong miền, để T không xuống dưới T_amb
+        pen_rng = np.random.default_rng(4242)
+        pen_pts = np.column_stack([pen_rng.uniform(X_MIN, X_MAX, 2000) / L_S, pen_rng.uniform(0.0, Y_MAX, 2000) / L_S,
+                                   pen_rng.uniform(0.0, Z_MAX, 2000) / L_S, pen_rng.uniform(tau0, tau1, 2000)])
+
+        def below_ambient(inputs, T, X):
+            return torch.relu(MAT.T_amb - T) / S_T
+
+        bcs.append(dde.icbc.PointSetOperatorBC(pen_pts, 0.0, below_ambient))
     data = dde.data.TimePDE(geomtime, pde, bcs, num_domain=n_domain, num_boundary=2000,
                             num_initial=1000, num_test=2000)
     if net is None:
