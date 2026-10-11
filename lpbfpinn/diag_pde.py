@@ -116,6 +116,7 @@ def main() -> None:
     grid = make_grid(20e-6, 10e-6, T_END / 29)
     kw = dict(focus_frac=args.focus_frac, pde_weight=args.pde_weight, lr=args.lr,
               moving_frame=args.moving_frame, source_scale=args.source_scale, bounded_T=args.bounded_T)
+    rng_pool = np.random.default_rng(999)
     if args.windows > 1:
         # Time-marching: huấn luyện tuần tự theo cửa sổ τ; IC mỗi cửa sổ lấy từ mạng cửa sổ trước
         edges = np.linspace(0.0, TAU_END, args.windows + 1)
@@ -142,7 +143,6 @@ def main() -> None:
     else:
         window_gaps = []
         model = build_problem(args.n_domain, args.seed, args.iters, grid, **kw)
-    rng_pool = np.random.default_rng(999)
     steps = max(args.iters // args.rounds, 1)
     for r in range(args.rounds):
         model.train(iterations=steps, display_every=max(steps // 2, 1))
