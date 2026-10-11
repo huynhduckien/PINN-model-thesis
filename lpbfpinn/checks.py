@@ -30,7 +30,7 @@ def _face_outflux(model, tau: float, n: int = 40) -> float:
     """Tổng thông lượng ra qua đáy (z = 0) và 4 mặt bên tại thời điểm τ (W). Thuộc tính hằng số."""
     import deepxde as dde
 
-    k = float(CONST_PROPS.k(torch.tensor([MAT.T_amb], dtype=torch.float64)).item())
+    k = float(CONST_PROPS.k(torch.tensor([MAT.T_amb], dtype=torch.float64, device="cpu")).item())
     dev = next(model.net.parameters()).device
     xs = np.linspace(X_MIN, X_MAX, 2 * n)
     ys = np.linspace(0.0, Y_MAX, n)
@@ -72,10 +72,10 @@ def energy_balance(model, n_t: int = 40, n_xy: tuple[int, int] = (120, 40),
     for tau in taus:
         pts = np.column_stack([XX.ravel() / L_S, YY.ravel() / L_S, np.full(XX.size, Z_MAX / L_S),
                                np.full(XX.size, tau)])
-        T_t = torch.tensor(_T(model, pts), dtype=torch.float64)
-        F_out_top.append(float(top_loss(T_t, phys["evap"]).numpy().sum() * dA))
-        q = laser_surface_flux(torch.tensor(XX.ravel()), torch.tensor(YY.ravel()),
-                               torch.full((XX.size,), tau * T_S, dtype=torch.float64)).numpy()
+        T_t = torch.tensor(_T(model, pts), dtype=torch.float64, device="cpu")
+        F_out_top.append(float(top_loss(T_t, phys["evap"]).detach().cpu().numpy().sum() * dA))
+        q = laser_surface_flux(torch.tensor(XX.ravel(), device="cpu"), torch.tensor(YY.ravel(), device="cpu"),
+                               torch.full((XX.size,), tau * T_S, dtype=torch.float64, device="cpu")).numpy()
         F_in.append(float(q.sum() * dA))
         F_out_face.append(_face_outflux(model, tau, n_face))
     t_s = taus * T_S
@@ -91,8 +91,8 @@ def energy_balance(model, n_t: int = 40, n_xy: tuple[int, int] = (120, 40),
     vol = np.column_stack([VX.ravel() / L_S, VY.ravel() / L_S, VZ.ravel() / L_S, np.full(VX.size, TAU_END)])
     T_end = _T(model, vol)
     V = (X_MAX - X_MIN) * Y_MAX * Z_MAX
-    rho_c = float(CONST_PROPS.rho(torch.tensor([MAT.T_amb], dtype=torch.float64)).item()
-                  * CONST_PROPS.cp(torch.tensor([MAT.T_amb], dtype=torch.float64)).item())
+    Tamb_t = torch.tensor([MAT.T_amb], dtype=torch.float64, device="cpu")
+    rho_c = float(CONST_PROPS.rho(Tamb_t).item() * CONST_PROPS.cp(Tamb_t).item())
     E_stored = float(rho_c * np.mean(T_end - MAT.T_amb) * V)
     E_out = E_out_top + E_out_face
     residual = E_in - E_out - E_stored

@@ -232,6 +232,9 @@ def main() -> None:
             model.data.add_anchors(worst)
             print(f"dot {r + 1}: them {len(worst)} diem, residual^2 lon nhat trong nhom = {sq.max():.3e}", flush=True)
 
+    # lưu mô hình trước các bước kiểm tra để lỗi sau này không làm mất kết quả huấn luyện
+    model.save(str(out / "model"), verbose=0)
+
     rng = np.random.default_rng(12345)
     pts_uni = uniform_points(args.n_eval, rng)
     pts_foc = focus_points(args.n_eval, rng)
