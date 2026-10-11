@@ -143,7 +143,7 @@ def build_problem(n_domain: int, seed: int, iters: int, grid: dict, focus_frac: 
                   pde_weight: float = 1.0, lr: float = 1e-3, moving_frame: bool = False,
                   source_scale: float = 1.0, bounded_T: bool = False,
                   tau0: float = 0.0, tau1: float = TAU_END, net=None, prev_net=None, scale_bc: float = SCALE_BC,
-                  x_fixed: float | None = None):
+                  x_fixed: float | None = None, hard_ic: bool = False):
     """Dựng bài toán. Huấn luyện theo cửa sổ thời gian: [tau0, tau1], IC lấy từ prev_net, tái dùng net nếu truyền vào."""
     import deepxde as dde
 
@@ -220,9 +220,13 @@ def build_problem(n_domain: int, seed: int, iters: int, grid: dict, focus_frac: 
         # T = T_amb tại z = 0 đúng với mọi x, y, t
         if bounded_T:
             # T ∈ [T_amb, T_cap] ở mặt trên: sigmoid có đạo hàm khác 0 quanh y = 0 (softplus thì triệt tiêu khi y âm)
-            rise = (MAT.T_cap - MAT.T_amb) / (Z_MAX / L_S)
-            return MAT.T_amb + x[:, 2:3] * rise * torch.sigmoid(y)
-        return MAT.T_amb + x[:, 2:3] * S_T * y
+            rise = (MAT.T_cap - MAT.T_amb) / (Z_MAX / L_S) * torch.sigmoid(y)
+        else:
+            rise = S_T * y
+        if hard_ic:
+            # IC cứng: nhân với 1 − e^{−τ} (τ không thứ nguyên) để T(τ = 0) = T_amb đúng tuyệt đối
+            rise = rise * (1.0 - torch.exp(-x[:, 3:4]))
+        return MAT.T_amb + x[:, 2:3] * rise
 
     net.apply_output_transform(hard_bottom)
     if moving_frame:
