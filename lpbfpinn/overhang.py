@@ -260,6 +260,16 @@ def build_problem(n_domain: int, seed: int, iters: int, grid: dict, focus_frac: 
             return torch.relu(MAT.T_amb - T) / S_T
 
         bcs.append(dde.icbc.PointSetOperatorBC(pen_pts, 0.0, below_ambient))
+    if phys["laser"] == "top_bc":
+        # Biên trên quanh vết laser: lấy mẫu đều hầu như không có điểm nào trong vết (≈1e-5 diện tích),
+        # nên thêm điểm lấy quanh tâm laser x_l(τ) trên mặt z = Z_MAX
+        beam_rng = np.random.default_rng(777)
+        tb = beam_rng.uniform(tau0, tau1, 2000)
+        xl = X_START + PROC.speed * tb * T_S
+        xb = np.clip(beam_rng.uniform(xl - 3 * PROC.r_b, xl + 3 * PROC.r_b), X_MIN, X_MAX)
+        yb = beam_rng.uniform(0.0, 3 * PROC.r_b, 2000)
+        beam_pts = np.column_stack([xb / L_S, yb / L_S, np.full(2000, Z_MAX / L_S), tb])
+        bcs.append(dde.icbc.PointSetOperatorBC(beam_pts, 0.0, top_bc))
     data = dde.data.TimePDE(geomtime, pde, bcs, num_domain=n_domain, num_boundary=2000,
                             num_initial=1000, num_test=2000)
     if net is None:
@@ -298,7 +308,8 @@ def build_problem(n_domain: int, seed: int, iters: int, grid: dict, focus_frac: 
     model = dde.Model(data, net)
     model.phys = phys
     # thứ tự loss: PDE, 4 biên bên, biên trên, IC, [phạt âm]
-    weights = [pde_weight, 1, 1, 1, 1, 1, IC_WEIGHT] + ([1.0] if neg_penalty else [])
+    weights = [pde_weight, 1, 1, 1, 1, 1, IC_WEIGHT] + ([1.0] if neg_penalty else []) + \
+        ([1.0] if phys["laser"] == "top_bc" else [])
     model.compile("adam", lr=lr, loss_weights=weights)
     device = next(net.parameters()).device
     if M_STATE["tensor"] is None:
