@@ -126,6 +126,7 @@ def main() -> None:
     ap.add_argument("--lr", type=float, default=1e-3)
     ap.add_argument("--moving-frame", action="store_true", help="mang nhan ξ = x − x_l(t) thay vi x")
     ap.add_argument("--bounded-T", action="store_true", help="T ∈ [T_amb, T_cap] nhờ sigmoid trong đầu ra")
+    ap.add_argument("--tau1", type=float, default=TAU_END, help="cuoi mien tau (mot cua so); mac dinh TAU_END")
     ap.add_argument("--scale-bc", type=float, default=1e8, help="chuan hoa bien (W/m2); mac dinh 1e8")
     ap.add_argument("--source-scale", type=float, default=1.0, help="he so nhan nguon laser (thi nghiem do nhay)")
     ap.add_argument("--windows", type=int, default=1, help="so cua so thoi gian (time-marching); 1 = khong tach")
@@ -167,7 +168,7 @@ def main() -> None:
         args.rounds = 1
     else:
         window_gaps = []
-        model = build_problem(args.n_domain, args.seed, args.iters, grid, **kw)
+        model = build_problem(args.n_domain, args.seed, args.iters, grid, tau1=args.tau1, **kw)
     steps = max(args.iters // args.rounds, 1)
     for r in range(args.rounds):
         model.train(iterations=steps, display_every=max(steps // 2, 1))
@@ -186,7 +187,7 @@ def main() -> None:
         "iters": args.iters, "pde_weight": args.pde_weight, "lr": args.lr,
         "focus_frac": args.focus_frac, "windows": args.windows, "rounds": args.rounds,
         "window_ic_gaps": window_gaps, "add_per_round": args.add_per_round,
-        "moving_frame": args.moving_frame, "scale_bc": args.scale_bc, "bounded_T": args.bounded_T, "source_scale": args.source_scale,
+        "moving_frame": args.moving_frame, "scale_bc": args.scale_bc, "tau1": args.tau1, "bounded_T": args.bounded_T, "source_scale": args.source_scale,
         "uniform": summarize(pde_residual_sq(model, pts_uni), pts_uni),
         "focus": summarize(pde_residual_sq(model, pts_foc), pts_foc),
         "terms_focus": term_report(model, pts_foc, grid, source_scale=args.source_scale),
