@@ -126,6 +126,7 @@ def main() -> None:
     ap.add_argument("--lr", type=float, default=1e-3)
     ap.add_argument("--moving-frame", action="store_true", help="mang nhan ξ = x − x_l(t) thay vi x")
     ap.add_argument("--bounded-T", action="store_true", help="T ∈ [T_amb, T_cap] nhờ sigmoid trong đầu ra")
+    ap.add_argument("--scale-bc", type=float, default=1e8, help="chuan hoa bien (W/m2); mac dinh 1e8")
     ap.add_argument("--source-scale", type=float, default=1.0, help="he so nhan nguon laser (thi nghiem do nhay)")
     ap.add_argument("--windows", type=int, default=1, help="so cua so thoi gian (time-marching); 1 = khong tach")
     ap.add_argument("--rounds", type=int, default=1, help="so dot huan luyen; giua cac dot them diem thich nghi")
@@ -138,7 +139,8 @@ def main() -> None:
     out.mkdir(parents=True, exist_ok=True)
     grid = make_grid(20e-6, 10e-6, T_END / 29)
     kw = dict(focus_frac=args.focus_frac, pde_weight=args.pde_weight, lr=args.lr,
-              moving_frame=args.moving_frame, source_scale=args.source_scale, bounded_T=args.bounded_T)
+              moving_frame=args.moving_frame, source_scale=args.source_scale, bounded_T=args.bounded_T,
+              scale_bc=args.scale_bc)
     rng_pool = np.random.default_rng(999)
     if args.windows > 1:
         # Time-marching: huấn luyện tuần tự theo cửa sổ τ; IC mỗi cửa sổ lấy từ mạng cửa sổ trước
@@ -184,7 +186,7 @@ def main() -> None:
         "iters": args.iters, "pde_weight": args.pde_weight, "lr": args.lr,
         "focus_frac": args.focus_frac, "windows": args.windows, "rounds": args.rounds,
         "window_ic_gaps": window_gaps, "add_per_round": args.add_per_round,
-        "moving_frame": args.moving_frame, "bounded_T": args.bounded_T, "source_scale": args.source_scale,
+        "moving_frame": args.moving_frame, "scale_bc": args.scale_bc, "bounded_T": args.bounded_T, "source_scale": args.source_scale,
         "uniform": summarize(pde_residual_sq(model, pts_uni), pts_uni),
         "focus": summarize(pde_residual_sq(model, pts_foc), pts_foc),
         "terms_focus": term_report(model, pts_foc, grid, source_scale=args.source_scale),

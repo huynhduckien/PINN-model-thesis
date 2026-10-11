@@ -135,7 +135,7 @@ def pde_terms(x, T, grid: dict, source_scale: float = 1.0):
 def build_problem(n_domain: int, seed: int, iters: int, grid: dict, focus_frac: float = 0.5,
                   pde_weight: float = 1.0, lr: float = 1e-3, moving_frame: bool = False,
                   source_scale: float = 1.0, bounded_T: bool = False,
-                  tau0: float = 0.0, tau1: float = TAU_END, net=None, prev_net=None):
+                  tau0: float = 0.0, tau1: float = TAU_END, net=None, prev_net=None, scale_bc: float = SCALE_BC):
     """Dựng bài toán. Huấn luyện theo cửa sổ thời gian: [tau0, tau1], IC lấy từ prev_net, tái dùng net nếu truyền vào."""
     import deepxde as dde
 
@@ -161,14 +161,14 @@ def build_problem(n_domain: int, seed: int, iters: int, grid: dict, focus_frac: 
         Tz = dde.grad.jacobian(T, inputs, i=0, j=2) / L_S
         s = powder_index(inputs[:, 1:2] * L_S, inputs[:, 2:3] * L_S)
         k = PROPS.conductivity(T, s, lookup_M(inputs, grid))
-        return (-k * Tz - top_outflux(T, MAT)) / SCALE_BC
+        return (-k * Tz - top_outflux(T, MAT)) / scale_bc
 
     def lateral_bc(axis):
         def f(inputs, T, X):
             import deepxde as dde
             Tn = dde.grad.jacobian(T, inputs, i=0, j=axis) / L_S
             s = powder_index(inputs[:, 1:2] * L_S, inputs[:, 2:3] * L_S)
-            return PROPS.conductivity(T, s, lookup_M(inputs, grid)) * Tn / SCALE_BC
+            return PROPS.conductivity(T, s, lookup_M(inputs, grid)) * Tn / scale_bc
         return f
 
     def on_top(x, on):
