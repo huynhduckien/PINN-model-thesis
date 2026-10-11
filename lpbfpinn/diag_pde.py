@@ -120,16 +120,27 @@ def main() -> None:
         # Time-marching: huấn luyện tuần tự theo cửa sổ τ; IC mỗi cửa sổ lấy từ mạng cửa sổ trước
         edges = np.linspace(0.0, TAU_END, args.windows + 1)
         net = prev = None
+        window_gaps = []
         steps_w = max(args.iters // args.windows, 1)
         for k in range(args.windows):
             model = build_problem(args.n_domain, args.seed, args.iters, grid, tau0=edges[k], tau1=edges[k + 1],
                                   net=net, prev_net=prev, **kw)
             model.train(iterations=steps_w, display_every=max(steps_w // 2, 1))
+            if prev is not None:
+                # Mốc test IC giữa cửa sổ: lệch giữa mạng cửa sổ k và mạng cửa sổ k−1 tại τ_k
+                pts_b = uniform_points(1000, rng_pool)
+                pts_b[:, 3] = edges[k]
+                x_b = torch.tensor(pts_b, dtype=torch.float32, device=next(model.net.parameters()).device)
+                with torch.no_grad():
+                    gap = (model.net(x_b) - prev(x_b)).abs().cpu().numpy().ravel()
+                window_gaps.append({"window": k + 1, "tau_s": float(edges[k] * T_S),
+                                    "max_K": float(gap.max()), "median_K": float(np.median(gap))})
             prev = copy.deepcopy(model.net)
             net = model.net
             print(f"cua so {k + 1}/{args.windows}: tau in [{edges[k]:.2f}, {edges[k + 1]:.2f}] hoan tat", flush=True)
         args.rounds = 1
     else:
+        window_gaps = []
         model = build_problem(args.n_domain, args.seed, args.iters, grid, **kw)
     rng_pool = np.random.default_rng(999)
     steps = max(args.iters // args.rounds, 1)
@@ -148,7 +159,8 @@ def main() -> None:
     pts_foc = focus_points(args.n_eval, rng)
     result = {
         "iters": args.iters, "pde_weight": args.pde_weight, "lr": args.lr,
-        "focus_frac": args.focus_frac, "windows": args.windows, "rounds": args.rounds, "add_per_round": args.add_per_round,
+        "focus_frac": args.focus_frac, "windows": args.windows, "rounds": args.rounds,
+        "window_ic_gaps": window_gaps, "add_per_round": args.add_per_round,
         "moving_frame": args.moving_frame, "bounded_T": args.bounded_T, "source_scale": args.source_scale,
         "uniform": summarize(pde_residual_sq(model, pts_uni), pts_uni),
         "focus": summarize(pde_residual_sq(model, pts_foc), pts_foc),
