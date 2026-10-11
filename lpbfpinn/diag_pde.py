@@ -17,9 +17,10 @@ import numpy as np  # noqa: E402
 import torch  # noqa: E402
 
 from .overhang import (  # noqa: E402
-    L_S, SCALE_RES, T_END, T_S, TAU_END, X_MAX, X_MIN, Y_MAX, Z_MAX,
-    build_problem, focus_points, make_grid, pde_terms,
+    L_S, MAT, PROPS, SCALE_RES, T_END, T_S, TAU_END, X_MAX, X_MIN, Y_MAX, Z_MAX,
+    build_problem, focus_points, lookup_M, make_grid, pde_terms, powder_index,
 )
+from .physics import top_outflux  # noqa: E402
 
 
 def uniform_points(n: int, rng: np.random.Generator) -> np.ndarray:
@@ -72,6 +73,28 @@ def time_probe(model, n_tau: int = 30) -> dict:
             "t_at_max_s": float(taus[int(T.argmax())] * T_S),
         }
     return out
+
+
+def top_bc_report(model, grid: dict, n: int = 2000) -> dict:
+    """Mốc M-A: cân bằng biên trên −k∂T/∂z = top_outflux tại mặt z = Z_MAX (cùng công thức với top_bc trong overhang)."""
+    import deepxde as dde
+
+    rng = np.random.default_rng(777)
+    pts = uniform_points(n, rng)
+    pts[:, 2] = Z_MAX / L_S
+    x = torch.tensor(pts, dtype=torch.float32, device=next(model.net.parameters()).device, requires_grad=True)
+    T = model.net(x)
+    Tz = dde.grad.jacobian(T, x, i=0, j=2) / L_S
+    s = powder_index(x[:, 1:2] * L_S, x[:, 2:3] * L_S)
+    k = PROPS.conductivity(T, s, lookup_M(x, grid))
+    cond = (-k * Tz).detach().cpu().numpy().ravel()
+    out = top_outflux(T, MAT).detach().cpu().numpy().ravel()
+    Tn = T.detach().cpu().numpy().ravel()
+    res = np.abs(cond - out)
+    return {"median_abs_residual_Wm2": float(np.median(res)), "p99_abs_residual_Wm2": float(np.quantile(res, 0.99)),
+            "median_abs_conduction_Wm2": float(np.median(np.abs(cond))),
+            "median_abs_outflux_Wm2": float(np.median(np.abs(out))),
+            "T_top_median_K": float(np.median(Tn)), "T_top_min_K": float(Tn.min()), "T_top_max_K": float(Tn.max())}
 
 
 def summarize(sq: np.ndarray, pts: np.ndarray) -> dict:
@@ -166,6 +189,7 @@ def main() -> None:
         "focus": summarize(pde_residual_sq(model, pts_foc), pts_foc),
         "terms_focus": term_report(model, pts_foc, grid, source_scale=args.source_scale),
         "time_probe": time_probe(model),
+        "top_bc": top_bc_report(model, grid),
     }
     (out / "diag.json").write_text(json.dumps(result, indent=2), encoding="utf-8")
     print(json.dumps(result, indent=2))
