@@ -258,7 +258,9 @@ def build_problem(n_domain: int, seed: int, iters: int, grid: dict, focus_frac: 
 
         net.apply_feature_transform(to_moving)
     model = dde.Model(data, net)
-    model.compile("adam", lr=lr, loss_weights=[pde_weight, 1, 1, 1, 1, 1, IC_WEIGHT])
+    # thứ tự loss: PDE, 4 biên bên, biên trên, IC, [phạt âm]
+    weights = [pde_weight, 1, 1, 1, 1, 1, IC_WEIGHT] + ([1.0] if neg_penalty else [])
+    model.compile("adam", lr=lr, loss_weights=weights)
     device = next(net.parameters()).device
     if M_STATE["tensor"] is None:
         M_STATE["tensor"] = torch.zeros((grid["nx"], grid["ny"], grid["nz"], grid["nt"]), device=device)
