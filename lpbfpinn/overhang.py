@@ -98,10 +98,11 @@ R_FOCUS = 3 * 40e-6      # bán kính vùng lấy mẫu quanh tâm laser: 3 r_b 
 Z_FOCUS = 100e-6         # vùng lấy mẫu theo z: 100 µm dưới mặt trên (độ xuyên Beer–Lambert ~27 µm)
 
 
-def focus_points(n: int, rng: np.random.Generator, tau0: float = 0.0, tau1: float = TAU_END) -> np.ndarray:
+def focus_points(n: int, rng: np.random.Generator, tau0: float = 0.0, tau1: float = TAU_END,
+                 x_fixed: float | None = None) -> np.ndarray:
     """Điểm (x, y, z, τ) tập trung quanh tâm laser x_l(t) = X_START + v·t, đơn vị co L_S, T_S."""
     tau = rng.uniform(tau0, tau1, n)
-    x_l = X_START + PROC.speed * tau * T_S
+    x_l = np.full_like(tau, x_fixed) if x_fixed is not None else X_START + PROC.speed * tau * T_S
     x = rng.uniform(x_l - R_FOCUS, x_l + R_FOCUS)
     x = np.clip(x, X_MIN, X_MAX)
     y = rng.uniform(0.0, R_FOCUS, n)
@@ -109,7 +110,7 @@ def focus_points(n: int, rng: np.random.Generator, tau0: float = 0.0, tau1: floa
     return np.column_stack([x / L_S, y / L_S, z / L_S, tau])
 
 
-def pde_terms(x, T, grid: dict, source_scale: float = 1.0):
+def pde_terms(x, T, grid: dict, source_scale: float = 1.0, x_fixed: float | None = None):
     """Các hạng của residual PDE (chưa chia SCALE_RES): C·∂T/∂t, div(k∇T), q. Dùng chung cho loss và chẩn đoán.
 
     source_scale nhân nguồn laser (mặc định 1, dùng cho thí nghiệm độ nhạy).
@@ -128,14 +129,21 @@ def pde_terms(x, T, grid: dict, source_scale: float = 1.0):
     for c in range(3):
         div = div + dde.grad.jacobian(k * grads[c], x, i=0, j=c) / L_S
     C = PROPS.capacity(T, s)
-    q = beer_lambert_source(x_m, y_m, z_m, t_m, MS["alpha_eff"], MS["beta"], PROC, Z_MAX, X_START)
+    if x_fixed is None:
+        q = beer_lambert_source(x_m, y_m, z_m, t_m, MS["alpha_eff"], MS["beta"], PROC, Z_MAX, X_START)
+    else:
+        # laser đứng yên tại x_fixed, công suất đầy đủ (không có đoạn khởi động): cùng dạng Beer–Lambert
+        beam = torch.exp(-2.0 * ((x_m - x_fixed) ** 2 + y_m**2) / PROC.r_b**2)
+        q = (2.0 * MS["alpha_eff"] * PROC.power / (math.pi * PROC.r_b**2)) * beam * MS["beta"] * torch.exp(
+            -MS["beta"] * (Z_MAX - z_m))
     return C * Tt, div, source_scale * q
 
 
 def build_problem(n_domain: int, seed: int, iters: int, grid: dict, focus_frac: float = 0.5,
                   pde_weight: float = 1.0, lr: float = 1e-3, moving_frame: bool = False,
                   source_scale: float = 1.0, bounded_T: bool = False,
-                  tau0: float = 0.0, tau1: float = TAU_END, net=None, prev_net=None, scale_bc: float = SCALE_BC):
+                  tau0: float = 0.0, tau1: float = TAU_END, net=None, prev_net=None, scale_bc: float = SCALE_BC,
+                  x_fixed: float | None = None):
     """Dựng bài toán. Huấn luyện theo cửa sổ thời gian: [tau0, tau1], IC lấy từ prev_net, tái dùng net nếu truyền vào."""
     import deepxde as dde
 
@@ -148,13 +156,13 @@ def build_problem(n_domain: int, seed: int, iters: int, grid: dict, focus_frac: 
         def random_points(self, n, random="pseudo"):
             n_focus = int(n * focus_frac)
             pts_uni = super().random_points(n - n_focus, random=random)
-            pts_focus = focus_points(n_focus, np.random.default_rng(), tau0, tau1)
+            pts_focus = focus_points(n_focus, np.random.default_rng(), tau0, tau1, x_fixed)
             return np.vstack([pts_uni, pts_focus]).astype(pts_uni.dtype)
 
     geomtime = _Focus(cuboid, base.timedomain)
 
     def pde(x, T):
-        ct, div, q = pde_terms(x, T, grid, source_scale)
+        ct, div, q = pde_terms(x, T, grid, source_scale, x_fixed)
         return (ct - div - q) / SCALE_RES
 
     def top_bc(inputs, T, X):
