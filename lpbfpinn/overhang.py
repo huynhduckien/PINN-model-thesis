@@ -134,7 +134,7 @@ def pde_terms(x, T, grid: dict, source_scale: float = 1.0):
 
 def build_problem(n_domain: int, seed: int, iters: int, grid: dict, focus_frac: float = 0.5,
                   pde_weight: float = 1.0, lr: float = 1e-3, moving_frame: bool = False,
-                  source_scale: float = 1.0):
+                  source_scale: float = 1.0, positive_T: bool = False):
     import deepxde as dde
 
     dde.config.set_random_seed(seed)
@@ -200,6 +200,9 @@ def build_problem(n_domain: int, seed: int, iters: int, grid: dict, focus_frac: 
 
     def hard_bottom(x, y):
         # T = T_amb tại z = 0 đúng với mọi x, y, t
+        if positive_T:
+            # softplus ≥ 0 và z ≥ 0 nên T ≥ T_amb (không cho nhiệt độ dưới nhiệt độ phòng)
+            y = torch.nn.functional.softplus(y)
         return MAT.T_amb + x[:, 2:3] * S_T * y
 
     net.apply_output_transform(hard_bottom)
