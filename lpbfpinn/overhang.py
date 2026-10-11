@@ -57,7 +57,7 @@ CONST_PROPS = Properties(MAT, constant={"rho": 4106.0, "cp": 838.0, "k": 33.1, "
 PHYS_FULL = dict(props="table", powder=True, evap=True, laser="volume")
 # pde_scale: thang chuẩn hóa residual = ρc·ΔT_ref/t_ref (ΔT_ref = 1000 K, t_ref = 1 ms), không dùng SCALE_RES
 PHYS_STAGE0 = dict(props="constant", powder=False, evap=False, laser="top_bc",
-                   pde_scale=4106.0 * 838.0 * 1000.0 / 1e-3)
+                   pde_scale=4106.0 * 838.0 * 1000.0 / 1e-3, S_out=1e5)
 
 
 # Trạng thái cố kết M(x, y, z, t) trên lưới; cập nhật giữa các vòng lặp ngoài (prereg mục 5)
@@ -290,7 +290,8 @@ def build_problem(n_domain: int, seed: int, iters: int, grid: dict, focus_frac: 
         elif mode == "softplus":
             rise = S_T * torch.nn.functional.softplus(y - 3.0)
         else:
-            rise = S_T * y
+            # thang đầu ra: giai đoạn 0 dùng 1e5 K (gradient bề mặt lớn), mô hình đầy đủ dùng S_T
+            rise = phys.get("S_out", S_T) * y
         if hard_ic:
             # IC cứng: nhân với 1 − e^{−τ} (τ không thứ nguyên) để T(τ = 0) = T_amb đúng tuyệt đối
             rise = rise * (1.0 - torch.exp(-x[:, 3:4]))
