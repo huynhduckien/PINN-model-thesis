@@ -55,7 +55,9 @@ PROPS = Properties(MAT, powder_ratio_k=MS["k_ratio"], porosity=POW.porosity)
 CONST_PROPS = Properties(MAT, constant={"rho": 4106.0, "cp": 838.0, "k": 33.1, "L_f": 0.0},
                          powder_ratio_k=MS["k_ratio"], porosity=POW.porosity)
 PHYS_FULL = dict(props="table", powder=True, evap=True, laser="volume")
-PHYS_STAGE0 = dict(props="constant", powder=False, evap=False, laser="top_bc")
+# pde_scale: thang chuẩn hóa residual = ρc·ΔT_ref/t_ref (ΔT_ref = 1000 K, t_ref = 1 ms), không dùng SCALE_RES
+PHYS_STAGE0 = dict(props="constant", powder=False, evap=False, laser="top_bc",
+                   pde_scale=4106.0 * 838.0 * 1000.0 / 1e-3)
 
 
 # Trạng thái cố kết M(x, y, z, t) trên lưới; cập nhật giữa các vòng lặp ngoài (prereg mục 5)
@@ -196,7 +198,7 @@ def build_problem(n_domain: int, seed: int, iters: int, grid: dict, focus_frac: 
     def pde(x, T):
         ct, div, q = pde_terms(x, T, grid, source_scale, x_fixed, props=props_obj, powder=phys["powder"],
                                laser=phys["laser"])
-        return (ct - div - q) / SCALE_RES
+        return (ct - div - q) / phys.get("pde_scale", SCALE_RES)
 
     def top_bc(inputs, T, X):
         Tz = dde.grad.jacobian(T, inputs, i=0, j=2) / L_S
