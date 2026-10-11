@@ -57,7 +57,9 @@ CONST_PROPS = Properties(MAT, constant={"rho": 4106.0, "cp": 838.0, "k": 33.1, "
 PHYS_FULL = dict(props="table", powder=True, evap=True, laser="volume")
 # pde_scale: thang chuẩn hóa residual = ρc·ΔT_ref/t_ref (ΔT_ref = 4000 K cố định, t_ref = 1 ms), không dùng SCALE_RES
 PHYS_STAGE0 = dict(props="constant", powder=False, evap=False, laser="top_bc",
-                   pde_scale=4106.0 * 838.0 * 4000.0 / 1e-3, S_out=1e5, neg_weight=1.0)
+                   pde_scale=4106.0 * 838.0 * 4000.0 / 1e-3, S_out=1e5, neg_weight=1.0,
+                   # thang biên xa vết laser: công suất hấp thụ chia diện tích mặt trên (W/m²), không dùng đỉnh laser
+                   scale_far=MS["alpha_eff"] * 300.0 / ((X_MAX - X_MIN) * Y_MAX))
 
 
 # Trạng thái cố kết M(x, y, z, t) trên lưới; cập nhật giữa các vòng lặp ngoài (prereg mục 5)
@@ -200,7 +202,7 @@ def build_problem(n_domain: int, seed: int, iters: int, grid: dict, focus_frac: 
                                laser=phys["laser"])
         return (ct - div - q) / phys.get("pde_scale", SCALE_RES)
 
-    def top_bc(inputs, T, X):
+    def top_res(inputs, T):
         Tz = dde.grad.jacobian(T, inputs, i=0, j=2) / L_S
         s = powder_index(inputs[:, 1:2] * L_S, inputs[:, 2:3] * L_S) if phys["powder"] else torch.zeros_like(T)
         k = props_obj.conductivity(T, s, lookup_M(inputs, grid))
@@ -208,14 +210,24 @@ def build_problem(n_domain: int, seed: int, iters: int, grid: dict, focus_frac: 
         if phys["laser"] == "top_bc":
             # laser vào qua mặt trên: −k∂T/∂z = mất nhiệt − q_laser
             res = res + laser_surface_flux(inputs[:, 0:1] * L_S, inputs[:, 1:2] * L_S, inputs[:, 3:4] * T_S)
-        return res / scale_bc
+        return res
+
+    scale_far = phys.get("scale_far", scale_bc)
+
+    def top_bc(inputs, T, X):
+        # điểm biên đều trên mặt trên: chuẩn hóa theo thang xa vết laser
+        return top_res(inputs, T) / scale_far
+
+    def top_bc_beam(inputs, T, X):
+        # điểm biên quanh vết laser: chuẩn hóa theo đỉnh thông lượng laser
+        return top_res(inputs, T) / scale_bc
 
     def lateral_bc(axis):
         def f(inputs, T, X):
             import deepxde as dde
             Tn = dde.grad.jacobian(T, inputs, i=0, j=axis) / L_S
             s = powder_index(inputs[:, 1:2] * L_S, inputs[:, 2:3] * L_S) if phys["powder"] else torch.zeros_like(T)
-            return props_obj.conductivity(T, s, lookup_M(inputs, grid)) * Tn / scale_bc
+            return props_obj.conductivity(T, s, lookup_M(inputs, grid)) * Tn / scale_far
         return f
 
     def on_top(x, on):
@@ -269,7 +281,7 @@ def build_problem(n_domain: int, seed: int, iters: int, grid: dict, focus_frac: 
         xb = np.clip(beam_rng.uniform(xl - 3 * PROC.r_b, xl + 3 * PROC.r_b), X_MIN, X_MAX)
         yb = beam_rng.uniform(0.0, 3 * PROC.r_b, 2000)
         beam_pts = np.column_stack([xb / L_S, yb / L_S, np.full(2000, Z_MAX / L_S), tb])
-        bcs.append(dde.icbc.PointSetOperatorBC(beam_pts, 0.0, top_bc))
+        bcs.append(dde.icbc.PointSetOperatorBC(beam_pts, 0.0, top_bc_beam))
     data = dde.data.TimePDE(geomtime, pde, bcs, num_domain=n_domain, num_boundary=2000,
                             num_initial=1000, num_test=2000)
     if net is None:
