@@ -97,6 +97,30 @@ def top_bc_report(model, grid: dict, n: int = 2000) -> dict:
             "T_top_median_K": float(np.median(Tn)), "T_top_min_K": float(Tn.min()), "T_top_max_K": float(Tn.max())}
 
 
+def ic_lateral_report(model, grid: dict, n: int = 2000) -> dict:
+    """Bước 1: T tại τ = 0 (kỳ vọng T_amb) và thông lượng qua các mặt bên (kỳ vọng 0, cách nhiệt)."""
+    import deepxde as dde
+
+    rng = np.random.default_rng(555)
+    dev = next(model.net.parameters()).device
+    pts0 = uniform_points(n, rng)
+    pts0[:, 3] = 0.0
+    with torch.no_grad():
+        T0 = model.net(torch.tensor(pts0, dtype=torch.float32, device=dev)).cpu().numpy().ravel()
+    out = {"IC_T_min_K": float(T0.min()), "IC_T_median_K": float(np.median(T0)), "IC_T_max_K": float(T0.max())}
+    faces = {"x_min": (0, X_MIN / L_S), "x_max": (0, X_MAX / L_S), "y_0": (1, 0.0), "y_max": (1, Y_MAX / L_S)}
+    for name, (axis, val) in faces.items():
+        pts = uniform_points(n, rng)
+        pts[:, axis] = val
+        x = torch.tensor(pts, dtype=torch.float32, device=dev, requires_grad=True)
+        T = model.net(x)
+        Tn = dde.grad.jacobian(T, x, i=0, j=axis) / L_S
+        s = powder_index(x[:, 1:2] * L_S, x[:, 2:3] * L_S)
+        flux = (PROPS.conductivity(T, s, lookup_M(x, grid)) * Tn).detach().cpu().numpy().ravel()
+        out[f"flux_{name}_median_Wm2"] = float(np.median(np.abs(flux)))
+    return out
+
+
 def summarize(sq: np.ndarray, pts: np.ndarray) -> dict:
     order = np.argsort(sq)[::-1]
     top = max(int(0.01 * len(sq)), 1)
@@ -195,6 +219,7 @@ def main() -> None:
         "terms_focus": term_report(model, pts_foc, grid, source_scale=args.source_scale),
         "time_probe": time_probe(model),
         "top_bc": top_bc_report(model, grid),
+        "ic_lateral": ic_lateral_report(model, grid),
     }
     (out / "diag.json").write_text(json.dumps(result, indent=2), encoding="utf-8")
     print(json.dumps(result, indent=2))
