@@ -98,9 +98,9 @@ R_FOCUS = 3 * 40e-6      # bán kính vùng lấy mẫu quanh tâm laser: 3 r_b 
 Z_FOCUS = 100e-6         # vùng lấy mẫu theo z: 100 µm dưới mặt trên (độ xuyên Beer–Lambert ~27 µm)
 
 
-def focus_points(n: int, rng: np.random.Generator) -> np.ndarray:
+def focus_points(n: int, rng: np.random.Generator, tau0: float = 0.0, tau1: float = TAU_END) -> np.ndarray:
     """Điểm (x, y, z, τ) tập trung quanh tâm laser x_l(t) = X_START + v·t, đơn vị co L_S, T_S."""
-    tau = rng.uniform(0.0, TAU_END, n)
+    tau = rng.uniform(tau0, tau1, n)
     x_l = X_START + PROC.speed * tau * T_S
     x = rng.uniform(x_l - R_FOCUS, x_l + R_FOCUS)
     x = np.clip(x, X_MIN, X_MAX)
@@ -134,19 +134,21 @@ def pde_terms(x, T, grid: dict, source_scale: float = 1.0):
 
 def build_problem(n_domain: int, seed: int, iters: int, grid: dict, focus_frac: float = 0.5,
                   pde_weight: float = 1.0, lr: float = 1e-3, moving_frame: bool = False,
-                  source_scale: float = 1.0, bounded_T: bool = False):
+                  source_scale: float = 1.0, bounded_T: bool = False,
+                  tau0: float = 0.0, tau1: float = TAU_END, net=None, prev_net=None):
+    """Dựng bài toán. Huấn luyện theo cửa sổ thời gian: [tau0, tau1], IC lấy từ prev_net, tái dùng net nếu truyền vào."""
     import deepxde as dde
 
     dde.config.set_random_seed(seed)
     torch.manual_seed(seed)
     cuboid = dde.geometry.Cuboid([X_MIN / L_S, 0.0, 0.0], [X_MAX / L_S, Y_MAX / L_S, Z_MAX / L_S])
-    base = dde.geometry.GeometryXTime(cuboid, dde.geometry.TimeDomain(0.0, TAU_END))
+    base = dde.geometry.GeometryXTime(cuboid, dde.geometry.TimeDomain(tau0, tau1))
 
     class _Focus(dde.geometry.GeometryXTime):
         def random_points(self, n, random="pseudo"):
             n_focus = int(n * focus_frac)
             pts_uni = super().random_points(n - n_focus, random=random)
-            pts_focus = focus_points(n_focus, np.random.default_rng())
+            pts_focus = focus_points(n_focus, np.random.default_rng(), tau0, tau1)
             return np.vstack([pts_uni, pts_focus]).astype(pts_uni.dtype)
 
     geomtime = _Focus(cuboid, base.timedomain)
@@ -184,8 +186,15 @@ def build_problem(n_domain: int, seed: int, iters: int, grid: dict, focus_frac: 
     def on_y1(x, on):
         return on and np.isclose(x[1], Y_MAX / L_S)
 
-    ic = dde.icbc.IC(geomtime, lambda x: np.full((len(x), 1), MAT.T_amb),
-                     lambda x, on: on and np.isclose(x[3], 0.0))
+    def ic_value(x):
+        if prev_net is None:
+            return np.full((len(x), 1), MAT.T_amb)
+        dev = next(prev_net.parameters()).device
+        with torch.no_grad():
+            out = prev_net(torch.tensor(x, dtype=torch.float32, device=dev))
+        return out.cpu().numpy()
+
+    ic = dde.icbc.IC(geomtime, ic_value, lambda x, on: on and np.isclose(x[3], tau0))
     bcs = [
         dde.icbc.OperatorBC(geomtime, top_bc, on_top),
         dde.icbc.OperatorBC(geomtime, lateral_bc(0), on_x0),
@@ -196,7 +205,8 @@ def build_problem(n_domain: int, seed: int, iters: int, grid: dict, focus_frac: 
     ]
     data = dde.data.TimePDE(geomtime, pde, bcs, num_domain=n_domain, num_boundary=2000,
                             num_initial=1000, num_test=2000)
-    net = dde.nn.FNN([4] + [64] * 4 + [1], "tanh", "Glorot normal")
+    if net is None:
+        net = dde.nn.FNN([4] + [64] * 4 + [1], "tanh", "Glorot normal")
 
     def hard_bottom(x, y):
         # T = T_amb tại z = 0 đúng với mọi x, y, t

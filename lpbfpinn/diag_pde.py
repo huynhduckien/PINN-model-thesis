@@ -9,6 +9,7 @@ Chạy: DDE_BACKEND=pytorch python -m lpbfpinn.diag_pde --iters 2000 --out runs/
 from __future__ import annotations
 
 import argparse
+import copy
 import json
 from pathlib import Path
 
@@ -103,6 +104,7 @@ def main() -> None:
     ap.add_argument("--moving-frame", action="store_true", help="mang nhan ξ = x − x_l(t) thay vi x")
     ap.add_argument("--bounded-T", action="store_true", help="T ∈ [T_amb, T_cap] nhờ sigmoid trong đầu ra")
     ap.add_argument("--source-scale", type=float, default=1.0, help="he so nhan nguon laser (thi nghiem do nhay)")
+    ap.add_argument("--windows", type=int, default=1, help="so cua so thoi gian (time-marching); 1 = khong tach")
     ap.add_argument("--rounds", type=int, default=1, help="so dot huan luyen; giua cac dot them diem thich nghi")
     ap.add_argument("--add-per-round", type=int, default=0, help="so diem residual lon nhat them sau moi dot")
     ap.add_argument("--n-pool", type=int, default=20000, help="so diem ung vien de chon diem thich nghi")
@@ -112,9 +114,23 @@ def main() -> None:
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
     grid = make_grid(20e-6, 10e-6, T_END / 29)
-    model = build_problem(args.n_domain, args.seed, args.iters, grid, focus_frac=args.focus_frac,
-                          pde_weight=args.pde_weight, lr=args.lr, moving_frame=args.moving_frame,
-                          source_scale=args.source_scale, bounded_T=args.bounded_T)
+    kw = dict(focus_frac=args.focus_frac, pde_weight=args.pde_weight, lr=args.lr,
+              moving_frame=args.moving_frame, source_scale=args.source_scale, bounded_T=args.bounded_T)
+    if args.windows > 1:
+        # Time-marching: huấn luyện tuần tự theo cửa sổ τ; IC mỗi cửa sổ lấy từ mạng cửa sổ trước
+        edges = np.linspace(0.0, TAU_END, args.windows + 1)
+        net = prev = None
+        steps_w = max(args.iters // args.windows, 1)
+        for k in range(args.windows):
+            model = build_problem(args.n_domain, args.seed, args.iters, grid, tau0=edges[k], tau1=edges[k + 1],
+                                  net=net, prev_net=prev, **kw)
+            model.train(iterations=steps_w, display_every=max(steps_w // 2, 1))
+            prev = copy.deepcopy(model.net)
+            net = model.net
+            print(f"cua so {k + 1}/{args.windows}: tau in [{edges[k]:.2f}, {edges[k + 1]:.2f}] hoan tat", flush=True)
+        args.rounds = 1
+    else:
+        model = build_problem(args.n_domain, args.seed, args.iters, grid, **kw)
     rng_pool = np.random.default_rng(999)
     steps = max(args.iters // args.rounds, 1)
     for r in range(args.rounds):
@@ -132,7 +148,7 @@ def main() -> None:
     pts_foc = focus_points(args.n_eval, rng)
     result = {
         "iters": args.iters, "pde_weight": args.pde_weight, "lr": args.lr,
-        "focus_frac": args.focus_frac, "rounds": args.rounds, "add_per_round": args.add_per_round,
+        "focus_frac": args.focus_frac, "windows": args.windows, "rounds": args.rounds, "add_per_round": args.add_per_round,
         "moving_frame": args.moving_frame, "bounded_T": args.bounded_T, "source_scale": args.source_scale,
         "uniform": summarize(pde_residual_sq(model, pts_uni), pts_uni),
         "focus": summarize(pde_residual_sq(model, pts_foc), pts_foc),
