@@ -57,7 +57,7 @@ CONST_PROPS = Properties(MAT, constant={"rho": 4106.0, "cp": 838.0, "k": 33.1, "
 PHYS_FULL = dict(props="table", powder=True, evap=True, laser="volume")
 # pde_scale: thang chuẩn hóa residual = ρc·ΔT_ref/t_ref (ΔT_ref = 1000 K, t_ref = 1 ms), không dùng SCALE_RES
 PHYS_STAGE0 = dict(props="constant", powder=False, evap=False, laser="top_bc",
-                   pde_scale=4106.0 * 838.0 * 1000.0 / 1e-3, S_out=1e5)
+                   pde_scale=4106.0 * 838.0 * 1000.0 / 1e-3, S_out=1e5, neg_weight=100.0)
 
 
 # Trạng thái cố kết M(x, y, z, t) trên lưới; cập nhật giữa các vòng lặp ngoài (prereg mục 5)
@@ -311,6 +311,8 @@ def build_problem(n_domain: int, seed: int, iters: int, grid: dict, focus_frac: 
     # thứ tự loss: PDE, 4 biên bên, biên trên, IC, [phạt âm]
     weights = [pde_weight, 1, 1, 1, 1, 1, IC_WEIGHT] + ([1.0] if neg_penalty else []) + \
         ([1.0] if phys["laser"] == "top_bc" else [])
+    if neg_penalty:
+        weights[7] = phys.get("neg_weight", 1.0)
     model.compile("adam", lr=lr, loss_weights=weights)
     device = next(net.parameters()).device
     if M_STATE["tensor"] is None:
