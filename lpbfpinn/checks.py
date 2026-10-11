@@ -19,8 +19,8 @@ def _T(model, pts: np.ndarray) -> np.ndarray:
         return model.net(torch.tensor(pts, dtype=torch.float32, device=dev)).cpu().numpy().ravel()
 
 
-def energy_balance(model, n_t: int = 40, n_xy: tuple[int, int] = (120, 40), n_vol: int = 40000,
-                   seed: int = 2024) -> dict:
+def energy_balance(model, n_t: int = 40, n_xy: tuple[int, int] = (120, 40),
+                   n_vol: tuple[int, int, int] = (96, 32, 24)) -> dict:
     phys = getattr(model, "phys", PHYS_FULL)
     if phys["laser"] != "top_bc":
         raise ValueError("energy_balance chỉ áp dụng cho laser trên biên trên (phys['laser'] == 'top_bc')")
@@ -45,9 +45,13 @@ def energy_balance(model, n_t: int = 40, n_xy: tuple[int, int] = (120, 40), n_vo
     E_in = float(_trap(F_in, t_s))
     E_out = float(_trap(F_out, t_s))
 
-    rng = np.random.default_rng(seed)
-    vol = np.column_stack([rng.uniform(X_MIN, X_MAX, n_vol) / L_S, rng.uniform(0.0, Y_MAX, n_vol) / L_S,
-                           rng.uniform(0.0, Z_MAX, n_vol) / L_S, np.full(n_vol, TAU_END)])
+    # lưới điểm giữa ô (không ngẫu nhiên) để sai số tích phân không do Monte Carlo
+    xv = X_MIN + (np.arange(n_vol[0]) + 0.5) * (X_MAX - X_MIN) / n_vol[0]
+    yv = (np.arange(n_vol[1]) + 0.5) * Y_MAX / n_vol[1]
+    zv = (np.arange(n_vol[2]) + 0.5) * Z_MAX / n_vol[2]
+    VX, VY, VZ = np.meshgrid(xv, yv, zv, indexing="ij")
+    vol = np.column_stack([VX.ravel() / L_S, VY.ravel() / L_S, VZ.ravel() / L_S,
+                           np.full(VX.size, TAU_END)])
     T_end = _T(model, vol)
     V = (X_MAX - X_MIN) * Y_MAX * Z_MAX
     rho_c = CONST_PROPS.rho(torch.tensor([MAT.T_amb], dtype=torch.float64)).item() * \
