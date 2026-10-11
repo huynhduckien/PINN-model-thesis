@@ -9,6 +9,7 @@ Chạy: DDE_BACKEND=pytorch python -m lpbfpinn.diag_pde --iters 2000 --out runs/
 from __future__ import annotations
 
 import argparse
+import math
 import copy
 import json
 from pathlib import Path
@@ -17,10 +18,11 @@ import numpy as np  # noqa: E402
 import torch  # noqa: E402
 
 from .overhang import (  # noqa: E402
-    L_S, MAT, PROPS, SCALE_RES, T_END, T_S, TAU_END, X_MAX, X_MIN, Y_MAX, Z_MAX,
-    build_problem, focus_points, lookup_M, make_grid, pde_terms, powder_index,
+    L_S, MAT, MS, PHYS_FULL, PHYS_STAGE0, PROC, PROPS, CONST_PROPS, SCALE_RES, T_END, T_S, TAU_END,
+    X_MAX, X_MIN, Y_MAX, Z_MAX, build_problem, focus_points, laser_surface_flux, lookup_M, make_grid,
+    pde_terms, powder_index, top_loss,
 )
-from .physics import top_outflux  # noqa: E402
+from .checks import energy_balance  # noqa: E402
 
 
 def uniform_points(n: int, rng: np.random.Generator) -> np.ndarray:
@@ -75,6 +77,14 @@ def time_probe(model, n_tau: int = 30) -> dict:
     return out
 
 
+def _phys(model) -> dict:
+    return getattr(model, "phys", PHYS_FULL)
+
+
+def _props(model):
+    return CONST_PROPS if _phys(model)["props"] == "constant" else PROPS
+
+
 def top_bc_report(model, grid: dict, n: int = 2000) -> dict:
     """Mốc M-A: cân bằng biên trên −k∂T/∂z = top_outflux tại mặt z = Z_MAX (cùng công thức với top_bc trong overhang)."""
     import deepxde as dde
@@ -82,13 +92,16 @@ def top_bc_report(model, grid: dict, n: int = 2000) -> dict:
     rng = np.random.default_rng(777)
     pts = uniform_points(n, rng)
     pts[:, 2] = Z_MAX / L_S
+    phys = _phys(model)
     x = torch.tensor(pts, dtype=torch.float32, device=next(model.net.parameters()).device, requires_grad=True)
     T = model.net(x)
     Tz = dde.grad.jacobian(T, x, i=0, j=2) / L_S
-    s = powder_index(x[:, 1:2] * L_S, x[:, 2:3] * L_S)
-    k = PROPS.conductivity(T, s, lookup_M(x, grid))
+    s = powder_index(x[:, 1:2] * L_S, x[:, 2:3] * L_S) if phys["powder"] else torch.zeros_like(T)
+    k = _props(model).conductivity(T, s, lookup_M(x, grid))
     cond = (-k * Tz).detach().cpu().numpy().ravel()
-    out = top_outflux(T, MAT).detach().cpu().numpy().ravel()
+    out = top_loss(T, phys["evap"]).detach().cpu().numpy().ravel()
+    if phys["laser"] == "top_bc":
+        out = out - laser_surface_flux(x[:, 0:1] * L_S, x[:, 1:2] * L_S, x[:, 3:4] * T_S).detach().cpu().numpy().ravel()
     Tn = T.detach().cpu().numpy().ravel()
     res = np.abs(cond - out)
     return {"median_abs_residual_Wm2": float(np.median(res)), "p99_abs_residual_Wm2": float(np.quantile(res, 0.99)),
@@ -103,6 +116,7 @@ def ic_lateral_report(model, grid: dict, n: int = 2000) -> dict:
 
     rng = np.random.default_rng(555)
     dev = next(model.net.parameters()).device
+    phys = _phys(model)
     pts0 = uniform_points(n, rng)
     pts0[:, 3] = 0.0
     with torch.no_grad():
@@ -115,8 +129,8 @@ def ic_lateral_report(model, grid: dict, n: int = 2000) -> dict:
         x = torch.tensor(pts, dtype=torch.float32, device=dev, requires_grad=True)
         T = model.net(x)
         Tn = dde.grad.jacobian(T, x, i=0, j=axis) / L_S
-        s = powder_index(x[:, 1:2] * L_S, x[:, 2:3] * L_S)
-        flux = (PROPS.conductivity(T, s, lookup_M(x, grid)) * Tn).detach().cpu().numpy().ravel()
+        s = powder_index(x[:, 1:2] * L_S, x[:, 2:3] * L_S) if phys["powder"] else torch.zeros_like(T)
+        flux = (_props(model).conductivity(T, s, lookup_M(x, grid)) * Tn).detach().cpu().numpy().ravel()
         out[f"flux_{name}_median_Wm2"] = float(np.median(np.abs(flux)))
     return out
 
@@ -154,6 +168,7 @@ def main() -> None:
     ap.add_argument("--t-mode", default="linear", choices=["linear", "sigmoid", "exp", "exp0", "softplus"], help="cach bieu dien dau ra nhiet do")
     ap.add_argument("--neg-penalty", action="store_true", help="phat T < T_amb (mot phia)")
     ap.add_argument("--hard-ic", action="store_true", help="ép điều kiện ban đầu cứng T(τ=0)=T_amb")
+    ap.add_argument("--stage0", action="store_true", help="giai đoạn 0: Ti hằng số, không bột/bay hơi, laser trên biên trên, scale_bc = đỉnh thông lượng laser, hard IC, phạt âm")
     ap.add_argument("--tau1", type=float, default=TAU_END, help="cuoi mien tau (mot cua so); mac dinh TAU_END")
     ap.add_argument("--scale-bc", type=float, default=1e8, help="chuan hoa bien (W/m2); mac dinh 1e8")
     ap.add_argument("--source-scale", type=float, default=1.0, help="he so nhan nguon laser (thi nghiem do nhay)")
@@ -163,6 +178,9 @@ def main() -> None:
     ap.add_argument("--n-pool", type=int, default=20000, help="so diem ung vien de chon diem thich nghi")
     ap.add_argument("--out", type=str, default="runs/diag_pde")
     args = ap.parse_args()
+    if args.stage0:
+        args.hard_ic = True
+        args.neg_penalty = True
 
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
@@ -170,6 +188,9 @@ def main() -> None:
     kw = dict(focus_frac=args.focus_frac, pde_weight=args.pde_weight, lr=args.lr,
               moving_frame=args.moving_frame, source_scale=args.source_scale, bounded_T=args.bounded_T,
               scale_bc=args.scale_bc)
+    if args.stage0:
+        kw["phys"] = PHYS_STAGE0
+        kw["scale_bc"] = 2.0 * MS["alpha_eff"] * PROC.power / (math.pi * PROC.r_b**2)   # đỉnh thông lượng laser (W/m²)
     rng_pool = np.random.default_rng(999)
     if args.windows > 1:
         # Time-marching: huấn luyện tuần tự theo cửa sổ τ; IC mỗi cửa sổ lấy từ mạng cửa sổ trước
@@ -225,6 +246,8 @@ def main() -> None:
         "time_probe": time_probe(model),
         "top_bc": top_bc_report(model, grid),
         "ic_lateral": ic_lateral_report(model, grid),
+        "energy_balance": energy_balance(model) if args.stage0 else None,
+        "stage0": args.stage0, "scale_bc_used": kw["scale_bc"], "phys": getattr(model, "phys", None),
     }
     (out / "diag.json").write_text(json.dumps(result, indent=2), encoding="utf-8")
     print(json.dumps(result, indent=2))

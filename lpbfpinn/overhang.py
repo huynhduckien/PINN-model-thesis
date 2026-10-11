@@ -27,7 +27,7 @@ import torch  # noqa: E402
 
 from .config import Material, Powder, Process  # noqa: E402
 from .manifest import write_manifest  # noqa: E402
-from .materials import moser  # noqa: E402
+from .materials import SIGMA_SB, moser  # noqa: E402
 from .physics import Properties, beer_lambert_source, top_outflux  # noqa: E402
 
 # Thang co và hình học (mét, giây)
@@ -51,6 +51,11 @@ POW = Powder()
 PROC = Process()
 MS = moser(POW, MAT)
 PROPS = Properties(MAT, powder_ratio_k=MS["k_ratio"], porosity=POW.porosity)
+# Giai đoạn 0 (kiểm chứng pipeline): Ti hằng số (giá trị tại 1878 K, bảng Stefan), không nhiệt ẩn (L_f = 0)
+CONST_PROPS = Properties(MAT, constant={"rho": 4106.0, "cp": 838.0, "k": 33.1, "L_f": 0.0},
+                         powder_ratio_k=MS["k_ratio"], porosity=POW.porosity)
+PHYS_FULL = dict(props="table", powder=True, evap=True, laser="volume")
+PHYS_STAGE0 = dict(props="constant", powder=False, evap=False, laser="top_bc")
 
 
 # Trạng thái cố kết M(x, y, z, t) trên lưới; cập nhật giữa các vòng lặp ngoài (prereg mục 5)
@@ -110,26 +115,46 @@ def focus_points(n: int, rng: np.random.Generator, tau0: float = 0.0, tau1: floa
     return np.column_stack([x / L_S, y / L_S, z / L_S, tau])
 
 
-def pde_terms(x, T, grid: dict, source_scale: float = 1.0, x_fixed: float | None = None):
+def top_loss(T, evap: bool = True):
+    """Thông lượng mất nhiệt trên mặt trên (W/m²): có hoặc không có bay hơi."""
+    if evap:
+        return top_outflux(T, MAT)
+    return MAT.h_c * (T - MAT.T_amb) + MAT.emissivity * SIGMA_SB * (T**4 - MAT.T_amb**4)
+
+
+def laser_surface_flux(x_m, y_m, t_m):
+    """Thông lượng laser đưa vào trên mặt trên (W/m²); tích phân = α_eff·P(t), cùng ramp với nguồn thể tích."""
+    ramp = torch.clamp(t_m / (PROC.ramp_length / PROC.speed), max=1.0)
+    P = PROC.power * ramp
+    beam = torch.exp(-2.0 * ((x_m - (X_START + PROC.speed * t_m)) ** 2 + y_m**2) / PROC.r_b**2)
+    return (2.0 * MS["alpha_eff"] * P / (math.pi * PROC.r_b**2)) * beam
+
+
+def pde_terms(x, T, grid: dict, source_scale: float = 1.0, x_fixed: float | None = None,
+              props=None, powder: bool = True, laser: str = "volume"):
     """Các hạng của residual PDE (chưa chia SCALE_RES): C·∂T/∂t, div(k∇T), q. Dùng chung cho loss và chẩn đoán.
 
     source_scale nhân nguồn laser (mặc định 1, dùng cho thí nghiệm độ nhạy).
+    props, powder, laser: công tắc giai đoạn 0 (mặc định = mô hình đầy đủ).
     """
     import deepxde as dde
 
+    props = PROPS if props is None else props
     Tt = dde.grad.jacobian(T, x, i=0, j=3) / T_S
     grads = [dde.grad.jacobian(T, x, i=0, j=c) / L_S for c in range(3)]
     y_m = x[:, 1:2] * L_S
     z_m = x[:, 2:3] * L_S
     x_m = x[:, 0:1] * L_S
     t_m = x[:, 3:4] * T_S
-    s = powder_index(y_m, z_m)
-    k = PROPS.conductivity(T, s, lookup_M(x, grid))
+    s = powder_index(y_m, z_m) if powder else torch.zeros_like(y_m)
+    k = props.conductivity(T, s, lookup_M(x, grid))
     div = 0.0
     for c in range(3):
         div = div + dde.grad.jacobian(k * grads[c], x, i=0, j=c) / L_S
-    C = PROPS.capacity(T, s)
-    if x_fixed is None:
+    C = props.capacity(T, s)
+    if laser != "volume":
+        q = torch.zeros_like(T)
+    elif x_fixed is None:
         q = beer_lambert_source(x_m, y_m, z_m, t_m, MS["alpha_eff"], MS["beta"], PROC, Z_MAX, X_START)
     else:
         # laser đứng yên tại x_fixed, công suất đầy đủ (không có đoạn khởi động): cùng dạng Beer–Lambert
@@ -144,9 +169,15 @@ def build_problem(n_domain: int, seed: int, iters: int, grid: dict, focus_frac: 
                   source_scale: float = 1.0, bounded_T: bool = False,
                   tau0: float = 0.0, tau1: float = TAU_END, net=None, prev_net=None, scale_bc: float = SCALE_BC,
                   x_fixed: float | None = None, hard_ic: bool = False, t_mode: str = "linear",
-                  neg_penalty: bool = False):
-    """Dựng bài toán. Huấn luyện theo cửa sổ thời gian: [tau0, tau1], IC lấy từ prev_net, tái dùng net nếu truyền vào."""
+                  neg_penalty: bool = False, phys: dict | None = None):
+    """Dựng bài toán. Huấn luyện theo cửa sổ thời gian: [tau0, tau1], IC lấy từ prev_net, tái dùng net nếu truyền vào.
+
+    phys: công tắc vật lý (PHYS_FULL mặc định, PHYS_STAGE0 cho giai đoạn 0).
+    """
     import deepxde as dde
+
+    phys = {**PHYS_FULL, **(phys or {})}
+    props_obj = CONST_PROPS if phys["props"] == "constant" else PROPS
 
     dde.config.set_random_seed(seed)
     torch.manual_seed(seed)
@@ -163,21 +194,26 @@ def build_problem(n_domain: int, seed: int, iters: int, grid: dict, focus_frac: 
     geomtime = _Focus(cuboid, base.timedomain)
 
     def pde(x, T):
-        ct, div, q = pde_terms(x, T, grid, source_scale, x_fixed)
+        ct, div, q = pde_terms(x, T, grid, source_scale, x_fixed, props=props_obj, powder=phys["powder"],
+                               laser=phys["laser"])
         return (ct - div - q) / SCALE_RES
 
     def top_bc(inputs, T, X):
         Tz = dde.grad.jacobian(T, inputs, i=0, j=2) / L_S
-        s = powder_index(inputs[:, 1:2] * L_S, inputs[:, 2:3] * L_S)
-        k = PROPS.conductivity(T, s, lookup_M(inputs, grid))
-        return (-k * Tz - top_outflux(T, MAT)) / scale_bc
+        s = powder_index(inputs[:, 1:2] * L_S, inputs[:, 2:3] * L_S) if phys["powder"] else torch.zeros_like(T)
+        k = props_obj.conductivity(T, s, lookup_M(inputs, grid))
+        res = -k * Tz - top_loss(T, phys["evap"])
+        if phys["laser"] == "top_bc":
+            # laser vào qua mặt trên: −k∂T/∂z = mất nhiệt − q_laser
+            res = res + laser_surface_flux(inputs[:, 0:1] * L_S, inputs[:, 1:2] * L_S, inputs[:, 3:4] * T_S)
+        return res / scale_bc
 
     def lateral_bc(axis):
         def f(inputs, T, X):
             import deepxde as dde
             Tn = dde.grad.jacobian(T, inputs, i=0, j=axis) / L_S
-            s = powder_index(inputs[:, 1:2] * L_S, inputs[:, 2:3] * L_S)
-            return PROPS.conductivity(T, s, lookup_M(inputs, grid)) * Tn / scale_bc
+            s = powder_index(inputs[:, 1:2] * L_S, inputs[:, 2:3] * L_S) if phys["powder"] else torch.zeros_like(T)
+            return props_obj.conductivity(T, s, lookup_M(inputs, grid)) * Tn / scale_bc
         return f
 
     def on_top(x, on):
@@ -258,6 +294,7 @@ def build_problem(n_domain: int, seed: int, iters: int, grid: dict, focus_frac: 
 
         net.apply_feature_transform(to_moving)
     model = dde.Model(data, net)
+    model.phys = phys
     # thứ tự loss: PDE, 4 biên bên, biên trên, IC, [phạt âm]
     weights = [pde_weight, 1, 1, 1, 1, 1, IC_WEIGHT] + ([1.0] if neg_penalty else [])
     model.compile("adam", lr=lr, loss_weights=weights)
