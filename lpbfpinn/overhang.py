@@ -225,6 +225,9 @@ def build_problem(n_domain: int, seed: int, iters: int, grid: dict, focus_frac: 
         elif mode == "exp":
             # luôn dương, không bão hòa; độ lệch khởi tạo nhỏ (≈ 16 K ở mặt trên)
             rise = S_T * torch.exp(y - 5.0)
+        elif mode == "exp0":
+            # như exp nhưng không độ lệch: đạo hàm ở khởi tạo không bị nén
+            rise = S_T * torch.exp(y)
         elif mode == "softplus":
             rise = S_T * torch.nn.functional.softplus(y - 3.0)
         else:

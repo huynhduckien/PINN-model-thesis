@@ -151,7 +151,7 @@ def main() -> None:
     ap.add_argument("--moving-frame", action="store_true", help="mang nhan ξ = x − x_l(t) thay vi x")
     ap.add_argument("--bounded-T", action="store_true", help="T ∈ [T_amb, T_cap] nhờ sigmoid trong đầu ra")
     ap.add_argument("--x-fixed-um", type=float, default=None, help="laser đứng yên tại x (µm); None = laser chuyển động")
-    ap.add_argument("--t-mode", default="linear", choices=["linear", "sigmoid", "exp", "softplus"], help="cach bieu dien dau ra nhiet do")
+    ap.add_argument("--t-mode", default="linear", choices=["linear", "sigmoid", "exp", "exp0", "softplus"], help="cach bieu dien dau ra nhiet do")
     ap.add_argument("--hard-ic", action="store_true", help="ép điều kiện ban đầu cứng T(τ=0)=T_amb")
     ap.add_argument("--tau1", type=float, default=TAU_END, help="cuoi mien tau (mot cua so); mac dinh TAU_END")
     ap.add_argument("--scale-bc", type=float, default=1e8, help="chuan hoa bien (W/m2); mac dinh 1e8")
