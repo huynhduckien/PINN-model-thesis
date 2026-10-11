@@ -143,7 +143,7 @@ def build_problem(n_domain: int, seed: int, iters: int, grid: dict, focus_frac: 
                   pde_weight: float = 1.0, lr: float = 1e-3, moving_frame: bool = False,
                   source_scale: float = 1.0, bounded_T: bool = False,
                   tau0: float = 0.0, tau1: float = TAU_END, net=None, prev_net=None, scale_bc: float = SCALE_BC,
-                  x_fixed: float | None = None, hard_ic: bool = False):
+                  x_fixed: float | None = None, hard_ic: bool = False, t_mode: str = "linear"):
     """Dựng bài toán. Huấn luyện theo cửa sổ thời gian: [tau0, tau1], IC lấy từ prev_net, tái dùng net nếu truyền vào."""
     import deepxde as dde
 
@@ -218,9 +218,15 @@ def build_problem(n_domain: int, seed: int, iters: int, grid: dict, focus_frac: 
 
     def hard_bottom(x, y):
         # T = T_amb tại z = 0 đúng với mọi x, y, t
-        if bounded_T:
-            # T ∈ [T_amb, T_cap] ở mặt trên: sigmoid có đạo hàm khác 0 quanh y = 0 (softplus thì triệt tiêu khi y âm)
+        mode = "sigmoid" if bounded_T else t_mode
+        if mode == "sigmoid":
+            # T ∈ [T_amb, T_cap]: bão hòa ở đầu dưới (đã thất bại, xem báo cáo bước 2)
             rise = (MAT.T_cap - MAT.T_amb) / (Z_MAX / L_S) * torch.sigmoid(y)
+        elif mode == "exp":
+            # luôn dương, không bão hòa; độ lệch khởi tạo nhỏ (≈ 16 K ở mặt trên)
+            rise = S_T * torch.exp(y - 5.0)
+        elif mode == "softplus":
+            rise = S_T * torch.nn.functional.softplus(y - 3.0)
         else:
             rise = S_T * y
         if hard_ic:
