@@ -374,3 +374,5 @@ Chưa thay đổi (còn ghi là giả định hoặc quét):
 - Áp suất phản lực, Marangoni, dòng chảy: không mô hình hóa (mục 23).
 
 Kết quả so sánh sẽ ghi vào `results/fv_v24/` trước khi kết luận.
+
+**Kết quả độ nhạy điều kiện đáy (mục 24, GPU, 175 W, lưới 10 µm, cơ sở mới):** đáy Dirichlet 300 K và đáy cách nhiệt cho cùng kết quả: mặt trên 4636 K, dưới 15 µm 2770 K, B 311.8 K, A 300.1–300.2 K. Cân bằng năng lượng ≤ 1.4·10⁻¹³. Kết luận: điều kiện đáy không ảnh hưởng đến kết quả trong miền và thời gian quét đã dùng. Kết quả lưu tại `results/fv_bottom/`.
