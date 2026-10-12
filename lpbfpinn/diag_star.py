@@ -131,7 +131,9 @@ def main() -> None:
     model = build_stage0_star(sc, n_domain=args.n_domain, n_bnd=2000, n_anchor=args.n_domain, n_init=1000,
                               hard_ic=args.hard_ic, nonneg=args.nonneg, laser=args.laser)
     if args.load:
-        model.restore(args.load, verbose=0)
+        # chỉ nạp trọng số mạng: checkpoint L-BFGS có optimizer khác Adam, không khôi phục được optimizer
+        ckpt = torch.load(args.load, map_location=next(model.net.parameters()).device, weights_only=False)
+        model.net.load_state_dict(ckpt["model_state_dict"])
     else:
         model.train(iterations=args.iters, display_every=max(args.iters // 4, 1))
         model.save(str(out / "model"), verbose=0)
