@@ -323,3 +323,37 @@ Giả định (không có trong bài, ghi rõ):
 Quy tắc báo cáo không đổi (mục 16): nếu B không vượt T_s thì báo cáo "không đạt đến nóng chảy".
 
 Chưa thực hiện: hội tụ theo lưới (chỉ có 10 µm), độ nhạy theo A và φ, bộ thông số lỏng đầy đủ trong bài overhang (đã có trong mã).
+
+## 23. Chốt kết quả đến ngày 2026-10-12 (phạm vi kết luận)
+
+**Kết luận được phép nêu**
+- Với hình học kế hoạch (hộp overhang, đường quét dọc mép tại y_tip = 110 µm), mô hình dẫn nhiệt của Charles (laser bề mặt, Bảng 1, bột Moser), 175 W / 0.39 m/s / r_b = 40 µm: điểm B (y = 30, z = 125 µm, sâu 115 µm dưới mặt) không đạt T_sol = 1878 K trong mọi trường hợp đã quét (φ 0–0.82, k_ratio 0.012–0.07, α 0.27–0.6, r_b 25–71 µm). Nhiệt độ lớn nhất tại B là 330 K trong dải này.
+- Điểm A (y = 150, z = 5 µm, sát đế) không nóng lên (300–318 K) trong mọi lượt; A không cho thông tin về nóng chảy.
+- Mô hình dẫn nhiệt không đưa vùng bột dưới overhang đến nóng chảy trong dải tham số đã quét. Đây là kết quả của mô hình, không phải dự đoán vật lý.
+
+**Kiểm chứng đã đạt**
+- Cân bằng năng lượng đúng đến sai số máy (≤ 2.6·10⁻¹³) trong mọi lượt FV.
+- Nhiệt độ mặt hội tụ theo lưới: 4392 K (10 µm) và 4399 K (5 µm), chênh 0.16%.
+- Công thức Moser (eq. 10–12) trong mã khớp với bài Moser 2019. Giá trị k_ratio 0.012 nhất quán với giá trị Moser cho 316 (≈1.6%).
+- Công thức bay hơi của Cook (eq. 11–12) khớp với mã.
+
+**Chưa đạt hoặc không kết luận được**
+- Tiêu chí kiểm chứng giai đoạn 0 bằng PINN (mục 17): đạt nhiệt độ đỉnh và T_min, không đạt cân bằng năng lượng (5.3%). PINN không dùng cho kết luận chính.
+- Nhiệt độ mặt trên (4300–5900 K trong các lượt có φ > 0; 34 500 K khi φ = 0) vượt điểm sôi 3315 K. Không báo cáo như giá trị dự đoán, chỉ nêu xu hướng.
+- Áp suất phản lực tại mặt (Cook eq. 10) lớn hơn áp suất mao dẫn 13–45 lần tại 4000–4392 K. Mô hình không tính được hệ quả này, nên vùng mặt không đáng tin về hình dạng.
+- Ô dưới 15 µm chưa hội tụ (chênh 7% giữa 10 và 5 µm).
+
+**Giả định không có nguồn đầy đủ**
+- Hệ số hấp thụ 0.27 (Cook, hiệu chỉnh cho dẫn nhiệt). Charles không cho số.
+- Hệ số bay hơi φ = 0.82 (Cook, nêu là cận trên); A_accom của Charles không có giá trị.
+- Độ dẫn nhiệt bột theo Moser, chưa kiểm chứng cho Ti (đo cho Ti64 khoảng 2.4–7%).
+- r_b = 40 µm (kế hoạch, không có trong Charles).
+- Kẹp T_cap = 6000 K (quy ước của chúng ta, không có nguồn).
+- Hình học 45° (kế hoạch), bài Charles dùng 35°.
+
+**Không được kết luận từ kết quả này**
+- Cơ chế dross hoặc đâm sâu của melt pool (cần áp suất phản lực, Marangoni, dòng chảy; mô hình không có).
+- Thời điểm t_B hoặc Δt (B không đạt T_sol nên không suy ra được).
+- Kích thước vùng nóng chảy so với Charles hay Cook.
+
+**Hướng tiếp theo đã dừng:** mô hình VOF với dòng chảy không khả thi trong điều kiện hiện tại (không có công cụ CFD, tài nguyên và thời gian hạn chế). Nếu cần làm sau, phải có A_p, B_p từ Lee & Zhang 2016 và quyết định dùng OpenFOAM hay tự viết.
