@@ -19,7 +19,7 @@ import torch
 
 from .materials import SIGMA_SB
 from .overhang import MAT, MS, POW, PROC, T_END, X_MAX, X_MIN, Y_MAX, Y_TIP, Z_MAX, X_START, powder_index
-from .physics import beer_lambert_source
+from .physics import beer_lambert_source, top_outflux
 
 RHO, CP, K = 4106.0, 838.0, 33.1     # Ti hằng số, như PINN giai đoạn 0 (mục 11)
 
@@ -34,7 +34,8 @@ def laser_source(X, Y, Z, t: float) -> np.ndarray:
 
 def run(dx: float = 10e-6, t_end: float = T_END, cfl: float = 0.4, source=None,
         h: float | None = None, eps: float | None = None, probes_um=(-300.0, 0.0, 300.0, 500.0),
-        points: dict | None = None, powder: bool = False) -> dict:
+        points: dict | None = None, powder: bool = False, latent: bool = False,
+        evap: bool = False) -> dict:
     """Giải và trả về nhiệt độ đỉnh tại các điểm đo, T_min, và cân bằng năng lượng.
 
     source: hàm (X, Y, Z, t) -> W/m³ tùy chọn (mặc định là laser); dùng cho kiểm chứng.
@@ -66,7 +67,22 @@ def run(dx: float = 10e-6, t_end: float = T_END, cfl: float = 0.4, source=None,
     nsteps = math.ceil(t_end / (cfl * dt_max))
     dt = t_end / nsteps
 
-    T = np.full((nx, ny, nz), Tamb, dtype=np.float64)
+    # nhiệt ẩn: H = g·[ρc(T − T_amb) + ρL·f_l(T)], f_l tuyến tính trên [T_sol, T_liq] (như physics.py)
+    g = (1.0 - POW.porosity * s_idx) if powder else np.ones(X.shape)
+    Ts, Tl = MAT.T_sol, MAT.T_liq
+    rhoL = RHO * MAT.L_f if latent else 0.0
+    Hs = RHO * CP * (Ts - Tamb)
+    Hl = Hs + rhoL
+
+    def T_of(H):
+        hh = H / g
+        T_solid = Tamb + hh / (RHO * CP)
+        T_mushy = Ts + (hh - Hs) / (RHO * CP + rhoL / (Tl - Ts))
+        T_liquid = Tl + (hh - Hl) / (RHO * CP)
+        return np.where(hh <= Hs, T_solid, np.where(hh >= Hl, T_liquid, T_mushy))
+
+    H = np.zeros(X.shape)
+    T = np.full(X.shape, Tamb, dtype=np.float64)
     ip = {}
     if points is None:
         for xu in probes_um:
@@ -105,14 +121,19 @@ def run(dx: float = 10e-6, t_end: float = T_END, cfl: float = 0.4, source=None,
         q_bot = k_cell[:, :, 0] * (T[:, :, 0] - Tamb) / (dx / 2)
         # mặt trên z = Lz: đối lưu + bức xạ, dương = rời miền
         Tt = T[:, :, -1]
-        q_top = h * (Tt - Tamb) + eps * SIGMA_SB * (Tt**4 - Tamb**4)
+        if evap:
+            # bay hơi + đối lưu + bức xạ (physics.top_outflux, có kẹp T_cap)
+            q_top = top_outflux(torch.tensor(Tt, dtype=torch.float64), MAT).numpy()
+        else:
+            q_top = h * (Tt - Tamb) + eps * SIGMA_SB * (Tt**4 - Tamb**4)
         out[:, :, 0] += q_bot
         out[:, :, -1] += q_top
         # ρc dT/dt = q − (Σ thông lượng ra)/dx   (A/V = 1/dx)
         E_in += float(q.sum()) * V * dt
         E_bot += float(q_bot.sum()) * A * dt
         E_top += float(q_top.sum()) * A * dt
-        T = T + dt * (q - out / dx) / cap_cell
+        H = H + dt * (q - out / dx)
+        T = T_of(H)
         Tmin_seen = min(Tmin_seen, float(T.min()))
         for k, (ix, iy, iz) in ip.items():
             Tk = float(T[ix, iy, iz])
@@ -123,10 +144,10 @@ def run(dx: float = 10e-6, t_end: float = T_END, cfl: float = 0.4, source=None,
                 if t_first[k] is None:
                     t_first[k] = (n + 1) * dt
 
-    E_stored = float((cap_cell * (T - Tamb)).sum()) * V
+    E_stored = float(H.sum()) * V
     rel = (E_in - E_top - E_bot - E_stored) / E_in if E_in > 0 else float("nan")
     return {
-        "dx_um": dx * 1e6, "powder": powder, "grid": [nx, ny, nz], "dt_s": dt, "nsteps": nsteps, "t_end_s": t_end,
+        "dx_um": dx * 1e6, "powder": powder, "latent": latent, "evap": evap, "grid": [nx, ny, nz], "dt_s": dt, "nsteps": nsteps, "t_end_s": t_end,
         "energy": {"E_in_J": E_in, "E_out_top_J": E_top, "E_out_bottom_J": E_bot,
                    "E_stored_J": E_stored, "rel_error": rel},
         "probes": {k: {"T_max_K": v[0], "t_at_max_s": v[1], "t_first_above_Tsol_s": t_first[k],
