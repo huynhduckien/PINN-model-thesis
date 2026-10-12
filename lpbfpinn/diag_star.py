@@ -90,17 +90,19 @@ def main() -> None:
     ap.add_argument("--out", type=str, default="runs/star_s0")
     ap.add_argument("--hard-ic", action="store_true")
     ap.add_argument("--nonneg", action="store_true", help="θ = softplus(·) ≥ 0, T ≥ T_amb")
+    ap.add_argument("--laser", choices=["top_bc", "volume"], default="top_bc",
+                    help="laser qua biên trên (mặc định) hoặc nguồn thể tích Beer–Lambert như DED")
     args = ap.parse_args()
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
     sc = Scales()
     model = build_stage0_star(sc, n_domain=args.n_domain, n_bnd=2000, n_anchor=args.n_domain, n_init=1000,
-                              hard_ic=args.hard_ic, nonneg=args.nonneg)
+                              hard_ic=args.hard_ic, nonneg=args.nonneg, laser=args.laser)
     model.train(iterations=args.iters, display_every=max(args.iters // 4, 1))
     model.save(str(out / "model"), verbose=0)
     Lx, Ly, Lz, tmax = sc.dimless_domain()
     res = {"iters": args.iters, "T_c": sc.T_c, "L_c": sc.L_c, "t_c": sc.t_c, "hard_ic": args.hard_ic,
-           "nonneg": args.nonneg}
+           "nonneg": args.nonneg, "laser": args.laser}
     res["energy"] = energy_balance_star(model, sc)
     # nhiệt độ tại các điểm cố định (z = 230 µm) theo thời gian
     probes = {}
