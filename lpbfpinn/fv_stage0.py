@@ -168,7 +168,7 @@ CHARLES = dict(rho=4400.0, cp_s=573.0, cp_l=750.0, k_s=13.0, k_l=33.0, L_f=286e3
 
 def run_charles(dx: float = 10e-6, t_end: float = T_END, cfl: float = 0.4, powder: bool = False,
                 evap: bool = True, points: dict | None = None, absorptivity: float | None = None,
-                device: str = "cpu") -> dict:
+                device: str = "cpu", kratio: float | None = None) -> dict:
     """FV theo công thức Charles (PyTorch, chạy được trên CPU hoặc GPU).
 
     Laser là thông lượng bề mặt (eq. 8, 12); enthalpy và tính chất pha (eq. 6–7, 13–15, Bảng 1);
@@ -212,9 +212,10 @@ def run_charles(dx: float = 10e-6, t_end: float = T_END, cfl: float = 0.4, powde
         f = torch.clamp((T - Ts) / (Tl - Ts), 0.0, 1.0)
         return (1.0 - f) * C["k_s"] + f * C["k_l"]
 
+    kr = MS["k_ratio"] if kratio is None else kratio
     if powder:
         s_idx = powder_index(Y, Z)
-        kpow = 1.0 + (MS["k_ratio"] - 1.0) * s_idx
+        kpow = 1.0 + (kr - 1.0) * s_idx
         g = 1.0 - POW.porosity * s_idx
     else:
         kpow = torch.ones_like(X)
@@ -228,12 +229,14 @@ def run_charles(dx: float = 10e-6, t_end: float = T_END, cfl: float = 0.4, powde
     H = torch.zeros_like(X)
     T = torch.full_like(X, Tamb)
     if points is None:
-        points = {"top_y110_z230": (0.0, Y_TIP * 1e6, 230.0)}
-    xn, yn, zn = x.cpu().numpy(), y.cpu().numpy(), z.cpu().numpy()
+        points = {"surface": (0.0, Y_TIP * 1e6, 0.0)}
+    xn, yn = x.cpu().numpy(), y.cpu().numpy()
     ip = {}
-    for name, (xu, yu, zu) in points.items():
-        ip[name] = (int(np.argmin(np.abs(xn - xu * 1e-6))), int(np.argmin(np.abs(yn - yu * 1e-6))),
-                    int(np.argmin(np.abs(zn - zu * 1e-6))))
+    # điểm đo: (x_µm, y_µm, độ sâu dưới mặt trên µm). Độ sâu 0 = ô mặt trên (tâm cách mặt 0.5·dx).
+    for name, (xu, yu, depth_um) in points.items():
+        k_top = int(round(depth_um * 1e-6 / dx - 0.5))
+        iz = max(nz - 1 - k_top, 0)
+        ip[name] = (int(np.argmin(np.abs(xn - xu * 1e-6))), int(np.argmin(np.abs(yn - yu * 1e-6))), iz)
     tmax = {k: (Tamb, 0.0) for k in ip}
     t_first = {k: None for k in ip}
     t_above = {k: 0.0 for k in ip}
@@ -281,7 +284,7 @@ def run_charles(dx: float = 10e-6, t_end: float = T_END, cfl: float = 0.4, powde
     E_stored = float(H.sum()) * V
     rel = (E_in - E_top - E_bot - E_stored) / E_in if E_in > 0 else float("nan")
     return {
-        "model": "charles", "device": device, "dx_um": dx * 1e6, "powder": powder, "evap": evap,
+        "model": "charles", "device": device, "dx_um": dx * 1e6, "powder": powder, "evap": evap, "kratio": kr,
         "absorptivity": A_abs, "grid": [nx, ny, nz], "dt_s": dt, "nsteps": nsteps, "t_end_s": t_end,
         "energy": {"E_in_J": E_in, "E_out_top_J": E_top, "E_out_bottom_J": E_bot,
                    "E_stored_J": E_stored, "rel_error": rel},
@@ -301,8 +304,8 @@ def main() -> None:
     args = ap.parse_args()
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
-    pts = {"A_y150_z5": (0.0, 150.0, 5.0), "B_y30_z125": (0.0, 30.0, 125.0),
-           "top_z235": (0.0, Y_TIP * 1e6, 235.0), "sub_z225": (0.0, Y_TIP * 1e6, 225.0)}
+    pts = {"A_y150_depth235": (0.0, 150.0, 235.0), "B_y30_depth115": (0.0, 30.0, 115.0),
+           "surface": (0.0, Y_TIP * 1e6, 0.0), "depth15": (0.0, Y_TIP * 1e6, 15.0)}
     res = run_charles(dx=args.dx, points=pts, powder=not args.no_powder, evap=True, device=args.device)
     res["dx_m"] = args.dx
     (out / "diag.json").write_text(json.dumps(res, indent=2), encoding="utf-8")
