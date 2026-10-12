@@ -1,0 +1,22 @@
+{
+ "A_y150_z5": {
+  "T_max_K": 299.63967984433185,
+  "t_at_max_s": 0.0010076230076230077,
+  "t_first_above_Tsol_s": null,
+  "t_above_Tsol_s": 0.0
+ },
+ "B_y30_z125": {
+  "T_max_K": 331.3431048738577,
+  "t_at_max_s": 0.0020000000000000005,
+  "t_first_above_Tsol_s": null,
+  "t_above_Tsol_s": 0.0
+ },
+ "top_y110_z230": {
+  "T_max_K": 6629.47748585856,
+  "t_at_max_s": 0.0010110880110880112,
+  "t_first_above_Tsol_s": 0.0008586278586278587,
+  "t_above_Tsol_s": 0.001142065142065182
+ }
+}
+energy rel 2.634510930237899e-14 T_min 298.0
+EXIT 0
