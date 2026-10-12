@@ -125,6 +125,8 @@ def main() -> None:
     ap.add_argument("--n-face", type=int, default=500)
     ap.add_argument("--n-band", type=int, default=0, help="điểm mặt trên ở vùng xa vết laser (y ≥ y_tip + 100 µm)")
     ap.add_argument("--lr", type=float, default=1e-3)
+    ap.add_argument("--lr-final", type=float, default=None, help="learning rate cuối (giảm tuyến tính trong --decay-iters vòng cuối)")
+    ap.add_argument("--decay-iters", type=int, default=0)
     ap.add_argument("--w-top", type=float, default=1.0)
     ap.add_argument("--w-face", type=float, default=1.0)
     ap.add_argument("--seed", type=int, default=0)
@@ -154,6 +156,12 @@ def main() -> None:
         loss = terms["pde"] + args.w_top * terms["top"] + args.w_face * terms["face"]
         if not torch.isfinite(loss):
             raise RuntimeError(f"loss không hữu hạn tại vòng {it}: {terms}")
+        if args.lr_final is not None and args.decay_iters > 0:
+            start = args.iters - args.decay_iters
+            if it >= start:
+                frac_lr = (it - start) / args.decay_iters
+                for g in opt.param_groups:
+                    g["lr"] = args.lr + (args.lr_final - args.lr) * frac_lr
         opt.zero_grad()
         loss.backward()
         opt.step()
