@@ -288,5 +288,5 @@ Hướng tiếp theo, theo quyết định của người nghiên cứu (2026-10
 - Nguồn: Charles et al. 2022, *Additive Manufacturing* 50:102551, mục 2.4 và kết quả Hình 5–7.
 - Bán kính chùm: giữ 40 µm theo mục 2. Bài báo không ghi giá trị số, nên đây là điểm chưa có nguồn; cần ghi trong luận văn.
 - Hình học khác bài báo: bề mặt treo 45° của hộp hiện tại (mục 12), so với 35° trong bài báo; miền và độ dày bột cũng khác.
-- Trường hợp đối chứng 90 W, 1.235 m/s (P/v ≈ 0.073 J/mm, không đâm xuống bột trong bài báo) chưa được chọn; có thể dùng sau.
+- Trường hợp đối chứng 90 W, 1.235 m/s (P/v ≈ 0.073 J/mm, không đâm xuống bột trong bài báo): đã chọn ngày 2026-10-12, gọi bằng LPBF_PROC=dross_low, r_b = 40 µm.
 - Cấu hình cũ vẫn gọi được: LPBF_PROC=exp4 (kiểm chứng giai đoạn 0), LPBF_PROC=prereg300 (mục 2).

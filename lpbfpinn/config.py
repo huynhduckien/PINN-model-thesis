@@ -52,6 +52,8 @@ PROC_EXP4 = Process(power=120.0, speed=0.6, r_b=71e-6)
 # Trường hợp chính cho hiện tượng dross (Charles et al. 2022, năng lượng cao; prereg mục 20).
 # Bán kính chùm 40 µm giữ theo prereg; bài báo không ghi giá trị số.
 PROC_DROSS = Process(power=175.0, speed=0.39, r_b=40e-6)
+# Đối chứng năng lượng thấp của cùng bài báo (P/v ≈ 0.073 J/mm, giảm dross); LPBF_PROC=dross_low.
+PROC_DROSS_LOW = Process(power=90.0, speed=1.235, r_b=40e-6)
 
 
 def active_process() -> Process:
@@ -69,6 +71,8 @@ def active_process() -> Process:
         return PROC_EXP4
     if name == "prereg300":
         return Process()
+    if name == "dross_low":
+        return PROC_DROSS_LOW
     return PROC_DROSS
 
 
