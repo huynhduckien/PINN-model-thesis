@@ -452,3 +452,17 @@ Kết quả so sánh sẽ ghi vào `results/fv_v24/` trước khi kết luận.
 - δ = 10 µm, kiểm tra độ nhạy trong khoảng 5–20 µm.
 
 Hệ quả: trong vết laser trên mặt, θ = θ_b tuyệt đối (sau khởi động). Hạng biên trên chỉ tính ngoài vết laser. Sai lệch có chủ đích: lớp chuyển tiếp dày δ dưới và quanh vết laser. Không đổi tiêu chí (mục 27.4). Ràng buộc này không giải quyết độ sâu vũng, cần kiểm tra riêng.
+
+**27.12 Nguồn thể tích hình nón thay cho nguồn bề mặt (ngày 2026-10-12, thử nghiệm có chủ đích).** Theo nguồn hai nón của Piandoro và cộng sự (2026), *J. Manuf. Sci. Eng.* 148, mục 2.3, với các điểm sau:
+
+- Hình học: z_t = 240 µm (mặt trên), z_i = z_t − H_u, z_b = z_i − H_l. Bán kính r_t (mặt), r_i (giữa), r_b (đáy). Mặc định: r_t = 50 µm (bán kính chùm, Bảng 2), r_i = 25 µm, r_b = 10 µm, H_u = H_l = 40 µm. Các giá trị này được chọn trước khi chạy, **không tinh chỉnh theo kết quả**, và không hiệu chỉnh theo Bảng 3. Kết quả so với Bảng 3 là đầu ra của thử nghiệm, không phải hiệu chuẩn.
+- Bán kính r(z): nón dưới r = r_i − (r_i − r_b)(z_i − z)/(z_i − z_b); nón trên r = r_t − (r_t − r_i)(z_t − z)/(z_t − z_i).
+- Phân bố năng lượng: q(x, y, z, t) = (ηP·ramp/H) · 3/(πr²) · exp(−3ρ²/r²), với ρ² = (x − x_l)² + (y − y_tip)², H = H_u + H_l, trong vùng z_b ≤ z ≤ z_t. Mỗi lát sâu nhận cùng năng lượng, nên ∫q dV = ηP. Hệ số 3/(πr²) được chọn để tích phân theo mặt bằng 1 (thay cho hệ số e³ của bài báo, vốn bị mất trong bản trích).
+- Không có thông lượng laser trên mặt trên; biên trên chỉ có đối lưu, bức xạ và bay hơi (như trước).
+- Vùng chuyển tiếp của ràng buộc cứng (27.11) không dùng với nguồn này. Chỉ chạy surface = flux.
+
+**Kiểm tra trước khi chạy:** bán kính tại biên, ∫q dV = ηP, PDE có hạng nguồn, biên trên không có thông lượng laser khi dùng nguồn thể tích.
+
+**27.12 (bổ sung, ngày 2026-10-12).** Với nguồn hình nón, đỉnh Q* tại đáy nón (r_b = 10 µm) khoảng 270, lớn hơn θ hàng trăm lần, nên hạng PDE không cân bằng với các hạng biên. Chuẩn hóa residual PDE theo đỉnh nguồn Q*_pk = 3ηP/(Hπr_b²)·L_c²/(k_c T_scale) trong chế độ hình nón. Đây là thay đổi trọng số đã ghi trước, không đổi hình học hay tiêu chí.
+
+**27.12 Kết quả thử (ngày 2026-10-12, không phải kết quả chính).** Nguồn hình nón (r_t 50, r_i 25, r_b 10 µm; H = 80 µm) với 6000 vòng CPU: nhiệt độ mặt tâm khoảng 7870 K, T_max lưới 8140 K, năng lượng tích lũy 1.44 J so với đầu vào 0.082 J (rel_error −18), vũng chiếm toàn bộ miền. Với 300–1500 vòng: nhiệt độ khoảng 650 K, rel_error −1.65, không có vũng. Kết luận: trong công thức hiện tại (mất nhiệt đối lưu và bức xạ, bay hơi Cook với L_v = 9·10⁵ J/kg), biên trên không cân bằng được nguồn thể tích. Mạng hoặc chưa hội tụ (ngắn) hoặc tích lũy năng lượng không giới hạn (dài). Cần một cơ chế cân bằng năng lượng toàn cục (hạng L_E, như mục 26.5) hoặc giới hạn bề mặt trước khi so với Bảng 3. Không đổi tiêu chí.
