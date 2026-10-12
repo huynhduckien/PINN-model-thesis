@@ -99,3 +99,47 @@ def pinned_residual(theta_fn, xs: torch.Tensor, case: R2022Case) -> torch.Tensor
     """Kẹp bề mặt (prereg 27.9): θ − θ_b với θ_b = (T_b − T_amb)/T_scale."""
     theta_b = (case.material().T_b - case.T_amb) / case.T_scale
     return theta_fn(xs) - theta_b
+
+
+def spot_distance(xs: torch.Tensor, case: R2022Case) -> torch.Tensor:
+    """Khoảng cách (m) từ điểm tới vùng kẹp trên mặt trên, theo vết laser tại thời điểm đó (prereg 27.11).
+
+    Thêm 1e-24 dưới căn để đạo hàm hữu hạn tại d = 0 (trong vết laser trên mặt).
+    """
+    x = case.x_min + xs[:, 0:1] * case.L_c
+    y = xs[:, 1:2] * case.L_c
+    z = xs[:, 2:3] * case.L_c
+    t = xs[:, 3:4] * case.t_c
+    x_l = case.x_start + case.speed * t
+    dx = torch.relu((x - x_l).abs() - case.r_b)
+    dy = torch.relu((y - case.y_tip).abs() - case.r_b)
+    dz = case.z_max - z
+    return torch.sqrt(dx**2 + dy**2 + dz**2 + 1e-24)
+
+
+def hard_weight(d: torch.Tensor, delta: float) -> torch.Tensor:
+    """H(d) = ½(1 − cos(πd/δ)) khi d < δ, và 1 khi d ≥ δ (prereg 27.11)."""
+    dc = torch.clamp(d, max=delta)
+    smooth = 0.5 * (1.0 - torch.cos(math.pi * dc / delta))
+    return torch.where(d < delta, smooth, torch.ones_like(d))
+
+
+def theta_bc(xs: torch.Tensor, case: R2022Case) -> torch.Tensor:
+    """Giá trị kẹp θ_b có đoạn khởi động như laser (prereg 27.11)."""
+    t = xs[:, 3:4] * case.t_c
+    ramp = torch.clamp(t / (case.ramp_length / case.speed), max=1.0)
+    theta_b = (case.material().T_b - case.T_amb) / case.T_scale
+    return ramp * theta_b
+
+
+class HardPinned(torch.nn.Module):
+    """θ = θ_bc(t)(1 − H) + θ_raw·H, bọc quanh mạng để mọi residual dùng cùng một trường (prereg 27.11)."""
+
+    def __init__(self, model: torch.nn.Module, case: R2022Case):
+        super().__init__()
+        self.model = model
+        self.case = case
+
+    def forward(self, xs: torch.Tensor) -> torch.Tensor:
+        H = hard_weight(spot_distance(xs, self.case), self.case.hard_delta)
+        return theta_bc(xs, self.case) * (1.0 - H) + self.model(xs) * H

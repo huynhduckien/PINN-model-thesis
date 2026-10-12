@@ -17,7 +17,7 @@ from pathlib import Path
 import torch
 
 from .case import R2022Case
-from .operator import face_residual, pde_residual, pinned_residual, spot_mask, top_residual
+from .operator import HardPinned, face_residual, pde_residual, pinned_residual, spot_mask, top_residual
 
 
 class PINN(torch.nn.Module):
@@ -86,6 +86,18 @@ def loss_terms(model: PINN, case: R2022Case, pts: dict[str, torch.Tensor]) -> di
     - Biên bên: chuẩn hóa theo θ_max (đạo hàm θ/L_c).
     """
     peak_star = case.peak_flux / case.flux_scale
+    if case.surface == "hard":
+        # ràng buộc cứng (prereg 27.11): trong vết laser θ = θ_b tự động; hạng biên trên chỉ ngoài vết laser
+        field = HardPinned(model, case)
+        theta_b = (case.material().T_b - case.T_amb) / case.T_scale
+        spot = spot_mask(pts["top"], case)
+        r_flux = top_residual(field, pts["top"], case) / theta_b
+        top = ((r_flux ** 2) * (~spot)).sum() / (~spot).sum().clamp(min=1)
+        r_pde = pde_residual(field, pts["dom"], case)
+        r_fx = face_residual(field, pts["fx"], axis=0)
+        r_fy = face_residual(field, pts["fy"], axis=1)
+        return {"pde": (r_pde ** 2).mean(), "top": top,
+                "face": (r_fx ** 2).mean() + (r_fy ** 2).mean()}
     r_pde = pde_residual(model, pts["dom"], case)
     if case.surface == "pinned":
         # kẹp T = T_b trong vết laser (prereg 27.9), thông lượng ngoài vết laser
@@ -130,7 +142,8 @@ def main() -> None:
     ap.add_argument("--w-top", type=float, default=1.0)
     ap.add_argument("--w-face", type=float, default=1.0)
     ap.add_argument("--seed", type=int, default=0)
-    ap.add_argument("--surface", choices=["flux", "pinned"], default="flux", help="prereg 27.9: kẹp T = T_b trong vết laser")
+    ap.add_argument("--surface", choices=["flux", "pinned", "hard"], default="flux",
+                    help="pinned: kẹp penalty (27.9); hard: ràng buộc cứng (27.11)")
     ap.add_argument("--phase1-iters", type=int, default=0,
                     help="tiếp tục hóa: số vòng đầu tắt đối lưu và bức xạ (h = ε = 0)")
     ap.add_argument("--ramp-iters", type=int, default=0,

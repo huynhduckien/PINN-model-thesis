@@ -14,6 +14,7 @@ import numpy as np
 import torch
 
 from .case import R2022Case
+from .operator import HardPinned
 from .train import PINN
 
 
@@ -48,7 +49,7 @@ def top_profile(model: PINN, case: R2022Case, t_fracs=(0.5, 0.75, 1.0), dy: floa
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--ckpt", required=True)
-    ap.add_argument("--surface", choices=["flux", "pinned"], default="pinned")
+    ap.add_argument("--surface", choices=["flux", "pinned", "hard"], default="pinned")
     ap.add_argument("--device", default="cpu")
     ap.add_argument("--out", default=None, help="thư mục lưu profile.json (mặc định cạnh checkpoint)")
     args = ap.parse_args()
@@ -56,6 +57,8 @@ def main() -> None:
     model = PINN(case).double().to(args.device)
     model.load_state_dict(torch.load(args.ckpt, map_location=args.device, weights_only=False)["model_state_dict"])
     model.eval()
+    if case.surface == "hard":
+        model = HardPinned(model, case).eval()
     prof = top_profile(model, case)
     out = Path(args.out) if args.out else Path(args.ckpt).parent
     out.mkdir(parents=True, exist_ok=True)

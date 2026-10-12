@@ -13,7 +13,7 @@ import numpy as np
 import torch
 
 from .case import R2022Case
-from .operator import kappa, laser_flux_star, loss_star, pinned_residual, top_residual
+from .operator import HardPinned, kappa, laser_flux_star, loss_star, pinned_residual, top_residual
 from .train import PINN
 
 BOOK = {"exp_width_um": 84.4, "exp_width_sd_um": 12.6, "exp_depth_um": 68.0, "exp_depth_sd_um": 10.0,
@@ -105,7 +105,7 @@ def laser_spot_residual(model: PINN, case: R2022Case, n_times: int = 10, n_pts: 
     """
     gen = torch.Generator().manual_seed(seed)
     peak_star = case.peak_flux / case.flux_scale
-    pinned = case.surface == "pinned"
+    pinned = case.surface in ("pinned", "hard")
     Lx, Ly, Lz, _ = case.domain_star
     rows, all_r = [], []
     for t_s in np.linspace(0.5 * case.t_end, case.t_end, n_times):
@@ -196,13 +196,15 @@ def main() -> None:
     ap.add_argument("--ckpt", required=True)
     ap.add_argument("--out", default="results/pinn_r2022")
     ap.add_argument("--device", default="cpu")
-    ap.add_argument("--surface", choices=["flux", "pinned"], default="flux")
+    ap.add_argument("--surface", choices=["flux", "pinned", "hard"], default="flux")
     args = ap.parse_args()
     case = R2022Case(surface=args.surface)
     ck = torch.load(args.ckpt, map_location=args.device, weights_only=False)
     model = PINN(case).double()
     model.load_state_dict(ck["model_state_dict"])
     model.eval()
+    if case.surface == "hard":
+        model = HardPinned(model, case).eval()
     melt = melt_metrics(model, case)
     energy = energy_budget(model, case)
     temps = temperature_summary(model, case)

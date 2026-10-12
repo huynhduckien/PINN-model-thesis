@@ -90,3 +90,45 @@ def test_melt_metrics_on_known_box():
     m = melt_metrics(Box(), case, n_times=6, dx=5e-6)
     assert abs(m["width_max_um"] - 80.0) <= 10.0, m["width_max_um"]
     assert abs(m["depth_max_um"] - 60.0) <= 10.0, m["depth_max_um"]
+
+
+def test_hard_weight_values_and_continuity():
+    from lpbfpinn.r2022.operator import hard_weight
+    delta = 10e-6
+    d = torch.tensor([[0.0], [delta / 2], [delta], [3 * delta]], dtype=torch.float64)
+    H = hard_weight(d, delta).numpy().ravel()
+    np.testing.assert_allclose(H, [0.0, 0.5, 1.0, 1.0], atol=1e-12)
+
+
+def test_hard_pin_exact_in_spot_and_identity_far():
+    from lpbfpinn.r2022.operator import HardPinned, spot_distance
+    case = R2022Case(surface="hard")
+    torch.manual_seed(0)
+    raw = PINN(case).double()
+    field = HardPinned(raw, case)
+    Lx, Ly, Lz, Tm = case.domain_star
+    t_s = 0.5 * case.t_end
+    x_l = (case.x_start + case.speed * t_s - case.x_min) / case.L_c
+    t_star = t_s / case.t_c
+    spot = torch.tensor([[x_l, case.y_tip / case.L_c, Lz, t_star]], dtype=torch.float64)
+    far = torch.tensor([[x_l, (case.y_tip + 300e-6) / case.L_c, Lz, t_star]], dtype=torch.float64)
+    theta_b = (case.material().T_b - case.T_amb) / case.T_scale
+    with torch.no_grad():
+        assert abs(float(field(spot)) - theta_b) < 1e-12
+        assert abs(float(field(far)) - float(raw(far))) < 1e-12
+
+
+def test_hard_ic_zero_and_gradient_finite_at_surface():
+    from lpbfpinn.r2022.operator import HardPinned
+    case = R2022Case(surface="hard")
+    torch.manual_seed(1)
+    field = HardPinned(PINN(case).double(), case)
+    x_l0 = (case.x_start - case.x_min) / case.L_c
+    at_t0 = torch.tensor([[x_l0, case.y_tip / case.L_c, case.domain_star[2], 0.0]], dtype=torch.float64)
+    with torch.no_grad():
+        assert abs(float(field(at_t0))) < 1e-12
+    xs = torch.tensor([[x_l0 + 0.3, case.y_tip / case.L_c, case.domain_star[2], 0.5]], dtype=torch.float64,
+                      requires_grad=True)
+    th = field(xs)
+    g = torch.autograd.grad(th.sum(), xs)[0]
+    assert torch.isfinite(g).all()

@@ -442,3 +442,13 @@ Kết quả so sánh sẽ ghi vào `results/fv_v24/` trước khi kết luận.
 **27.9 Kẹp bề mặt tại T_b (ngày 2026-10-12, quyết định của người nghiên cứu).** Trong vết laser (|x − x_l| < r_b, |y − y_tip| < r_b) nhiệt độ mặt trên được kẹp ở T_b = 3533 K (Bảng 5), dưới dạng điều kiện Dirichlet mềm trong loss. Ngoài vết laser giữ điều kiện thông lượng như cũ. Đây là xấp xỉ có chủ đích thay cho cân bằng thông lượng tại vết laser, vì mô hình bay hơi hiện tại quá yếu để giới hạn nhiệt độ (mục 27.8). Hệ quả: năng lượng không đóng ở biên trên trong vết laser, nên sai số năng lượng và thông lượng ngầm (suy ra từ θ) phải được báo cáo. Kết quả không so với tiêu chí đạt/không đạt (mục 27.4).
 
 **27.10 Chuẩn hóa residual biên trên ngoài vết laser theo thang nhiệt độ (ngày 2026-10-12, quyết định của người nghiên cứu).** Trong chế độ kẹp (27.9), residual biên trên ngoài vết laser được chia cho θ_b = (T_b − T_amb)/T_scale, tức thang nhiệt độ, thay vì đỉnh thông lượng laser. Lý do: chia cho đỉnh thông lượng làm residual vùng xa rất nhỏ nên mạng không bị ràng buộc ở đó (xem kết quả lượt có điểm xa). Residual trong vết laser giữ nguyên dạng kẹp θ − θ_b. Không đổi tiêu chí (mục 27.4).
+
+**27.11 Ràng buộc biên cứng cho vết laser (ngày 2026-10-12, quyết định của người nghiên cứu).** Thay penalty kẹp (27.9) bằng ràng buộc cứng theo hàm khoảng cách, theo Zhu và cộng sự (2021), *Comput. Mech.* 67, eq. 16–19:
+
+- θ(x, t) = θ_bc(t)·(1 − H) + θ_raw·H, trong đó θ_raw là đầu ra mạng đã có ràng buộc IC và đáy.
+- d = √( max(|x − x_l| − r_b, 0)² + max(|y − y_tip| − r_b, 0)² + (L_z − z)² ) là khoảng cách tới vùng kẹp trên mặt trên, với x_l(t) = x_start + v·t.
+- H = ½(1 − cos(πd/δ)) khi d < δ, H = 1 khi d ≥ δ. Hệ số ½ bắt buộc để H liên tục bằng 1 tại d = δ (công thức không có ½ cho giá trị 2 tại d = δ). Cần đối chiếu với eq. 16 trong bản PDF.
+- θ_bc(t) = θ_b·min(t/(ramp_length/v), 1), có đoạn khởi động như laser, để không mâu thuẫn với IC θ = 0 tại t = 0.
+- δ = 10 µm, kiểm tra độ nhạy trong khoảng 5–20 µm.
+
+Hệ quả: trong vết laser trên mặt, θ = θ_b tuyệt đối (sau khởi động). Hạng biên trên chỉ tính ngoài vết laser. Sai lệch có chủ đích: lớp chuyển tiếp dày δ dưới và quanh vết laser. Không đổi tiêu chí (mục 27.4). Ràng buộc này không giải quyết độ sâu vũng, cần kiểm tra riêng.
