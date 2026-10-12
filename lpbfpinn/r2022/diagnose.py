@@ -199,8 +199,10 @@ def main() -> None:
     ap.add_argument("--surface", choices=["flux", "pinned", "hard"], default="flux")
     ap.add_argument("--hard-delta", type=float, default=10e-6)
     ap.add_argument("--side-bc", choices=["adiabatic", "robin"], default="adiabatic")
+    ap.add_argument("--lv0", type=float, default=9.0e5)
     args = ap.parse_args()
-    case = R2022Case(surface=args.surface, hard_delta=args.hard_delta, side_bc=args.side_bc)
+    case = R2022Case(surface=args.surface, hard_delta=args.hard_delta, side_bc=args.side_bc,
+                     L_v0=args.lv0)
     ck = torch.load(args.ckpt, map_location=args.device, weights_only=False)
     model = PINN(case).double()
     model.load_state_dict(ck["model_state_dict"])
