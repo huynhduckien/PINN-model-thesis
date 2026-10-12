@@ -30,3 +30,8 @@ def test_fv_energy_balance_latent_and_evap():
 def test_fv_charles_energy_balance():
     res = fv_stage0.run_charles(dx=40e-6, t_end=2e-4, powder=True, evap=True)
     assert abs(res["energy"]["rel_error"]) < 1e-9, res["energy"]
+
+
+def test_fv_charles_energy_balance_adiabatic_bottom():
+    res = fv_stage0.run_charles(dx=40e-6, t_end=2e-4, powder=True, evap=True, bottom="adiabatic")
+    assert abs(res["energy"]["rel_error"]) < 1e-9, res["energy"]

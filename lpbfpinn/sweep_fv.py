@@ -22,6 +22,7 @@ CASES = [
     ("kr0.03", dict(kratio=0.03)),
     ("kr0.07", dict(kratio=0.07)),
     ("abs0.6", dict(absorptivity=0.6)),
+    ("bottom_adiabatic", dict(bottom="adiabatic")),
 ]
 POINTS = {"A_y150_depth235": (0.0, 150.0, 235.0), "B_y30_depth115": (0.0, 30.0, 115.0),
           "surface": (0.0, 110.0, 0.0), "depth15": (0.0, 110.0, 15.0)}
