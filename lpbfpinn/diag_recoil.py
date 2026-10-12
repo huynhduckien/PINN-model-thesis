@@ -1,7 +1,7 @@
 """Chẩn đoán áp suất phản lực (Charles eq. 3) trên trường nhiệt bề mặt đã có. Không đổi mô hình.
 
-p_rec(T) = A_p·exp[B_p(1 − T_b/T)] với A_p = ½(1 + β_R)·p_0 và B_p = ΔH_lv/(R_v·T_b) (suy ra từ Yang eq. 14–16,
-KHÔNG phải giá trị trong Charles). So với áp suất mao dẫn 2σ/r_b (σ tại T) để ước lượng tỷ số lõm mặt.
+p_rec(T) = A_p·exp[B_p(1 − T_b/T)] với A_p = 0.54·p_0 và B_p = ΔH_lv/(R_v·T_b), theo Lee & Zhang 2016 eq. 9 (dạng khớp eq. 3 của Charles;
+Charles không công bố trực tiếp giá trị A_p, B_p). So với áp suất mao dẫn 2σ/r_b (σ tại T) để ước lượng tỷ số lõm mặt.
 
 Chạy: python -m lpbfpinn.diag_recoil --device cuda --dx 10e-6 --out runs/diag_recoil
 """
@@ -18,8 +18,8 @@ from .overhang import MAT, POW
 
 P0 = 101325.0
 BETA_R = 0.18
-A_P = 0.5 * (1.0 + BETA_R) * P0                 # Pa (suy ra)
-B_P = CHARLES["dH_lv"] / (CHARLES["R_v"] * MAT.T_b)   # không thứ nguyên (suy ra)
+A_P = 0.54 * P0                                 # Pa, Lee & Zhang 2016 eq. 9
+B_P = CHARLES["dH_lv"] / (CHARLES["R_v"] * MAT.T_b)   # Lee & Zhang eq. 9 (suy ra cùng dạng)
 R_BEAM = 40e-6
 
 
