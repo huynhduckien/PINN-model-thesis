@@ -13,7 +13,7 @@ import numpy as np
 import torch
 
 from .case import R2022Case
-from .operator import kappa, laser_flux_star, loss_star, top_residual
+from .operator import kappa, laser_flux_star, loss_star, pinned_residual, top_residual
 from .train import PINN
 
 BOOK = {"exp_width_um": 84.4, "exp_width_sd_um": 12.6, "exp_depth_um": 68.0, "exp_depth_sd_um": 10.0,
@@ -104,6 +104,7 @@ def laser_spot_residual(model: PINN, case: R2022Case, n_times: int = 10, n_pts: 
     """
     gen = torch.Generator().manual_seed(seed)
     peak_star = case.peak_flux / case.flux_scale
+    pinned = case.surface == "pinned"
     Lx, Ly, Lz, _ = case.domain_star
     rows, all_r = [], []
     for t_s in np.linspace(0.5 * case.t_end, case.t_end, n_times):
@@ -113,11 +114,16 @@ def laser_spot_residual(model: PINN, case: R2022Case, n_times: int = 10, n_pts: 
         y = (case.y_tip + u[:, 1:2] * case.r_b) / case.L_c
         xs = torch.cat([x, y, torch.full((n_pts, 1), Lz, dtype=torch.float64),
                         torch.full((n_pts, 1), t_s / case.t_c, dtype=torch.float64)], dim=1)
-        r = (top_residual(model, xs, case) / peak_star).detach().numpy().ravel()
+        if pinned:
+            # kẹp: sai lệch nhiệt độ so với T_b (K) tại điểm trong vết laser
+            r = (pinned_residual(model, xs, case) * case.T_scale).detach().numpy().ravel()
+        else:
+            r = (top_residual(model, xs, case) / peak_star).detach().numpy().ravel()
         all_r.append(r)
         rows.append({"t_s": float(t_s), "rms_over_peak": float(np.sqrt(np.mean(r**2)))})
     r_all = np.concatenate(all_r)
-    return {"rms_over_peak": float(np.sqrt(np.mean(r_all**2))), "max_abs_over_peak": float(np.max(np.abs(r_all))),
+    unit = "K" if pinned else "over_peak"
+    return {f"rms_{unit}": float(np.sqrt(np.mean(r_all**2))), f"max_abs_{unit}": float(np.max(np.abs(r_all))),
             "series": rows}
 
 
@@ -189,8 +195,9 @@ def main() -> None:
     ap.add_argument("--ckpt", required=True)
     ap.add_argument("--out", default="results/pinn_r2022")
     ap.add_argument("--device", default="cpu")
+    ap.add_argument("--surface", choices=["flux", "pinned"], default="flux")
     args = ap.parse_args()
-    case = R2022Case()
+    case = R2022Case(surface=args.surface)
     ck = torch.load(args.ckpt, map_location=args.device, weights_only=False)
     model = PINN(case).double()
     model.load_state_dict(ck["model_state_dict"])

@@ -84,3 +84,18 @@ def face_residual(theta_fn, xs: torch.Tensor, axis: int) -> torch.Tensor:
     xs = xs.clone().requires_grad_(True)
     th = theta_fn(xs)
     return _grad(th, xs)[:, axis:axis + 1]
+
+
+def spot_mask(xs: torch.Tensor, case: R2022Case) -> torch.Tensor:
+    """Điểm mặt trên nằm trong vết laser (|x − x_l| < r_b và |y − y_tip| < r_b), bool (N, 1)."""
+    x = case.x_min + xs[:, 0:1] * case.L_c
+    y = xs[:, 1:2] * case.L_c
+    t = xs[:, 3:4] * case.t_c
+    x_l = case.x_start + case.speed * t
+    return ((x - x_l).abs() < case.r_b) & ((y - case.y_tip).abs() < case.r_b)
+
+
+def pinned_residual(theta_fn, xs: torch.Tensor, case: R2022Case) -> torch.Tensor:
+    """Kẹp bề mặt (prereg 27.9): θ − θ_b với θ_b = (T_b − T_amb)/T_scale."""
+    theta_b = (case.material().T_b - case.T_amb) / case.T_scale
+    return theta_fn(xs) - theta_b

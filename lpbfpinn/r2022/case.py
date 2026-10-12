@@ -43,6 +43,8 @@ class R2022Case:
     cp: float = 838.0
     k: float = 33.1
     T_scale: float = 4000.0         # T_c của thang không thứ nguyên, không phải nhiệt độ tới hạn
+    # bề mặt: "flux" (thông lượng cân bằng, mặc định) hoặc "pinned" (kẹp T = T_b trong vết laser, prereg 27.9)
+    surface: str = "flux"
     # bột (Moser, như FV)
     porosity: float = 0.405
     k_ratio: float = 0.05

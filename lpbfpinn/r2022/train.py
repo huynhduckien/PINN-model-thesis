@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import argparse
 import json
+from dataclasses import replace
 import math
 import time
 from pathlib import Path
@@ -16,7 +17,7 @@ from pathlib import Path
 import torch
 
 from .case import R2022Case
-from .operator import face_residual, pde_residual, top_residual
+from .operator import face_residual, pde_residual, pinned_residual, spot_mask, top_residual
 
 
 class PINN(torch.nn.Module):
@@ -82,10 +83,20 @@ def loss_terms(model: PINN, case: R2022Case, pts: dict[str, torch.Tensor]) -> di
     """
     peak_star = case.peak_flux / case.flux_scale
     r_pde = pde_residual(model, pts["dom"], case)
-    r_top = top_residual(model, pts["top"], case) / peak_star
+    if case.surface == "pinned":
+        # kẹp T = T_b trong vết laser (prereg 27.9), thông lượng ngoài vết laser
+        spot = spot_mask(pts["top"], case)
+        r_pin = pinned_residual(model, pts["top"], case)
+        r_flux = top_residual(model, pts["top"], case) / peak_star
+        n_spot = spot.sum().clamp(min=1)
+        top = ((r_pin ** 2) * spot).sum() / n_spot + ((r_flux ** 2) * (~spot)).sum() / (~spot).sum().clamp(min=1)
+        r_top = None
+    else:
+        r_top = top_residual(model, pts["top"], case) / peak_star
+        top = (r_top ** 2).mean()
     r_fx = face_residual(model, pts["fx"], axis=0)
     r_fy = face_residual(model, pts["fy"], axis=1)
-    return {"pde": (r_pde ** 2).mean(), "top": (r_top ** 2).mean(),
+    return {"pde": (r_pde ** 2).mean(), "top": top,
             "face": (r_fx ** 2).mean() + (r_fy ** 2).mean()}
 
 
@@ -110,6 +121,7 @@ def main() -> None:
     ap.add_argument("--w-top", type=float, default=1.0)
     ap.add_argument("--w-face", type=float, default=1.0)
     ap.add_argument("--seed", type=int, default=0)
+    ap.add_argument("--surface", choices=["flux", "pinned"], default="flux", help="prereg 27.9: kẹp T = T_b trong vết laser")
     ap.add_argument("--phase1-iters", type=int, default=0,
                     help="tiếp tục hóa: số vòng đầu tắt đối lưu và bức xạ (h = ε = 0)")
     ap.add_argument("--ramp-iters", type=int, default=0,
@@ -119,7 +131,7 @@ def main() -> None:
 
     torch.manual_seed(args.seed)
     dev = torch.device(args.device)
-    case = R2022Case()
+    case = R2022Case(surface=args.surface)
     model = PINN(case).to(dev).double()
     opt = torch.optim.Adam(model.parameters(), lr=args.lr)
     gen = torch.Generator().manual_seed(args.seed)
@@ -129,7 +141,7 @@ def main() -> None:
     t0 = time.time()
     for it in range(args.iters):
         frac = continuation_fraction(it, args.phase1_iters, args.ramp_iters)
-        case_it = R2022Case(h_c=case.h_c * frac, emissivity=case.emissivity * frac)
+        case_it = replace(case, h_c=case.h_c * frac, emissivity=case.emissivity * frac)
         pts = sample(case, args.n_domain, args.n_near, args.n_top, args.n_face, gen, dev)
         terms = loss_terms(model, case_it, pts)
         loss = terms["pde"] + args.w_top * terms["top"] + args.w_face * terms["face"]
