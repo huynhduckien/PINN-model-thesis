@@ -171,6 +171,7 @@ def main() -> None:
     ap.add_argument("--w-top", type=float, default=1.0)
     ap.add_argument("--w-face", type=float, default=1.0)
     ap.add_argument("--seed", type=int, default=0)
+    ap.add_argument("--w-pde", type=float, default=1.0, help="trọng số hạng PDE (prereg 27.13 bổ sung)")
     ap.add_argument("--w-energy", type=float, default=0.0, help="trọng số L_E (prereg 27.13), 0 = tắt")
     ap.add_argument("--n-energy", type=int, default=400, help="số điểm Monte Carlo cho mỗi nhóm của L_E")
     ap.add_argument("--hard-delta", type=float, default=10e-6, help="δ của ràng buộc cứng (m), prereg 27.11")
@@ -199,7 +200,7 @@ def main() -> None:
         case_it = replace(case, h_c=case.h_c * frac, emissivity=case.emissivity * frac)
         pts = sample(case, args.n_domain, args.n_near, args.n_top, args.n_face, gen, dev, n_band=args.n_band)
         terms = loss_terms(model, case_it, pts)
-        loss = terms["pde"] + args.w_top * terms["top"] + args.w_face * terms["face"]
+        loss = args.w_pde * terms["pde"] + args.w_top * terms["top"] + args.w_face * terms["face"]
         if args.w_energy > 0:
             pts_e = sample_energy(case_it, args.n_energy, gen, dev)
             field = HardPinned(model, case_it) if case_it.surface == "hard" else model
