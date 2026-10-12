@@ -33,7 +33,8 @@ class R2022Case:
     T_amb: float = 298.0
     h_c: float = 25.0
     emissivity: float = 0.2
-    # vật liệu: Bảng 5 cho T_sol, T_b; L_v giữ theo Cook (900 J/g chưa xác nhận)
+    # vật liệu: Bảng 5 (đã xác nhận). L_v = 900 J/g = 9.0e5 J/kg (đơn vị SI, prereg mục 27.3)
+    L_v0: float = 9.0e5
     T_sol: float = 1877.0
     T_liq: float = 1933.0
     T_b: float = 3533.0
@@ -81,6 +82,6 @@ class R2022Case:
 
     def material(self) -> Material:
         """Vật liệu cho bay hơi Cook và đối lưu, bức xạ (dùng lại `physics.top_outflux`)."""
-        return replace(Material(), T_amb=self.T_amb, T_sol=self.T_sol, T_liq=self.T_liq, T_b=self.T_b,
+        return replace(Material(), T_amb=self.T_amb, T_sol=self.T_sol, T_liq=self.T_liq, T_b=self.T_b, L_v0=self.L_v0,
                        T_c=self.T_c, T_cap=self.T_c, h_c=self.h_c, emissivity=self.emissivity)
 

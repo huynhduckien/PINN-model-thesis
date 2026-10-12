@@ -427,7 +427,7 @@ Kết quả so sánh sẽ ghi vào `results/fv_v24/` trước khi kết luận.
 
 **27.2 Vật lý phiên bản 1.** Dẫn nhiệt 3D với bột (Moser, k_ratio 0.05, porosity 0.405), laser bề mặt Gaussian, bay hơi theo Cook với T_cap = T_c, đối lưu và bức xạ (h = 25, ε = 0.2, như FV). Không có nhiệt ẩn, không có Marangoni, không có áp suất phản lực, không có VOF. Tính chất hằng số tại T_sol (ρ 4106, c_p 838, k 33.1).
 
-**27.3 Bảng 5.** T_sol = 1877 K, T_liq = 1933 K, T_b = 3533 K được dùng. Riêng **L_v = 900 J/g trong Bảng 5 chưa được xác nhận nên không dùng**. Giữ L_v(T) của Cook (9.83 MJ/kg tại 0 K). Khi có xác nhận từ tác giả, sẽ ghi lại trong mục mới.
+**27.3 Bảng 5 (đã xác nhận ngày 2026-10-12).** T_sol = 1877 K, T_liq = 1933 K, T_b = 3533 K. Nhiệt bay hơi L_v = 900 J/g, đổi sang SI là **9.0 × 10⁵ J/kg (0.90 MJ/kg)**. Giá trị này thay cho L_v(0) = 9.83 MJ/kg của Cook chỉ trong trường hợp R2022. Chỉ chạy một giá trị này, không so sánh với giá trị khác. Lưu ý: công thức Cook dùng L_v trong hệ số mũ của áp suất hơi, nên đổi L_v0 cũng đổi hệ số mũ đó.
 
 **27.4 Không đánh giá theo tiêu chí.** Các tiêu chí của mục 17, 25.2 và 26.7 không áp dụng cho trường hợp này. Kết quả chỉ được báo cáo dưới dạng chẩn đoán: cân bằng năng lượng, residual PDE, rộng và sâu vũng tại đường đẳng nhiệt T_sol, so với Bảng 3 của bài (rộng 84.4 ± 12.6 µm, sâu 68.0 ± 10.0 µm). Không đặt ngưỡng đạt hay không đạt.
 
