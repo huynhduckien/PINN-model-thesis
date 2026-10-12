@@ -168,7 +168,7 @@ CHARLES = dict(rho=4400.0, cp_s=573.0, cp_l=750.0, k_s=13.0, k_l=33.0, L_f=286e3
 
 def run_charles(dx: float = 10e-6, t_end: float = T_END, cfl: float = 0.4, powder: bool = False,
                 evap: bool = True, points: dict | None = None, absorptivity: float | None = None,
-                device: str = "cpu", kratio: float | None = None) -> dict:
+                device: str = "cpu", kratio: float | None = None, r_b: float | None = None) -> dict:
     """FV theo công thức Charles (PyTorch, chạy được trên CPU hoặc GPU).
 
     Laser là thông lượng bề mặt (eq. 8, 12); enthalpy và tính chất pha (eq. 6–7, 13–15, Bảng 1);
@@ -179,6 +179,7 @@ def run_charles(dx: float = 10e-6, t_end: float = T_END, cfl: float = 0.4, powde
     dt64 = torch.float64
     C = CHARLES
     A_abs = C["absorptivity"] if absorptivity is None else absorptivity
+    rb = PROC.r_b if r_b is None else r_b
     Tamb = C["T_surr"]
     Ts, Tl = MAT.T_sol, MAT.T_liq
     mat_c = replace(MAT, h_c=C["h"], emissivity=C["eps"], T_amb=Tamb, L_f=C["L_f"])
@@ -246,8 +247,8 @@ def run_charles(dx: float = 10e-6, t_end: float = T_END, cfl: float = 0.4, powde
     for n in range(nsteps):
         t = n * dt
         ramp = min(t / (PROC.ramp_length / PROC.speed), 1.0)
-        q_las = (2.0 * A_abs * PROC.power * ramp / (math.pi * PROC.r_b**2)) * torch.exp(
-            -2.0 * ((Xs - (X_START + PROC.speed * t)) ** 2 + (Ys - Y_TIP) ** 2) / PROC.r_b**2)
+        q_las = (2.0 * A_abs * PROC.power * ramp / (math.pi * rb**2)) * torch.exp(
+            -2.0 * ((Xs - (X_START + PROC.speed * t)) ** 2 + (Ys - Y_TIP) ** 2) / rb**2)
         kc = k_of(T) * kpow
         fx = -0.5 * (kc[1:] + kc[:-1]) * (T[1:] - T[:-1]) / dx
         fy = -0.5 * (kc[:, 1:] + kc[:, :-1]) * (T[:, 1:] - T[:, :-1]) / dx
@@ -285,7 +286,7 @@ def run_charles(dx: float = 10e-6, t_end: float = T_END, cfl: float = 0.4, powde
     rel = (E_in - E_top - E_bot - E_stored) / E_in if E_in > 0 else float("nan")
     return {
         "model": "charles", "device": device, "dx_um": dx * 1e6, "powder": powder, "evap": evap, "kratio": kr,
-        "absorptivity": A_abs, "grid": [nx, ny, nz], "dt_s": dt, "nsteps": nsteps, "t_end_s": t_end,
+        "absorptivity": A_abs, "r_b_um": rb * 1e6, "grid": [nx, ny, nz], "dt_s": dt, "nsteps": nsteps, "t_end_s": t_end,
         "energy": {"E_in_J": E_in, "E_out_top_J": E_top, "E_out_bottom_J": E_bot,
                    "E_stored_J": E_stored, "rel_error": rel},
         "probes": {k: {"T_max_K": v[0], "t_at_max_s": v[1], "t_first_above_Tsol_s": t_first[k],
