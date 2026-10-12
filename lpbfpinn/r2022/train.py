@@ -45,7 +45,7 @@ class PINN(torch.nn.Module):
 
 
 def sample(case: R2022Case, n_domain: int, n_near: int, n_top: int, n_face: int, gen: torch.Generator,
-           device: torch.device) -> dict[str, torch.Tensor]:
+           device: torch.device, n_band: int = 0) -> dict[str, torch.Tensor]:
     """Điểm huấn luyện: miền đều, miền quanh vết laser, mặt trên, và các mặt bên."""
     Lx, Ly, Lz, Tmax = case.domain_star
     v_star = case.speed * case.t_c / case.L_c
@@ -65,7 +65,11 @@ def sample(case: R2022Case, n_domain: int, n_near: int, n_top: int, n_face: int,
     dom = torch.cat([dom, near_laser(n_near, Lz - 2.0, Lz)])
     top_uniform = torch.cat([u(n_top, 0, Lx), u(n_top, 0, Ly), torch.full((n_top, 1), Lz, dtype=torch.float64),
                              u(n_top, 0, Tmax)], dim=1)
-    top = torch.cat([top_uniform, near_laser(n_top, Lz, Lz)])
+    # vùng xa vết laser: mặt trên với y ≥ y_tip + 100 µm (prereg 27.9 bổ sung, vùng nung sai)
+    y_band_lo = (case.y_tip + 100e-6) / case.L_c
+    band = torch.cat([u(n_band, 0, Lx), u(n_band, y_band_lo, Ly), torch.full((n_band, 1), Lz, dtype=torch.float64),
+                      u(n_band, 0, Tmax)], dim=1)
+    top = torch.cat([top_uniform, near_laser(n_top, Lz, Lz), band])
     def pick_end(n, length):
         return length * (torch.rand(n, 1, generator=gen, dtype=torch.float64) < 0.5).double()
 
@@ -117,6 +121,7 @@ def main() -> None:
     ap.add_argument("--n-near", type=int, default=2000)
     ap.add_argument("--n-top", type=int, default=1000)
     ap.add_argument("--n-face", type=int, default=500)
+    ap.add_argument("--n-band", type=int, default=0, help="điểm mặt trên ở vùng xa vết laser (y ≥ y_tip + 100 µm)")
     ap.add_argument("--lr", type=float, default=1e-3)
     ap.add_argument("--w-top", type=float, default=1.0)
     ap.add_argument("--w-face", type=float, default=1.0)
@@ -142,7 +147,7 @@ def main() -> None:
     for it in range(args.iters):
         frac = continuation_fraction(it, args.phase1_iters, args.ramp_iters)
         case_it = replace(case, h_c=case.h_c * frac, emissivity=case.emissivity * frac)
-        pts = sample(case, args.n_domain, args.n_near, args.n_top, args.n_face, gen, dev)
+        pts = sample(case, args.n_domain, args.n_near, args.n_top, args.n_face, gen, dev, n_band=args.n_band)
         terms = loss_terms(model, case_it, pts)
         loss = terms["pde"] + args.w_top * terms["top"] + args.w_face * terms["face"]
         if not torch.isfinite(loss):
