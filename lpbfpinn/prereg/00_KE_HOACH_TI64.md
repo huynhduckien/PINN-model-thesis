@@ -145,6 +145,7 @@ Hình học (mục 12): phần rắn là tam giác phía bên phải trên; mép
 
 ## 10. Nhật ký thay đổi
 
+- 2026-10-12: chọn 175 W, 0.39 m/s, 40 µm làm quá trình chính của bài overhang (mục 20), thay thí nghiệm 4 (mục 19).
 - 2026-10-12: đổi mặc định quá trình của bài overhang sang thí nghiệm 4 (mục 19), sai lệch có chủ đích so với mục 2.
 - 2026-10-12: ghi nhận kết quả PINN giai đoạn 0 theo thí nghiệm 4 (mục 18): tiêu chí năng lượng 5.3% không đạt, các tiêu chí khác đạt. Chuyển sang bộ giải số thể tích hữu hạn làm tham chiếu cho giai đoạn 0 (sửa mục 13 cho phạm vi này).
 - 2026-10-12: thêm mục 17 chọn thí nghiệm 4 của Cook & Ritchie (120 W, 0.6 m/s, r_b 71 µm, α_s 0.27) làm kiểm chứng giai đoạn 0. Thay mốc 2500–3000 K tự đặt bằng mốc từ bài báo. Mục 2 (bài overhang chính) không đổi.
@@ -279,3 +280,13 @@ Hướng tiếp theo, theo quyết định của người nghiên cứu (2026-10
 - Cấu hình 300 W / 0.8 m/s / 40 µm vẫn có thể gọi bằng LPBF_PROC=prereg300 để so sánh; các kết quả cũ thuộc cấu hình đó.
 - Mục 2 được giữ nguyên làm ghi chép lịch sử. Các thông số khác (vật liệu, hấp thụ, biên, hình học overhang) không đổi.
 - Luận văn cần ghi sai lệch này và lý do; so sánh với cấu hình 300 W chỉ là tham khảo.
+
+## 20. Chọn quá trình chính theo hiện tượng dross (ngày 2026-10-12)
+
+- Quyết định của người nghiên cứu: trường hợp chính 175 W, 0.39 m/s (năng lượng cao, P/v ≈ 0.45 J/mm), r_b = 40 µm. Thay mục 19 (120 W, 0.6 m/s, 71 µm) làm mặc định của bài overhang.
+- Lý do: hiện tượng cần giải thích (dross) xuất hiện ở chế độ keyhole, khi melt pool đâm xuống vùng bột. Thí nghiệm 4 (P/v ≈ 0.2 J/mm) nằm ngoài chế độ này, nên không tái hiện được cơ chế đó.
+- Nguồn: Charles et al. 2022, *Additive Manufacturing* 50:102551, mục 2.4 và kết quả Hình 5–7.
+- Bán kính chùm: giữ 40 µm theo mục 2. Bài báo không ghi giá trị số, nên đây là điểm chưa có nguồn; cần ghi trong luận văn.
+- Hình học khác bài báo: bề mặt treo 45° của hộp hiện tại (mục 12), so với 35° trong bài báo; miền và độ dày bột cũng khác.
+- Trường hợp đối chứng 90 W, 1.235 m/s (P/v ≈ 0.073 J/mm, không đâm xuống bột trong bài báo) chưa được chọn; có thể dùng sau.
+- Cấu hình cũ vẫn gọi được: LPBF_PROC=exp4 (kiểm chứng giai đoạn 0), LPBF_PROC=prereg300 (mục 2).
