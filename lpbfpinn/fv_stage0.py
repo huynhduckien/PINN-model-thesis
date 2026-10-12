@@ -284,16 +284,21 @@ def run_charles(dx: float = 10e-6, t_end: float = T_END, cfl: float = 0.4, powde
 
 
 def main() -> None:
+    """CLI mặc định: mô hình Charles (prereg mục 22), lớp bột Moser, bay hơi công thức Cook (mục 21)."""
     ap = argparse.ArgumentParser()
     ap.add_argument("--dx", type=float, default=10e-6)
-    ap.add_argument("--out", type=str, default="runs/fv_stage0")
+    ap.add_argument("--out", type=str, default="runs/fv_charles_main")
+    ap.add_argument("--no-powder", action="store_true", help="bỏ lớp bột (chỉ để so sánh)")
     args = ap.parse_args()
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
-    res = run(dx=args.dx)
+    pts = {"A_y150_z5": (0.0, 150.0, 5.0), "B_y30_z125": (0.0, 30.0, 125.0),
+           "top_z235": (0.0, Y_TIP * 1e6, 235.0), "sub_z225": (0.0, Y_TIP * 1e6, 225.0)}
+    res = run_charles(dx=args.dx, points=pts, powder=not args.no_powder, evap=True)
     res["dx_m"] = args.dx
     (out / "diag.json").write_text(json.dumps(res, indent=2), encoding="utf-8")
-    print(json.dumps(res, indent=2))
+    print(json.dumps(res["probes"], indent=2))
+    print("energy rel", res["energy"]["rel_error"])
 
 
 if __name__ == "__main__":

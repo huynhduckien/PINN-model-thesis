@@ -145,6 +145,7 @@ Hình học (mục 12): phần rắn là tam giác phía bên phải trên; mép
 
 ## 10. Nhật ký thay đổi
 
+- 2026-10-12: chuyển bộ thông số chính sang Charles et al. 2022 (mục 22); lớp bột giữ Moser; giả định bay hơi Cook (mục 21).
 - 2026-10-12: ghi giả định bay hơi (mục 21): A_accom của Charles không có giá trị trong bài, giữ công thức Cook với φ = 0.82.
 - 2026-10-12: chọn 175 W, 0.39 m/s, 40 µm làm quá trình chính của bài overhang (mục 20), thay thí nghiệm 4 (mục 19).
 - 2026-10-12: đổi mặc định quá trình của bài overhang sang thí nghiệm 4 (mục 19), sai lệch có chủ đích so với mục 2.
@@ -299,3 +300,26 @@ Hướng tiếp theo, theo quyết định của người nghiên cứu (2026-10
 - Lý do: công thức Cook đã khóa trong kế hoạch và có hệ số φ có nguồn; không có cơ sở chọn giá trị A_accom.
 - Hệ quả: so sánh với Charles chỉ ở mức định tính cho phần bay hơi; sai lệch do giả định này phải được ghi trong luận văn.
 - Cần kiểm chứng: độ nhạy theo φ (hoặc A_accom tương đương) trước khi kết luận về nhiệt độ mặt trên.
+
+## 22. Chuyển bộ thông số chính sang Charles et al. 2022 (ngày 2026-10-12, quyết định của người nghiên cứu)
+
+Thay mục 2 cho bài overhang và bộ giải FV chính. Mục 2 giữ nguyên làm ghi chép lịch sử; mục 17–18 (kiểm chứng PINN giai đoạn 0) vẫn dùng bộ Cook & Ritchie vì đã được kiểm chứng theo bộ đó.
+
+Bộ thông số (Charles et al. 2022, Bảng 1 và eq. 5–15):
+- ρ = 4400 kg/m³; c_p,s = 573, c_p,l = 750 J/kg·K; k_s = 13, k_l = 33 W/m·K; L_f = 286 kJ/kg; T_s = 1878 K, T_l = 1928 K; T_boil = 3315 K; ΔH_lv = 9.7 MJ/kg (hằng số).
+- Pha: f_l tuyến tính trên [T_s, T_l]; k = (1 − f_l)k_s + f_l k_l (eq. 14); c_p theo eq. 15; enthalpy eq. 6.
+- Biên trên: đối lưu h = 25 W/m²·K, bức xạ ε = 0.2 (eq. 9–10), T_surr = 300 K.
+- Laser: thông lượng bề mặt Gaussian, eq. 12, không có nguồn thể tích.
+- Quá trình: 175 W, 0.39 m/s, r_b = 40 µm (mục 20).
+
+Giả định (không có trong bài, ghi rõ):
+1. Hệ số hấp thụ laser A = 0.27 (giá trị hiệu chỉnh của Cook & Ritchie, không có trong Charles). Cần chạy độ nhạy.
+2. Bay hơi dùng công thức Cook với φ = 0.82 và kẹp T_cap = 6000 K (mục 21), vì A_accom của Charles không có giá trị.
+3. Lớp bột dùng Moser (k_ratio = 0.012, độ rỗng φ = 0.405), vì Charles không cho độ dẫn nhiệt của bột (họ dùng DEM). Đây là giả định mạnh nhất về lớp bột.
+4. Bán kính chùm 40 µm (Charles không cho R_b).
+5. Hình học hộp 45° (mục 12), khác bài báo (35°).
+6. Đáy T = T_surr, mặt bên cách nhiệt.
+
+Quy tắc báo cáo không đổi (mục 16): nếu B không vượt T_s thì báo cáo "không đạt đến nóng chảy".
+
+Chưa thực hiện: hội tụ theo lưới (chỉ có 10 µm), độ nhạy theo A và φ, bộ thông số lỏng đầy đủ trong bài overhang (đã có trong mã).
