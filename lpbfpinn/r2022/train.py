@@ -193,7 +193,7 @@ def main() -> None:
     t0 = time.time()
     for it in range(args.iters):
         frac = continuation_fraction(it, args.phase1_iters, args.ramp_iters)
-        case_it = replace(case, h_c=case.h_c * frac, emissivity=case.emissivity * frac)
+        case_it = replace(case, h_c=case.h_c * frac, emissivity=case.emissivity * frac, phi_scale=frac)
         pts = sample(case, args.n_domain, args.n_near, args.n_top, args.n_face, gen, dev, n_band=args.n_band,
                      sobol=args.sobol)
         terms = loss_terms(model, case_it, pts)

@@ -48,6 +48,8 @@ class R2022Case:
     hard_delta: float = 10e-6       # m, độ dày lớp chuyển tiếp của ràng buộc cứng
     # biên bên: "adiabatic" (mặc định) hoặc "robin" (đối lưu–bức xạ, prereg 27.15)
     side_bc: str = "adiabatic"
+    # hệ số nhân cho bay hơi (1.0 = đầy đủ); dùng trong tiếp tục hóa (prereg 27.19b)
+    phi_scale: float = 1.0
 
     # bột (Moser, như FV)
     porosity: float = 0.405
@@ -89,5 +91,6 @@ class R2022Case:
     def material(self) -> Material:
         """Vật liệu cho bay hơi Cook và đối lưu, bức xạ (dùng lại `physics.top_outflux`)."""
         return replace(Material(), T_amb=self.T_amb, T_sol=self.T_sol, T_liq=self.T_liq, T_b=self.T_b, L_v0=self.L_v0,
+                       phi_evap=0.82 * self.phi_scale,
                        T_c=self.T_c, T_cap=self.T_c, h_c=self.h_c, emissivity=self.emissivity)
 
