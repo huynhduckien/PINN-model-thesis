@@ -166,7 +166,8 @@ Hình học (mục 12): phần rắn là tam giác phía bên phải trên; mép
 - Chiều dài 1500 µm theo x (hướng quét). Chiều rộng 380 µm theo y. Phần rắn cao 180 µm, bột phủ 60 µm, tổng cao 240 µm theo z.
 - Mặt treo là mặt chéo 45° của phần rắn, hướng về phía bột. Bột nằm phía trên mặt treo, rắn nằm phía dưới và bên phải.
 - Lưu ý: chiều rộng 380 µm thay cho 480 µm của cấu hình cũ.
-- Nguồn bài báo cụ thể: chờ bạn cung cấp tên bài để ghi đầy đủ.
+- Nguồn bài báo: Figure 4 (3D view và right view) của bài báo overhang L-PBF (bản đọc từ hình, không ghi thêm số liệu khác).
+- Cập nhật ngày 2026-10-12: đầu nhọn phần treo (tip) đặt tại y_tip = 110 µm (đọc từ Figure 4b, sai số ±10 µm); đường chéo z + (y − y_tip) = 180 µm; tâm đường quét tại y = y_tip, z = 240 µm (mặt bột). Chùm 40 µm nằm trọn trong miền 0–380 µm. Trước đó code đặt tâm tại y = 0 (nửa chùm ngoài miền), đã sửa.
 
 ## 13. Cập nhật ngày 2026-10-10: bỏ FD làm tham chiếu kiểm chứng
 
