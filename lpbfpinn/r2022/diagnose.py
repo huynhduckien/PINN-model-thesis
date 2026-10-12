@@ -85,13 +85,14 @@ def temperature_summary(model: PINN, case: R2022Case, n_times: int = 8, dx: floa
         T = _temp(model, case, xs).numpy().ravel()
         if T.max() > tmax_all:
             tmax_all, t_at = float(T.max()), t_s
-        near = (np.abs(G[:, 0] - x_l) < dx) & (np.abs(G[:, 1] - case.y_tip) < dx)
-        top = near & (np.abs(G[:, 2] - (case.z_max - dx / 2)) < dx / 2)
-        deep = near & (np.abs(G[:, 2] - (case.z_max - 50e-6)) < dx / 2)
-        if top.any():
-            surf_c.append(float(T[top].mean()))
-        if deep.any():
-            deep_c.append(float(T[deep].mean()))
+        # tâm vết laser: lấy đúng điểm (x_l, y_tip), không lấy trung bình ô lưới (làm lệch đỉnh ~250–300 K)
+        def at_centre(z_depth):
+            p = np.array([[(x_l - case.x_min) / case.L_c, case.y_tip / case.L_c,
+                           (case.z_max - z_depth) / case.L_c, t_s / case.t_c]])
+            with torch.no_grad():
+                return float(case.T_amb + case.T_scale * model(torch.tensor(p, dtype=torch.float64)))
+        surf_c.append(at_centre(5e-6))
+        deep_c.append(at_centre(50e-6))
     return {"T_max_grid_K": tmax_all, "t_at_T_max_s": t_at,
             "T_surface_centre_max_K": max(surf_c) if surf_c else None,
             "T_50um_centre_max_K": max(deep_c) if deep_c else None}
