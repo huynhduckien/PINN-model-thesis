@@ -436,3 +436,5 @@ Kết quả so sánh sẽ ghi vào `results/fv_v24/` trước khi kết luận.
 **27.6 Kiểm tra trước khi chạy.** Trước khi chạy trên GPU: kiểm tra toán tử PDE và biên trên các trường giải tích, kiểm tra hàm đo vũng trên trường tổng hợp, và chạy thử đầu cuối trên CPU với số vòng nhỏ. Các kiểm tra này là gỡ lỗi mã, không phải tiêu chí chấp nhận.
 
 **27.7 Thực thi.** Huấn luyện chính chạy trên GPU của người nghiên cứu. Phiên làm việc của trợ lý không có GPU.
+
+**27.8 Luật bay hơi (ngày 2026-10-12, đã duyệt).** Tổn thất nhiệt do bay hơi giữ theo Cook (q_evap, công thức của `physics.evaporation_flux`, với L_v = 9.0 × 10⁵ J/kg). Luật áp suất hơi tham chiếu Wu và cộng sự (2018, *J. Mater. Process. Technol.* 254, eq. 13): P_s(T) = P₀·exp[L_v(T − T_b)/(R_v·T·T_b)]. Hệ số mũ của Cook có cùng dạng, với L_v·M/R = L_v/R_v và R_v = R/M = 178 J/(kg·K) (M = 0.0467 kg/mol). Đây là dạng đúng khi L_v tính bằng J/kg; eq. 13 của Wu viết R không rõ đơn vị. Áp suất phản lực P_R ≅ 0.54·P_s (Wu eq. 12) không đưa vào PINN nhiệt vì nó chỉ tác động lên hình dạng bề mặt và dòng chảy. Bài Wu không cho công thức tổn thất nhiệt bay hơi, nên mục này không thay đổi công thức Cook.
