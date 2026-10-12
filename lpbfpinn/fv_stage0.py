@@ -162,8 +162,11 @@ def run(dx: float = 10e-6, t_end: float = T_END, cfl: float = 0.4, source=None,
 
 # Bộ thông số và công thức của Charles et al. 2022 (Bảng 1, eq. 5–15). Bài không cho: hệ số hấp thụ laser,
 # A_accom (bay hơi dùng công thức Cook, prereg mục 21), độ dẫn nhiệt của bột (dùng Moser nếu powder=True).
+# Cơ sở (prereg mục 24): hấp thụ hiệu dụng 0.5 cho bột (Yang 2026 §2.5.1), k_ratio 0.05 (đo Ti64 2.4–7%),
+# T_cap = T_c (giới hạn tự nhiên của L_v(T), không còn kẹp 6000 K).
+KRATIO_BASE = 0.05
 CHARLES = dict(rho=4400.0, cp_s=573.0, cp_l=750.0, k_s=13.0, k_l=33.0, L_f=286e3,
-               h=25.0, eps=0.2, T_surr=300.0, absorptivity=0.27,
+               h=25.0, eps=0.2, T_surr=300.0, absorptivity=0.5,
                dH_lv=9.7e6, R_v=195.0)
 P_ATM = 101325.0
 
@@ -171,7 +174,8 @@ P_ATM = 101325.0
 def run_charles(dx: float = 10e-6, t_end: float = T_END, cfl: float = 0.4, powder: bool = False,
                 evap: bool = True, points: dict | None = None, absorptivity: float | None = None,
                 device: str = "cpu", kratio: float | None = None, r_b: float | None = None,
-                phi: float | None = None, evap_model: str = "cook", accom: float | None = None) -> dict:
+                phi: float | None = None, evap_model: str = "cook", accom: float | None = None,
+                tcap: float | None = None) -> dict:
     """FV theo công thức Charles (PyTorch, chạy được trên CPU hoặc GPU).
 
     Laser là thông lượng bề mặt (eq. 8, 12); enthalpy và tính chất pha (eq. 6–7, 13–15, Bảng 1);
@@ -186,7 +190,8 @@ def run_charles(dx: float = 10e-6, t_end: float = T_END, cfl: float = 0.4, powde
     Tamb = C["T_surr"]
     Ts, Tl = MAT.T_sol, MAT.T_liq
     mat_c = replace(MAT, h_c=C["h"], emissivity=C["eps"], T_amb=Tamb, L_f=C["L_f"],
-                    phi_evap=MAT.phi_evap if phi is None else phi)
+                    phi_evap=MAT.phi_evap if phi is None else phi,
+                    T_cap=MAT.T_c if tcap is None else tcap)
     nx = round((X_MAX - X_MIN) / dx)
     ny = round(Y_MAX / dx)
     nz = round(Z_MAX / dx)
@@ -217,7 +222,7 @@ def run_charles(dx: float = 10e-6, t_end: float = T_END, cfl: float = 0.4, powde
         f = torch.clamp((T - Ts) / (Tl - Ts), 0.0, 1.0)
         return (1.0 - f) * C["k_s"] + f * C["k_l"]
 
-    kr = MS["k_ratio"] if kratio is None else kratio
+    kr = KRATIO_BASE if kratio is None else kratio
     if powder:
         s_idx = powder_index(Y, Z)
         kpow = 1.0 + (kr - 1.0) * s_idx
@@ -295,7 +300,7 @@ def run_charles(dx: float = 10e-6, t_end: float = T_END, cfl: float = 0.4, powde
     E_stored = float(H.sum()) * V
     rel = (E_in - E_top - E_bot - E_stored) / E_in if E_in > 0 else float("nan")
     return {
-        "model": "charles", "evap_model": evap_model, "accom": accom, "device": device, "dx_um": dx * 1e6, "powder": powder, "evap": evap, "kratio": kr,
+        "model": "charles", "evap_model": evap_model, "accom": accom, "device": device, "tcap": mat_c.T_cap, "dx_um": dx * 1e6, "powder": powder, "evap": evap, "kratio": kr,
         "absorptivity": A_abs, "r_b_um": rb * 1e6, "phi": mat_c.phi_evap, "kratio_used": kr, "grid": [nx, ny, nz], "dt_s": dt, "nsteps": nsteps, "t_end_s": t_end,
         "energy": {"E_in_J": E_in, "E_out_top_J": E_top, "E_out_bottom_J": E_bot,
                    "E_stored_J": E_stored, "rel_error": rel},

@@ -145,6 +145,7 @@ Hình học (mục 12): phần rắn là tam giác phía bên phải trên; mép
 
 ## 10. Nhật ký thay đổi
 
+- 2026-10-12: cập nhật cơ sở FV theo Yang 2026 (mục 24): bỏ T_cap 6000 K (dùng T_c), α cơ sở 0.5 cho bột, k_ratio cơ sở 0.05, φ = 0.82 = 1 − β_R.
 - 2026-10-12: chuyển bộ thông số chính sang Charles et al. 2022 (mục 22); lớp bột giữ Moser; giả định bay hơi Cook (mục 21).
 - 2026-10-12: ghi giả định bay hơi (mục 21): A_accom của Charles không có giá trị trong bài, giữ công thức Cook với φ = 0.82.
 - 2026-10-12: chọn 175 W, 0.39 m/s, 40 µm làm quá trình chính của bài overhang (mục 20), thay thí nghiệm 4 (mục 19).
@@ -357,3 +358,19 @@ Chưa thực hiện: hội tụ theo lưới (chỉ có 10 µm), độ nhạy th
 - Kích thước vùng nóng chảy so với Charles hay Cook.
 
 **Hướng tiếp theo đã dừng:** mô hình VOF với dòng chảy không khả thi trong điều kiện hiện tại (không có công cụ CFD, tài nguyên và thời gian hạn chế). Nếu cần làm sau, phải có A_p, B_p từ Lee & Zhang 2016 và quyết định dùng OpenFOAM hay tự viết.
+
+## 24. Cập nhật cơ sở mô hình FV theo Yang et al. 2026 (ngày 2026-10-12)
+
+Thay đổi so với mục 22–23 (quyết định của người nghiên cứu, dựa trên Yang et al. 2026, IJHMT 265:128801):
+
+1. **Kẹp nhiệt độ bay hơi:** bỏ T_cap = 6000 K. Cơ sở dùng T_cap = T_c = 7845 K, vì L_v(T) = L_v0·√(1 − (T/T_c)²) bằng 0 tại T_c nên thông lượng bay hơi tự triệt tiêu. Yang không kẹp nhiệt độ.
+2. **Hệ số hấp thụ:** cơ sở α = 0.5 (hiệu dụng cho bột, Yang §2.5.1: khoảng 0.5 dọc đường quét). Giữ α = 0.27 (Cook, bề mặt phẳng) làm cận dưới.
+3. **Độ dẫn nhiệt bột:** cơ sở k_ratio = 0.05, nằm trong dải đo cho Ti64 (2.4–7%: Bartsch 2022, NIST). Moser (k_ratio = 0.012) giữ làm cận dưới. Lý do: Moser được kiểm chứng cho thép 316, số đo cho Ti cao hơn.
+4. **Hệ số bay hơi:** φ = 0.82 (Cook) tương đương hệ số Hertz–Langmuir (1 − β_R) với β_R = 0.18 (Yang eq. 15). Điều này cung cấp nguồn cho A_accom = 0.82 (mục 21).
+
+Chưa thay đổi (còn ghi là giả định hoặc quét):
+- Đáy: Dirichlet T = T_surr (cơ sở). Yang dùng đáy cách nhiệt; đáy cách nhiệt là trường hợp quét sẽ bổ sung.
+- Hình học 45° và r_b = 40 µm theo kế hoạch mục 2 và 20.
+- Áp suất phản lực, Marangoni, dòng chảy: không mô hình hóa (mục 23).
+
+Kết quả so sánh sẽ ghi vào `results/fv_v24/` trước khi kết luận.
