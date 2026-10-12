@@ -19,7 +19,7 @@ import numpy as np
 import torch
 
 from .materials import SIGMA_SB
-from .overhang import MAT, MS, POW, PROC, T_END, X_MAX, X_MIN, Y_MAX, Y_TIP, Z_MAX, X_START, powder_index
+from .overhang import MAT, MS, POW, PROC, T_END, X_MAX, X_MIN, Y_MAX, Y_TIP, Z_MAX, Z_POW, X_START, powder_index
 from .physics import beer_lambert_source, top_outflux
 
 RHO, CP, K = 4106.0, 838.0, 33.1     # Ti hằng số, như PINN giai đoạn 0 (mục 11)
@@ -169,6 +169,9 @@ CHARLES = dict(rho=4400.0, cp_s=573.0, cp_l=750.0, k_s=13.0, k_l=33.0, L_f=286e3
                h=25.0, eps=0.2, T_surr=300.0, absorptivity=0.5,
                dH_lv=9.7e6, R_v=195.0)
 P_ATM = 101325.0
+# Bảng 5 của Ransenigo et al. 2022 (Lasers Manuf. Mater. Process. 9:481). L_v = 900 J/g trong bài có vẻ thiếu bậc
+# (Ti-6Al-4V thường ~9 MJ/kg), nên không dùng; giữ L_v(T) của Cook (9.83 MJ/kg tại 0 K).
+R2022_TABLE5 = dict(T_sol=1877.0, T_liq=1933.0, L_f=338.8e3, T_b=3533.0)
 
 
 def run_charles(dx: float = 10e-6, t_end: float = T_END, cfl: float = 0.4, powder: bool = False,
@@ -176,12 +179,15 @@ def run_charles(dx: float = 10e-6, t_end: float = T_END, cfl: float = 0.4, powde
                 device: str = "cpu", kratio: float | None = None, r_b: float | None = None,
                 phi: float | None = None, evap_model: str = "cook", accom: float | None = None,
                 tcap: float | None = None, bottom: str = "dirichlet", record_top: bool = False,
-                power: float | None = None, snapshots: int = 0, speed: float | None = None) -> dict:
+                power: float | None = None, snapshots: int = 0, speed: float | None = None,
+                table5: bool = False, flat_bed: bool = False) -> dict:
     """FV theo công thức Charles (PyTorch, chạy được trên CPU hoặc GPU).
 
     Laser là thông lượng bề mặt (eq. 8, 12); enthalpy và tính chất pha (eq. 6–7, 13–15, Bảng 1);
     biên trên: bay hơi (công thức Cook, mục 21), đối lưu, bức xạ (eq. 9–11); đáy T = T_surr; mặt bên cách nhiệt.
     Thông lượng qua mặt chung được cộng/trừ cho hai ô, nên cân bằng năng lượng đúng đến sai số máy.
+    table5: T_sol, T_liq, T_b, L_f theo Bảng 5 của Ransenigo et al. 2022 (giữ L_v của Cook; xem R2022_TABLE5).
+    flat_bed: lớp bột phẳng trên z > Z_POW thay cho hình nêm của bài overhang.
     """
     dev = torch.device(device)
     dt64 = torch.float64
@@ -191,8 +197,12 @@ def run_charles(dx: float = 10e-6, t_end: float = T_END, cfl: float = 0.4, powde
     A_abs = C["absorptivity"] if absorptivity is None else absorptivity
     rb = PROC.r_b if r_b is None else r_b
     Tamb = C["T_surr"]
-    Ts, Tl = MAT.T_sol, MAT.T_liq
-    mat_c = replace(MAT, h_c=C["h"], emissivity=C["eps"], T_amb=Tamb, L_f=C["L_f"],
+    tab = R2022_TABLE5 if table5 else None
+    Ts = tab["T_sol"] if tab else MAT.T_sol
+    Tl = tab["T_liq"] if tab else MAT.T_liq
+    T_b = tab["T_b"] if tab else MAT.T_b
+    L_f = tab["L_f"] if tab else C["L_f"]
+    mat_c = replace(MAT, h_c=C["h"], emissivity=C["eps"], T_amb=Tamb, L_f=L_f, T_b=T_b,
                     phi_evap=MAT.phi_evap if phi is None else phi,
                     T_cap=MAT.T_c if tcap is None else tcap)
     nx = round((X_MAX - X_MIN) / dx)
@@ -212,7 +222,7 @@ def run_charles(dx: float = 10e-6, t_end: float = T_END, cfl: float = 0.4, powde
     c_g = C["cp_s"] + (C["cp_l"] - C["cp_s"]) * fl_g
     cum = torch.cat([torch.zeros(1, dtype=dt64, device=dev),
                      torch.cumsum(0.5 * (c_g[1:] + c_g[:-1]) * 0.5, dim=0)])
-    Hg = C["rho"] * (cum + C["L_f"] * fl_g)
+    Hg = C["rho"] * (cum + L_f * fl_g)
 
     def T_of(H):
         idx = torch.clamp(torch.bucketize(H, Hg), 1, Hg.numel() - 1)
@@ -227,7 +237,11 @@ def run_charles(dx: float = 10e-6, t_end: float = T_END, cfl: float = 0.4, powde
 
     kr = KRATIO_BASE if kratio is None else kratio
     if powder:
-        s_idx = powder_index(Y, Z)
+        if flat_bed:
+            # lớp bột phẳng trên z > Z_POW (cùng độ rộng chuyển tiếp của Moser như powder_index)
+            s_idx = 0.5 * (1.0 + torch.tanh((Z - Z_POW) / (POW.interface_width / 2.197)))
+        else:
+            s_idx = powder_index(Y, Z)
         kpow = 1.0 + (kr - 1.0) * s_idx
         g = 1.0 - POW.porosity * s_idx
     else:
@@ -284,7 +298,7 @@ def run_charles(dx: float = 10e-6, t_end: float = T_END, cfl: float = 0.4, powde
             # Charles eq. 11: q = A_accom·ΔH_lv/√(2πR_v T)·p·exp[ΔH_lv/(R_v T_b)·(1 − T_b/T)] (A_accom là giả định)
             Tev = torch.clamp(Tt, min=Tamb)
             q_ev = (accom * C["dH_lv"] / torch.sqrt(2.0 * math.pi * C["R_v"] * Tev) * P_ATM
-                    * torch.exp(C["dH_lv"] / (C["R_v"] * MAT.T_b) * (1.0 - MAT.T_b / Tev)))
+                    * torch.exp(C["dH_lv"] / (C["R_v"] * T_b) * (1.0 - T_b / Tev)))
             q_loss = q_ev + C["h"] * (Tt - Tamb) + C["eps"] * SIGMA_SB * (Tt**4 - Tamb**4)
         elif evap:
             q_loss = top_outflux(Tt, mat_c)
@@ -324,6 +338,7 @@ def run_charles(dx: float = 10e-6, t_end: float = T_END, cfl: float = 0.4, powde
     return {**extra,
         "model": "charles", "power_W": P_W, "speed_m_s": V_S, "P_over_v_J_mm": P_W / (V_S * 1000.0), "bottom": bottom, "evap_model": evap_model, "accom": accom, "device": device, "tcap": mat_c.T_cap, "dx_um": dx * 1e6, "powder": powder, "evap": evap, "kratio": kr,
         "absorptivity": A_abs, "r_b_um": rb * 1e6, "phi": mat_c.phi_evap, "kratio_used": kr, "grid": [nx, ny, nz], "dt_s": dt, "nsteps": nsteps, "t_end_s": t_end,
+        "table5": table5, "flat_bed": flat_bed, "T_sol": Ts, "T_liq": Tl, "T_b": T_b, "L_f": L_f,
         "energy": {"E_in_J": E_in, "E_out_top_J": E_top, "E_out_bottom_J": E_bot,
                    "E_stored_J": E_stored, "rel_error": rel},
         "probes": {k: {"T_max_K": v[0], "t_at_max_s": v[1], "t_first_above_Tsol_s": t_first[k],

@@ -54,6 +54,8 @@ PROC_EXP4 = Process(power=120.0, speed=0.6, r_b=71e-6)
 PROC_DROSS = Process(power=175.0, speed=0.39, r_b=40e-6)
 # Đối chứng năng lượng thấp của cùng bài báo (P/v ≈ 0.073 J/mm, giảm dross); LPBF_PROC=dross_low.
 PROC_DROSS_LOW = Process(power=90.0, speed=1.235, r_b=40e-6)
+# Benchmark Ransenigo et al. 2022 (Bảng 2, Hình 3): 300 W, 1.75 m/s, bán kính 50 µm (đường kính 100 µm).
+PROC_R2022 = Process(power=300.0, speed=1.75, r_b=50e-6)
 
 
 def active_process() -> Process:
@@ -73,6 +75,8 @@ def active_process() -> Process:
         return Process()
     if name == "dross_low":
         return PROC_DROSS_LOW
+    if name == "ransenigo22":
+        return PROC_R2022
     return PROC_DROSS
 
 
