@@ -88,12 +88,16 @@ def top_laser_star(sc: Scales, xs: torch.Tensor) -> torch.Tensor:
 
 
 def build_stage0_star(sc: Scales = Scales(), n_domain: int = 5000, n_bnd: int = 2000, n_anchor: int = 5000,
-                      n_init: int = 1000, seed: int = 0, hard_ic: bool = False):
+                      n_init: int = 1000, seed: int = 0, hard_ic: bool = False, laser: str = "top_bc"):
     """Dựng mô hình giai đoạn 0 hoàn toàn không thứ nguyên (PDE, biên, IC đều theo θ).
 
     Đầu ra mạng là θ; đáy z* = 0 được cứng hóa bằng θ = z*·y; IC mềm θ(t*=0) = 0; mọi trọng số loss = 1.
     Điểm neo (anchors) lấy quanh vết laser để vùng nguồn được huấn luyện.
+    laser: "top_bc" (mặc định, giống PHYS_STAGE0): laser vào qua biên trên, PDE không có nguồn thể tích;
+    "volume": nguồn Beer–Lambert trong PDE, biên trên không có thông lượng laser. Chỉ một trong hai.
     """
+    if laser not in ("top_bc", "volume"):
+        raise ValueError(f"laser phải là 'top_bc' hoặc 'volume', nhận {laser!r}")
     import deepxde as dde
 
     dde.config.set_random_seed(seed)
@@ -106,11 +110,14 @@ def build_stage0_star(sc: Scales = Scales(), n_domain: int = 5000, n_bnd: int = 
         th_t = dde.grad.jacobian(theta, x, i=0, j=3)
         lap = (dde.grad.hessian(theta, x, i=0, j=0) + dde.grad.hessian(theta, x, i=1, j=1)
                + dde.grad.hessian(theta, x, i=2, j=2))
-        return th_t - lap - source_star(sc, x)
+        if laser == "volume":
+            return th_t - lap - source_star(sc, x)
+        return th_t - lap
 
     def top_res(inputs, theta):
         dz = dde.grad.jacobian(theta, inputs, i=0, j=2)
-        return -dz - loss_star(sc, theta) + top_laser_star(sc, inputs)
+        flux = top_laser_star(sc, inputs) if laser == "top_bc" else 0.0
+        return -dz - loss_star(sc, theta) + flux
 
     q_far = far_scale_star(sc)
 
