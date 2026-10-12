@@ -383,3 +383,40 @@ Kết quả so sánh sẽ ghi vào `results/fv_v24/` trước khi kết luận.
 2. **Tiêu chí chấp nhận surrogate:** sai số so với FV ≤ 2% tại điểm B và tại mặt trên (cùng lưới, cùng cấu hình), và sai số cân bằng năng lượng của PINN ≤ 5% (đo bằng cùng công cụ đã kiểm chứng). Tiêu chí này ghi trước khi huấn luyện; không đổi sau khi có kết quả.
 3. **Keyhole và dross: ngoài phạm vi (quyết định của người nghiên cứu, 2026-10-12, phương án A).** Mô hình dẫn nhiệt và surrogate không mô phỏng keyhole, áp suất phản lực làm lõm mặt, Marangoni hay dòng chảy. Luận văn nêu rõ đây là giới hạn của mô hình và là hướng nghiên cứu sau này (VOF). Kết luận về nóng chảy tại B chỉ áp dụng trong mô hình dẫn nhiệt. Phương án B (giới hạn trên bán định lượng) và C (VOF) không thực hiện trong luận văn này trừ khi có quyết định khác bằng văn bản.
    - Điều kiện: người hướng dẫn chấp nhận phạm vi này (chưa xác nhận trong hội thoại).
+
+## 26. Thiết kế surrogate PINN hybrid (ngày 2026-10-12, bản thiết kế, chưa huấn luyện)
+
+**26.1 Mục tiêu và phạm vi.** Surrogate học T(x, y, z, t) từ nghiệm FV (mục 22–24) và ràng buộc PDE, để đánh giá nhanh trường nhiệt theo tham số. Không mô phỏng keyhole, dòng chảy, hay dross (mục 25.3).
+
+**26.2 Tham số đầu vào.** Phương án đề xuất: giữ φ = 0.82, r_b = 40 µm, v = 0.39 m/s cố định; biến thiên P ∈ [90, 250] W, α ∈ [0.27, 0.7], k_ratio ∈ [0.012, 0.2]. Đầu vào mạng: (x, y, z, t, P, α, k_ratio), tổng 7 chiều. Lý do giới hạn số chiều: PINN với nhiều tham số cần nhiều điểm huấn luyện và khó hội tụ.
+
+**26.3 Dữ liệu FV.** Cần sửa `run_charles` để lưu trường nhiệt tại các mốc thời gian (ví dụ 10 mốc) và trên các lát cắt (bề mặt, và mặt cắt y = Y_TIP). Kích thước mỗi lượt lưới 10 µm: khoảng 137 nghìn ô × 10 mốc, đủ nhỏ để lưu. Thiết kế lấy mẫu: lưới Latin hypercube hoặc tổ hợp đầy đủ 3 × 3 × 3 tham số, tổng khoảng 27 lượt FV, mỗi lượt khoảng một phút trên GPU. Tách train/test theo tổ hợp tham số (không theo điểm không gian) để đo khả năng nội suy.
+
+**26.4 Kiến trúc.** Mạng FNN, đầu vào chuẩn hóa về [−1, 1], đầu ra θ = (T − T_amb)/ΔT với output transform softplus để θ ≥ 0 (ràng buộc nonneg của mục 18). Điều kiện ban đầu lấy từ dữ liệu t = 0 (soft IC, không dùng hard IC vì cần biểu diễn chính xác các tham số bột).
+
+**26.5 Hàm mất mát.** L = w_d·L_data + w_pde·L_PDE + w_bc·L_bc + w_E·L_E.
+- L_data: MSE trên các điểm FV đã lưu.
+- L_PDE: residual của phương trình enthalpy với k(T), c(T), tham số bột theo Charles eq. 14–15 và Moser (cùng định nghĩa như FV), tại các điểm lấy mẫu ngẫu nhiên và tập trung quanh chùm.
+- L_bc: biên trên (laser bề mặt, đối lưu, bức xạ, bay hơi) tại điểm trên mặt; đáy T = T_amb; biên bên cách nhiệt.
+- L_E: phạt sai lệch cân bằng năng lượng toàn miền, tính theo cùng công thức diag_star/FV (đảm bảo đo bằng công cụ đã kiểm chứng).
+- Trọng số ban đầu: w_d = 1, các trọng số còn lại điều chỉnh theo kích thước residual; không dùng L-BFGS trước khi loss ổn định.
+
+**26.6 Lộ trình huấn luyện theo tầng (mỗi tầng phải đạt trước khi sang tầng sau).**
+- Tầng 1: dẫn nhiệt với bột và laser bề mặt, không bay hơi, không nhiệt ẩn. So với FV cùng cấu hình.
+- Tầng 2: thêm bay hơi trên mặt (Cook eq. 11–12, làm trơn gần điểm sôi nếu cần).
+- Tầng 3: thêm nhiệt ẩn nóng chảy (làm trơn f_l, theo mục 22).
+
+**26.7 Tiêu chí chấp nhận (sửa theo đề xuất của thiết kế, cần người nghiên cứu xác nhận).**
+- Mặt trên: sai số tương đối ≤ 2% so với FV, tại thời điểm cực đại.
+- Điểm B: tiêu chí 2% tính trên nhiệt độ tuyệt đối cho sai số khoảng 6 K tại 300 K, quá khắt khe vì nhiệt tăng tại B chỉ 12 K. Đề xuất: sai số tuyệt đối ≤ 2 K trên mức tăng so với môi trường (ΔT_B), hoặc sai số ≤ 2% của ΔT_B. Điều này phải được xác nhận vì tiêu chí mục 25.2 đã ghi là "2% tại B".
+- Cân bằng năng lượng của surrogate ≤ 5%.
+
+**26.8 Rủi ro và giới hạn.**
+- Ở điều kiện FV hiện tại, B không đạt nóng chảy trong toàn bộ dải tham số. Surrogate chủ yếu xác nhận điều này, ít khả năng phát hiện vùng có nóng chảy. Đây là hạn chế về giá trị, không phải lỗi thiết kế.
+- Bay hơi cứng và tương phản bột/rắn làm PINN khó hội tụ, nên tầng 2 và 3 có nguy cơ không đạt.
+- Thời gian huấn luyện PINN có thể lâu hơn FV trên GPU, nên lợi ích chỉ có khi cần đánh giá hàng nghìn tổ hợp tham số.
+
+**26.9 Việc cần làm trước khi huấn luyện.**
+1. Sửa `run_charles` để lưu trường tại các mốc và lát cắt.
+2. Chạy sweep 27 lượt FV trên GPU.
+3. Viết mã PINN tầng 1 và so với FV trên tập test.
