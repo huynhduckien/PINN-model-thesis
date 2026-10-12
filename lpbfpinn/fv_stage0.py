@@ -163,13 +163,15 @@ def run(dx: float = 10e-6, t_end: float = T_END, cfl: float = 0.4, source=None,
 # Bộ thông số và công thức của Charles et al. 2022 (Bảng 1, eq. 5–15). Bài không cho: hệ số hấp thụ laser,
 # A_accom (bay hơi dùng công thức Cook, prereg mục 21), độ dẫn nhiệt của bột (dùng Moser nếu powder=True).
 CHARLES = dict(rho=4400.0, cp_s=573.0, cp_l=750.0, k_s=13.0, k_l=33.0, L_f=286e3,
-               h=25.0, eps=0.2, T_surr=300.0, absorptivity=0.27)
+               h=25.0, eps=0.2, T_surr=300.0, absorptivity=0.27,
+               dH_lv=9.7e6, R_v=195.0)
+P_ATM = 101325.0
 
 
 def run_charles(dx: float = 10e-6, t_end: float = T_END, cfl: float = 0.4, powder: bool = False,
                 evap: bool = True, points: dict | None = None, absorptivity: float | None = None,
                 device: str = "cpu", kratio: float | None = None, r_b: float | None = None,
-                phi: float | None = None) -> dict:
+                phi: float | None = None, evap_model: str = "cook", accom: float | None = None) -> dict:
     """FV theo công thức Charles (PyTorch, chạy được trên CPU hoặc GPU).
 
     Laser là thông lượng bề mặt (eq. 8, 12); enthalpy và tính chất pha (eq. 6–7, 13–15, Bảng 1);
@@ -264,7 +266,13 @@ def run_charles(dx: float = 10e-6, t_end: float = T_END, cfl: float = 0.4, powde
         out[:, :, 1:] -= fz
         q_bot = kc[:, :, 0] * (T[:, :, 0] - Tamb) / (dx / 2)
         Tt = T[:, :, -1]
-        if evap:
+        if evap and evap_model == "charles":
+            # Charles eq. 11: q = A_accom·ΔH_lv/√(2πR_v T)·p·exp[ΔH_lv/(R_v T_b)·(1 − T_b/T)] (A_accom là giả định)
+            Tev = torch.clamp(Tt, min=Tamb)
+            q_ev = (accom * C["dH_lv"] / torch.sqrt(2.0 * math.pi * C["R_v"] * Tev) * P_ATM
+                    * torch.exp(C["dH_lv"] / (C["R_v"] * MAT.T_b) * (1.0 - MAT.T_b / Tev)))
+            q_loss = q_ev + C["h"] * (Tt - Tamb) + C["eps"] * SIGMA_SB * (Tt**4 - Tamb**4)
+        elif evap:
             q_loss = top_outflux(Tt, mat_c)
         else:
             q_loss = C["h"] * (Tt - Tamb) + C["eps"] * SIGMA_SB * (Tt**4 - Tamb**4)
@@ -287,7 +295,7 @@ def run_charles(dx: float = 10e-6, t_end: float = T_END, cfl: float = 0.4, powde
     E_stored = float(H.sum()) * V
     rel = (E_in - E_top - E_bot - E_stored) / E_in if E_in > 0 else float("nan")
     return {
-        "model": "charles", "device": device, "dx_um": dx * 1e6, "powder": powder, "evap": evap, "kratio": kr,
+        "model": "charles", "evap_model": evap_model, "accom": accom, "device": device, "dx_um": dx * 1e6, "powder": powder, "evap": evap, "kratio": kr,
         "absorptivity": A_abs, "r_b_um": rb * 1e6, "phi": mat_c.phi_evap, "kratio_used": kr, "grid": [nx, ny, nz], "dt_s": dt, "nsteps": nsteps, "t_end_s": t_end,
         "energy": {"E_in_J": E_in, "E_out_top_J": E_top, "E_out_bottom_J": E_bot,
                    "E_stored_J": E_stored, "rel_error": rel},
