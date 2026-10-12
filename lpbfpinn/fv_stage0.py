@@ -175,7 +175,7 @@ def run_charles(dx: float = 10e-6, t_end: float = T_END, cfl: float = 0.4, powde
                 evap: bool = True, points: dict | None = None, absorptivity: float | None = None,
                 device: str = "cpu", kratio: float | None = None, r_b: float | None = None,
                 phi: float | None = None, evap_model: str = "cook", accom: float | None = None,
-                tcap: float | None = None, bottom: str = "dirichlet") -> dict:
+                tcap: float | None = None, bottom: str = "dirichlet", record_top: bool = False) -> dict:
     """FV theo công thức Charles (PyTorch, chạy được trên CPU hoặc GPU).
 
     Laser là thông lượng bề mặt (eq. 8, 12); enthalpy và tính chất pha (eq. 6–7, 13–15, Bảng 1);
@@ -250,6 +250,7 @@ def run_charles(dx: float = 10e-6, t_end: float = T_END, cfl: float = 0.4, powde
     tmax = {k: (Tamb, 0.0) for k in ip}
     t_first = {k: None for k in ip}
     t_above = {k: 0.0 for k in ip}
+    top_max = torch.full((nx, ny), Tamb, dtype=dt64, device=dev)
     E_in = E_top = E_bot = 0.0
     Tmin_seen = Tamb
     T_SOL = Ts
@@ -291,6 +292,8 @@ def run_charles(dx: float = 10e-6, t_end: float = T_END, cfl: float = 0.4, powde
         E_bot += float(q_bot.sum()) * A * dt
         H = H + dt * (-out / dx)
         T = T_of(H / g)
+        if record_top:
+            top_max = torch.maximum(top_max, T[:, :, -1])
         Tmin_seen = min(Tmin_seen, float(T.min()))
         for k, (ix, iy, iz) in ip.items():
             Tk = float(T[ix, iy, iz])
@@ -302,7 +305,11 @@ def run_charles(dx: float = 10e-6, t_end: float = T_END, cfl: float = 0.4, powde
                     t_first[k] = (n + 1) * dt
     E_stored = float(H.sum()) * V
     rel = (E_in - E_top - E_bot - E_stored) / E_in if E_in > 0 else float("nan")
-    return {
+    extra = {}
+    if record_top:
+        extra = {"_top_max_T": top_max.cpu().numpy(), "_top_final_T": T[:, :, -1].cpu().numpy(),
+                 "_x": xn, "_y": yn}
+    return {**extra,
         "model": "charles", "bottom": bottom, "evap_model": evap_model, "accom": accom, "device": device, "tcap": mat_c.T_cap, "dx_um": dx * 1e6, "powder": powder, "evap": evap, "kratio": kr,
         "absorptivity": A_abs, "r_b_um": rb * 1e6, "phi": mat_c.phi_evap, "kratio_used": kr, "grid": [nx, ny, nz], "dt_s": dt, "nsteps": nsteps, "t_end_s": t_end,
         "energy": {"E_in_J": E_in, "E_out_top_J": E_top, "E_out_bottom_J": E_bot,
