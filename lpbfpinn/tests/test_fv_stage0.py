@@ -25,3 +25,8 @@ def test_fv_energy_balance_with_powder():
 def test_fv_energy_balance_latent_and_evap():
     res = fv_stage0.run(dx=40e-6, t_end=2e-4, powder=True, latent=True, evap=True)
     assert abs(res["energy"]["rel_error"]) < 1e-10, res["energy"]
+
+
+def test_fv_charles_energy_balance():
+    res = fv_stage0.run_charles(dx=40e-6, t_end=2e-4, powder=True, evap=True)
+    assert abs(res["energy"]["rel_error"]) < 1e-9, res["energy"]
