@@ -381,4 +381,5 @@ Kết quả so sánh sẽ ghi vào `results/fv_v24/` trước khi kết luận.
 
 1. **Mục tiêu PINN:** dùng PINN làm surrogate hybrid (nhãn từ bộ giải FV đã kiểm chứng + ràng buộc PDE), thay cho PINN thuần. Lý do: PINN thuần chưa đạt cân bằng năng lượng ở giai đoạn 0 (mục 18), còn FV đã kiểm chứng.
 2. **Tiêu chí chấp nhận surrogate:** sai số so với FV ≤ 2% tại điểm B và tại mặt trên (cùng lưới, cùng cấu hình), và sai số cân bằng năng lượng của PINN ≤ 5% (đo bằng cùng công cụ đã kiểm chứng). Tiêu chí này ghi trước khi huấn luyện; không đổi sau khi có kết quả.
-3. **Keyhole và dross:** đang chờ quyết định (xem thảo luận). Mô hình hiện tại và surrogate đều không mô phỏng keyhole hay dòng chảy.
+3. **Keyhole và dross: ngoài phạm vi (quyết định của người nghiên cứu, 2026-10-12, phương án A).** Mô hình dẫn nhiệt và surrogate không mô phỏng keyhole, áp suất phản lực làm lõm mặt, Marangoni hay dòng chảy. Luận văn nêu rõ đây là giới hạn của mô hình và là hướng nghiên cứu sau này (VOF). Kết luận về nóng chảy tại B chỉ áp dụng trong mô hình dẫn nhiệt. Phương án B (giới hạn trên bán định lượng) và C (VOF) không thực hiện trong luận văn này trừ khi có quyết định khác bằng văn bản.
+   - Điều kiện: người hướng dẫn chấp nhận phạm vi này (chưa xác nhận trong hội thoại).
