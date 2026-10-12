@@ -24,10 +24,11 @@ def _theta(model, xs: np.ndarray) -> np.ndarray:
 
 def energy_balance_star(model, sc: Scales, n_t=40, n_xy=(120, 40), n_vol=(96, 32, 24), n_face=40) -> dict:
     Lx, Ly, Lz, tmax = sc.dimless_domain()
-    xs_g = np.linspace(0, Lx, n_xy[0])
-    ys_g = np.linspace(0, Ly, n_xy[1])
+    # lưới trung điểm ô: linspace gồm cả hai biên làm diện tích cộng dư (120·40)/(119·39) ≈ 3.4%
+    xs_g = (np.arange(n_xy[0]) + 0.5) * Lx / n_xy[0]
+    ys_g = (np.arange(n_xy[1]) + 0.5) * Ly / n_xy[1]
     A, B = np.meshgrid(xs_g, ys_g, indexing="ij")
-    dA = (xs_g[1] - xs_g[0]) * (ys_g[1] - ys_g[0]) * sc.L_c**2
+    dA = (Lx / n_xy[0]) * (Ly / n_xy[1]) * sc.L_c**2
     ts = np.linspace(0, tmax, n_t)
     F_in, F_top = [], []
     for ts_i in ts:
@@ -45,9 +46,9 @@ def energy_balance_star(model, sc: Scales, n_t=40, n_xy=(120, 40), n_vol=(96, 32
     faces_out = []
     for ts_i in ts:
         tot = 0.0
-        ga = np.linspace(0, Lx, 2 * n_face)
-        gb = np.linspace(0, Ly, n_face)
-        gc = np.linspace(0, Lz, n_face)
+        ga = (np.arange(2 * n_face) + 0.5) * Lx / (2 * n_face)
+        gb = (np.arange(n_face) + 0.5) * Ly / n_face
+        gc = (np.arange(n_face) + 0.5) * Lz / n_face
         Aa, Bb = np.meshgrid(ga, gb, indexing="ij")
         Cc, Dd = np.meshgrid(gb, gc, indexing="ij")
         Ee, Ff = np.meshgrid(ga, gc, indexing="ij")
