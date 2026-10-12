@@ -50,13 +50,18 @@ PROC_EXP4 = Process(power=120.0, speed=0.6, r_b=71e-6)
 
 
 def active_process() -> Process:
+    """Mặc định: thí nghiệm 4 (120 W, 0.6 m/s, 71 µm) theo prereg mục 19 (2026-10-12).
+
+    LPBF_PROC=prereg300: cấu hình cũ khóa ở mục 2 (300 W, 0.8 m/s, 40 µm) để so sánh.
+    LPBF_PROC=verify_c: 150 W, 80 µm (kiểm chứng cũ).
+    """
     import os
     name = os.environ.get("LPBF_PROC")
     if name == "verify_c":
         return PROC_VERIFY_C
-    if name == "exp4":
-        return PROC_EXP4
-    return Process()
+    if name == "prereg300":
+        return Process()
+    return PROC_EXP4
 
 
 @dataclass(frozen=True)

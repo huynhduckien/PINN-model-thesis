@@ -145,6 +145,7 @@ Hình học (mục 12): phần rắn là tam giác phía bên phải trên; mép
 
 ## 10. Nhật ký thay đổi
 
+- 2026-10-12: đổi mặc định quá trình của bài overhang sang thí nghiệm 4 (mục 19), sai lệch có chủ đích so với mục 2.
 - 2026-10-12: ghi nhận kết quả PINN giai đoạn 0 theo thí nghiệm 4 (mục 18): tiêu chí năng lượng 5.3% không đạt, các tiêu chí khác đạt. Chuyển sang bộ giải số thể tích hữu hạn làm tham chiếu cho giai đoạn 0 (sửa mục 13 cho phạm vi này).
 - 2026-10-12: thêm mục 17 chọn thí nghiệm 4 của Cook & Ritchie (120 W, 0.6 m/s, r_b 71 µm, α_s 0.27) làm kiểm chứng giai đoạn 0. Thay mốc 2500–3000 K tự đặt bằng mốc từ bài báo. Mục 2 (bài overhang chính) không đổi.
 - 2026-10-10: khóa φ_bột = 0.405 (thay 0.60) và giữ h_c = 40 theo duyệt.
@@ -270,3 +271,11 @@ Hướng tiếp theo, theo quyết định của người nghiên cứu (2026-10
 - Bộ giải số này là tham chiếu số cho giai đoạn 0. Kiểm chứng bằng nghiệm giải tích (cùng nghiệm θ = c(t + z²/2) dùng cho đoạn tính năng lượng) trước khi so với PINN.
 - PINN giữ làm đối chứng; so sánh nhiệt độ đỉnh và sai số năng lượng với bộ giải số.
 - Mục 13 được bổ sung: bộ giải số thể tích hữu hạn được phép làm tham chiếu cho giai đoạn 0 và thí nghiệm 4 (không dùng trong loss của PINN). Lý do: PINN không đạt tiêu chí năng lượng sau nhiều cấu hình; bộ giải số bảo toàn năng lượng theo cấu trúc, nên là tham chiếu độc lập. Bài overhang chính vẫn không có tham chiếu số (mục 13 không đổi cho bài này).
+
+## 19. Sai lệch có chủ đích: thông số quá trình của bài overhang chính (ngày 2026-10-12)
+
+- Thay mục 2 (300 W, 0.8 m/s, r_b 40 µm) bằng thí nghiệm 4 của Cook & Ritchie 2023 (120 W, 0.6 m/s, r_b 71 µm, bảng 1 và mục 3.3). Lý do: thí nghiệm 4 có dữ liệu kích thước vùng nóng chảy và HAZ để đối chiếu, và đã dùng làm kiểm chứng giai đoạn 0 (mục 17–18).
+- Hệ quả đã biết: với 120 W, đỉnh nhiệt độ dự kiến khoảng 2000–2600 K, có thể không đạt T_sol (1878 K) trên toàn đường quét ở hộp overhang. Theo mục 16, khi không đạt nóng chảy thì báo cáo "không đạt đến nóng chảy" và không suy ra t_B.
+- Cấu hình 300 W / 0.8 m/s / 40 µm vẫn có thể gọi bằng LPBF_PROC=prereg300 để so sánh; các kết quả cũ thuộc cấu hình đó.
+- Mục 2 được giữ nguyên làm ghi chép lịch sử. Các thông số khác (vật liệu, hấp thụ, biên, hình học overhang) không đổi.
+- Luận văn cần ghi sai lệch này và lý do; so sánh với cấu hình 300 W chỉ là tham khảo.
