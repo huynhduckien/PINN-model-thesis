@@ -42,6 +42,16 @@ class Process:
     ramp_length: float = 10e-6      # m, đoạn khởi động (cấu hình cũ)
 
 
+# Sai lệch có chủ đích, chỉ dùng để kiểm chứng pipeline (không dùng cho kết quả chính).
+# Chọn bằng LPBF_PROC=verify_c. Mục tiêu: nhiệt độ đỉnh khoảng 2500–3000 K (phương án C).
+PROC_VERIFY_C = Process(power=150.0, r_b=80e-6)
+
+
+def active_process() -> Process:
+    import os
+    return PROC_VERIFY_C if os.environ.get("LPBF_PROC") == "verify_c" else Process()
+
+
 @dataclass(frozen=True)
 class StefanCase:
     """Bài toán kiểm chứng Stefan 1D (cổng bắt buộc, prereg mục 8).

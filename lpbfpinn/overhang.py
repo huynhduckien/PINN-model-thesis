@@ -25,7 +25,7 @@ os.environ.setdefault("DDE_BACKEND", "pytorch")
 import numpy as np  # noqa: E402
 import torch  # noqa: E402
 
-from .config import Material, Powder, Process  # noqa: E402
+from .config import Material, Powder, active_process  # noqa: E402
 from .manifest import write_manifest  # noqa: E402
 from .materials import SIGMA_SB, moser  # noqa: E402
 from .physics import Properties, beer_lambert_source, top_outflux  # noqa: E402
@@ -49,7 +49,7 @@ TAU_END = T_END / T_S
 
 MAT = Material()
 POW = Powder()
-PROC = Process()
+PROC = active_process()     # LPBF_PROC=verify_c chọn cấu hình kiểm chứng (150 W, 80 µm)
 MS = moser(POW, MAT)
 PROPS = Properties(MAT, powder_ratio_k=MS["k_ratio"], porosity=POW.porosity)
 # Giai đoạn 0 (kiểm chứng pipeline): Ti hằng số (giá trị tại 1878 K, bảng Stefan), không nhiệt ẩn (L_f = 0)
@@ -60,7 +60,7 @@ PHYS_FULL = dict(props="table", powder=True, evap=True, laser="volume")
 PHYS_STAGE0 = dict(props="constant", powder=False, evap=False, laser="top_bc",
                    pde_scale=4106.0 * 838.0 * 4000.0 / 1e-3, S_out=1e5, neg_weight=1.0,
                    # thang biên xa vết laser: công suất hấp thụ chia diện tích mặt trên (W/m²), không dùng đỉnh laser
-                   scale_far=MS["alpha_eff"] * 300.0 / ((X_MAX - X_MIN) * Y_MAX))
+                   scale_far=MS["alpha_eff"] * PROC.power / ((X_MAX - X_MIN) * Y_MAX))
 
 
 # Trạng thái cố kết M(x, y, z, t) trên lưới; cập nhật giữa các vòng lặp ngoài (prereg mục 5)
