@@ -122,6 +122,9 @@ def main() -> None:
     ap.add_argument("--laser", choices=["top_bc", "volume"], default="top_bc",
                     help="laser qua biên trên (mặc định) hoặc nguồn thể tích Beer–Lambert như DED")
     ap.add_argument("--lbfgs", action="store_true", help="thêm giai đoạn L-BFGS sau Adam (hoặc sau khi nạp model)")
+    ap.add_argument("--refine-iters", type=int, default=0,
+                    help="với --load: số bước Adam tinh chỉnh trên tập điểm mới (dùng --n-domain lớn hơn)")
+    ap.add_argument("--refine-lr", type=float, default=1e-4, help="learning rate của tinh chỉnh Adam")
     ap.add_argument("--load", type=str, default=None,
                     help="đường dẫn file model-<bước>.pt đã lưu: bỏ qua huấn luyện, chỉ chạy chẩn đoán")
     args = ap.parse_args()
@@ -134,6 +137,11 @@ def main() -> None:
         # chỉ nạp trọng số mạng: checkpoint L-BFGS có optimizer khác Adam, không khôi phục được optimizer
         ckpt = torch.load(args.load, map_location=next(model.net.parameters()).device, weights_only=False)
         model.net.load_state_dict(ckpt["model_state_dict"])
+        if args.refine_iters > 0:
+            # tinh chỉnh Adam từ model đã nạp, trên tập điểm miền mới (n_domain lớn hơn, lấy mẫu lại)
+            model.compile("adam", lr=args.refine_lr, loss_weights=[1.0] * (1 + len(model.data.bcs)))
+            model.train(iterations=args.refine_iters, display_every=max(args.refine_iters // 4, 1))
+            model.save(str(out / "model_refine"), verbose=0)
     else:
         model.train(iterations=args.iters, display_every=max(args.iters // 4, 1))
         model.save(str(out / "model"), verbose=0)
@@ -144,7 +152,7 @@ def main() -> None:
         model.save(str(out / "model_lbfgs"), verbose=0)
         print("L-BFGS: %d dong log" % len(lh.steps))  # ASCII: console Windows cp1252 khong in duoc tieng Viet
     Lx, Ly, Lz, tmax = sc.dimless_domain()
-    res = {"iters": "load" if args.load else args.iters, "lbfgs": args.lbfgs, "T_c": sc.T_c, "L_c": sc.L_c,
+    res = {"iters": "load" if args.load else args.iters, "refine_iters": args.refine_iters, "lbfgs": args.lbfgs, "T_c": sc.T_c, "L_c": sc.L_c,
            "t_c": sc.t_c, "hard_ic": args.hard_ic, "nonneg": args.nonneg, "laser": args.laser}
     res["energy"] = energy_balance_star(model, sc)
     res["pde_residual"] = residual_star(model, sc, args.laser)
