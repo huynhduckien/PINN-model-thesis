@@ -145,6 +145,7 @@ Hình học (mục 12): phần rắn là tam giác phía bên phải trên; mép
 
 ## 10. Nhật ký thay đổi
 
+- 2026-10-12: thêm mục 17 chọn thí nghiệm 4 của Cook & Ritchie (120 W, 0.6 m/s, r_b 71 µm, α_s 0.27) làm kiểm chứng giai đoạn 0. Thay mốc 2500–3000 K tự đặt bằng mốc từ bài báo. Mục 2 (bài overhang chính) không đổi.
 - 2026-10-10: khóa φ_bột = 0.405 (thay 0.60) và giữ h_c = 40 theo duyệt.
 - 2026-10-10: khóa d50 = 30 µm và k_gas = 0.01772 W/m·K theo Li et al. 2022.
 - 2026-10-10: khóa mục 2 theo quyết định của bạn. Thay α_s 0.35 → 0.27; T_sol/T_liq 1873/1923 → 1878/1928; L_v 9.0 MJ/kg hằng số → công thức Cook; M 0.04787 → 0.0467; φ_bay hơi 1 → 0.82; h_c 20 → 40.
@@ -221,3 +222,27 @@ Quyết định của người nghiên cứu: giữ nguyên tiêu chí mục 11 
 - Điều kiện dừng vòng lặp ngoài: trung bình |ΔM| < 0.05 **và** max M > 0 (đã có ô nóng chảy). Sửa từ điều kiện chỉ dựa trên ΔM, vì điều kiện cũ có thể dừng sớm khi chưa có vùng nóng chảy.
 - Quy tắc báo cáo: chỉ báo t_B và Δt chỉ có ý nghĩa nếu B vượt T_sol trong đường quét. Nếu không, báo cáo "không đạt đến nóng chảy" và không suy ra t_B.
 - Tiêu chí hội tụ loss PDE: đề xuất ghi lại sau khi có kết quả; không đặt ngưỡng trước khi chạy.
+
+## 17. Kiểm chứng giai đoạn 0 theo thí nghiệm 4 của Cook & Ritchie (ngày 2026-10-12, đề xuất chờ chạy)
+
+Phạm vi: chỉ áp dụng cho bài kiểm chứng giai đoạn 0 (Ti hằng số, không nhiệt ẩn, không bột, không bay hơi). Không đổi mục 2 (quá trình khóa 300 W, 0.8 m/s, 40 µm) cho bài overhang chính; bài overhang vẫn chờ quyết định riêng.
+
+- Nguồn: Cook & Ritchie 2023, *Optics & Laser Technology* 162:109247, thí nghiệm 4 (bảng 1).
+- Quá trình: P = 120 W, v = 0.6 m/s.
+- Bán kính chùm: r_b = 71 µm, lấy tại bề mặt tấm (mục 3.3). Bài báo cho bán kính thay đổi theo độ cao (71 µm → 30 µm tại mặt tiêu cách 2.5 mm); mô hình dùng một r_b hằng số tại mặt trên, đây là điểm xấp xỉ cần ghi trong luận văn.
+- Hấp thụ: α_s = 0.27 (mục 3), α_eff ≈ 0.355 theo Moser. Cần ghi: bài báo hiệu chỉnh 0.27 trong mô hình có phản xạ đa lần, mô hình này không có.
+- Vật liệu: Ti hằng số theo mục 11 (ρ = 4106, c = 838, k = 33.1). Bài báo dùng tính chất phụ thuộc nhiệt độ; khác biệt này làm cho so sánh chỉ mang tính định tính về nhiệt độ đỉnh.
+- Mốc tham chiếu từ bài báo (đọc từ hình, không phải số liệu bảng):
+  - Vùng nóng chảy: rộng 126.1 µm, sâu 42.7 µm (bảng 1, thí nghiệm 4). So sánh với đường đẳng nhiệt 1928 K của mô phỏng nhiệt độ cực đại.
+  - HAZ: rộng 156.0 µm, sâu 57.8 µm (bảng 1). So sánh với đường đẳng nhiệt 1280 K.
+  - Nhiệt độ đỉnh: khoảng 2000–2600 K (ước lượng từ hình 6 và 9b, sai số ±300 K). Không dùng mốc 2500–3000 K tự đặt trước đây.
+
+Tiêu chí chấp nhận (đề xuất, chưa chạy; không đổi sau khi có kết quả):
+1. Nhiệt độ đỉnh trong khoảng 2000–2600 K tại tâm vết laser.
+2. Chiều rộng và chiều sâu vùng 1928 K, và vùng 1280 K, sai lệch không quá 20% so với bảng 1.
+3. Sai số cân bằng năng lượng |rel_error| < 5%.
+4. Không có nhiệt độ dưới 298 K ngoài sai số số học (cho phép tối đa 1 K).
+
+Không đạt tiêu chí 1 hoặc 3 thì không kết luận pipeline đúng; phải chẩn đoán trước khi chuyển sang bài overhang.
+
+- Cấu hình thực hiện: `LPBF_PROC=exp4` (cần thêm vào `config.py`, chưa làm). Cần sửa thêm: vận tốc trong T_END (hiện cố định 0.8 m/s) và α (hiện lấy từ Moser). Hai thay đổi này chưa làm, chờ duyệt.
