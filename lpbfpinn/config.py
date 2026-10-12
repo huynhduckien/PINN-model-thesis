@@ -45,11 +45,18 @@ class Process:
 # Sai lệch có chủ đích, chỉ dùng để kiểm chứng pipeline (không dùng cho kết quả chính).
 # Chọn bằng LPBF_PROC=verify_c. Mục tiêu: nhiệt độ đỉnh khoảng 2500–3000 K (phương án C).
 PROC_VERIFY_C = Process(power=150.0, r_b=80e-6)
+# Thí nghiệm 4 của Cook & Ritchie 2023 (bảng 1, mục 3.3; prereg mục 17). r_b = 71 µm tại mặt tấm.
+PROC_EXP4 = Process(power=120.0, speed=0.6, r_b=71e-6)
 
 
 def active_process() -> Process:
     import os
-    return PROC_VERIFY_C if os.environ.get("LPBF_PROC") == "verify_c" else Process()
+    name = os.environ.get("LPBF_PROC")
+    if name == "verify_c":
+        return PROC_VERIFY_C
+    if name == "exp4":
+        return PROC_EXP4
+    return Process()
 
 
 @dataclass(frozen=True)

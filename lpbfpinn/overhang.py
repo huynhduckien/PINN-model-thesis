@@ -44,12 +44,11 @@ S_T = 1000.0            # thang nhiệt độ của đầu ra mạng (K)
 SCALE_RES = 1e15        # ~ độ lớn nguồn thể tích đỉnh (W/m³)
 SCALE_BC = 1e8          # ~ độ lớn thông lượng biên (W/m²)
 IC_WEIGHT = 1e-6        # cân bằng điều kiện ban đầu tính bằng K² với residual không thứ nguyên
-T_END = (X_END - X_START) / 0.8
-TAU_END = T_END / T_S
-
 MAT = Material()
 POW = Powder()
-PROC = active_process()     # LPBF_PROC=verify_c chọn cấu hình kiểm chứng (150 W, 80 µm)
+PROC = active_process()     # LPBF_PROC chọn cấu hình: verify_c (150 W, 80 µm), exp4 (120 W, 0.6 m/s, 71 µm)
+T_END = (X_END - X_START) / PROC.speed
+TAU_END = T_END / T_S
 MS = moser(POW, MAT)
 PROPS = Properties(MAT, powder_ratio_k=MS["k_ratio"], porosity=POW.porosity)
 # Giai đoạn 0 (kiểm chứng pipeline): Ti hằng số (giá trị tại 1878 K, bảng Stefan), không nhiệt ẩn (L_f = 0)
