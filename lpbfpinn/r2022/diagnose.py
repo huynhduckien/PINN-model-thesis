@@ -13,7 +13,7 @@ import numpy as np
 import torch
 
 from .case import R2022Case
-from .operator import kappa, laser_flux_star, loss_star
+from .operator import kappa, laser_flux_star, loss_star, top_residual
 from .train import PINN
 
 BOOK = {"exp_width_um": 84.4, "exp_width_sd_um": 12.6, "exp_depth_um": 68.0, "exp_depth_sd_um": 10.0,
@@ -97,6 +97,30 @@ def temperature_summary(model: PINN, case: R2022Case, n_times: int = 8, dx: floa
             "T_50um_centre_max_K": max(deep_c) if deep_c else None}
 
 
+def laser_spot_residual(model: PINN, case: R2022Case, n_times: int = 10, n_pts: int = 400, seed: int = 0) -> dict:
+    """Residual biên trên trong vết laser (bán kính r_b quanh tâm), chuẩn hóa theo đỉnh thông lượng.
+
+    Đây là phần quan trọng nhất của điều kiện biên: trung bình trên toàn mặt bị loãng bởi vùng xa vết laser.
+    """
+    gen = torch.Generator().manual_seed(seed)
+    peak_star = case.peak_flux / case.flux_scale
+    Lx, Ly, Lz, _ = case.domain_star
+    rows, all_r = [], []
+    for t_s in np.linspace(0.5 * case.t_end, case.t_end, n_times):
+        x_l = case.x_start + case.speed * t_s
+        u = torch.rand(n_pts, 2, generator=gen, dtype=torch.float64) * 2.0 - 1.0
+        x = (x_l + u[:, 0:1] * case.r_b - case.x_min) / case.L_c
+        y = (case.y_tip + u[:, 1:2] * case.r_b) / case.L_c
+        xs = torch.cat([x, y, torch.full((n_pts, 1), Lz, dtype=torch.float64),
+                        torch.full((n_pts, 1), t_s / case.t_c, dtype=torch.float64)], dim=1)
+        r = (top_residual(model, xs, case) / peak_star).detach().numpy().ravel()
+        all_r.append(r)
+        rows.append({"t_s": float(t_s), "rms_over_peak": float(np.sqrt(np.mean(r**2)))})
+    r_all = np.concatenate(all_r)
+    return {"rms_over_peak": float(np.sqrt(np.mean(r_all**2))), "max_abs_over_peak": float(np.max(np.abs(r_all))),
+            "series": rows}
+
+
 def energy_budget(model: PINN, case: R2022Case, n_t: int = 120, dx: float = 10e-6) -> dict:
     """Cân bằng năng lượng như chẩn đoán: E_in − E_top − E_đáy − E_bên − E_tích lũy."""
     Lx, Ly, Lz, _ = case.domain_star
@@ -174,14 +198,16 @@ def main() -> None:
     melt = melt_metrics(model, case)
     energy = energy_budget(model, case)
     temps = temperature_summary(model, case)
+    spot = laser_spot_residual(model, case)
     summary = {"case": "R2022 300 W, 1.75 m/s, r_b 50 µm, α 0.4, bulk + bột phẳng 60 µm, Bảng 5 (L_v Cook)",
                "ckpt": args.ckpt, "melt_pool": {k: v for k, v in melt.items() if k != "series"},
-               "melt_pool_series": melt["series"], "energy": energy, "temperature": temps, "paper_reference": BOOK,
+               "melt_pool_series": melt["series"], "energy": energy, "temperature": temps,
+               "top_bc_laser_spot": {k: v for k, v in spot.items() if k != "series"}, "paper_reference": BOOK,
                "note": "Chẩn đoán, không có ngưỡng đạt/không đạt (prereg mục 27.4)."}
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
     (out / "diag.json").write_text(json.dumps(summary, indent=2), encoding="utf-8")
-    print(json.dumps({"melt_pool": summary["melt_pool"], "temperature": temps, "energy": energy}, indent=2))
+    print(json.dumps({"melt_pool": summary["melt_pool"], "temperature": temps, "top_bc_laser_spot": summary["top_bc_laser_spot"], "energy": energy}, indent=2))
 
 
 if __name__ == "__main__":

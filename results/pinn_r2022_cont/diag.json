@@ -123,6 +123,10 @@
     "T_surface_centre_max_K": 310.2248267595409,
     "T_50um_centre_max_K": 307.95400497245237
   },
+  "top_bc_laser_spot": {
+    "rms_over_peak": 0.4429930203695021,
+    "max_abs_over_peak": 0.9993998881709364
+  },
   "paper_reference": {
     "exp_width_um": 84.4,
     "exp_width_sd_um": 12.6,
