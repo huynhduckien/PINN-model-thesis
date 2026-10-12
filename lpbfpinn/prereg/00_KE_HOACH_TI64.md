@@ -145,6 +145,7 @@ Hình học (mục 12): phần rắn là tam giác phía bên phải trên; mép
 
 ## 10. Nhật ký thay đổi
 
+- 2026-10-12: ghi giả định bay hơi (mục 21): A_accom của Charles không có giá trị trong bài, giữ công thức Cook với φ = 0.82.
 - 2026-10-12: chọn 175 W, 0.39 m/s, 40 µm làm quá trình chính của bài overhang (mục 20), thay thí nghiệm 4 (mục 19).
 - 2026-10-12: đổi mặc định quá trình của bài overhang sang thí nghiệm 4 (mục 19), sai lệch có chủ đích so với mục 2.
 - 2026-10-12: ghi nhận kết quả PINN giai đoạn 0 theo thí nghiệm 4 (mục 18): tiêu chí năng lượng 5.3% không đạt, các tiêu chí khác đạt. Chuyển sang bộ giải số thể tích hữu hạn làm tham chiếu cho giai đoạn 0 (sửa mục 13 cho phạm vi này).
@@ -290,3 +291,11 @@ Hướng tiếp theo, theo quyết định của người nghiên cứu (2026-10
 - Hình học khác bài báo: bề mặt treo 45° của hộp hiện tại (mục 12), so với 35° trong bài báo; miền và độ dày bột cũng khác.
 - Trường hợp đối chứng 90 W, 1.235 m/s (P/v ≈ 0.073 J/mm, không đâm xuống bột trong bài báo): đã chọn ngày 2026-10-12, gọi bằng LPBF_PROC=dross_low, r_b = 40 µm.
 - Cấu hình cũ vẫn gọi được: LPBF_PROC=exp4 (kiểm chứng giai đoạn 0), LPBF_PROC=prereg300 (mục 2).
+
+## 21. Giả định bay hơi cho bộ giải FV (ngày 2026-10-12)
+
+- Charles et al. 2022 (eq. 11) dùng công thức bay hơi có hệ số thích nghi A_accom, với ΔH_lv = 9.7 MJ/kg là hằng số (Bảng 1). Bài **không cho giá trị A_accom**.
+- Giả định: giữ công thức bay hơi của Cook & Ritchie (mục 4, φ = 0.82, L_v(T) phụ thuộc nhiệt độ, kẹp T_cap = 6000 K), không dùng A_accom.
+- Lý do: công thức Cook đã khóa trong kế hoạch và có hệ số φ có nguồn; không có cơ sở chọn giá trị A_accom.
+- Hệ quả: so sánh với Charles chỉ ở mức định tính cho phần bay hơi; sai lệch do giả định này phải được ghi trong luận văn.
+- Cần kiểm chứng: độ nhạy theo φ (hoặc A_accom tương đương) trước khi kết luận về nhiệt độ mặt trên.
