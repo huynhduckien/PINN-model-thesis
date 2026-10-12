@@ -10,6 +10,7 @@ Chạy: DDE_BACKEND=pytorch LPBF_PROC=exp4 python -m lpbfpinn.fv_stage0 --dx 10e
 from __future__ import annotations
 
 import argparse
+from dataclasses import replace
 import json
 import math
 from pathlib import Path
@@ -35,7 +36,7 @@ def laser_source(X, Y, Z, t: float) -> np.ndarray:
 def run(dx: float = 10e-6, t_end: float = T_END, cfl: float = 0.4, source=None,
         h: float | None = None, eps: float | None = None, probes_um=(-300.0, 0.0, 300.0, 500.0),
         points: dict | None = None, powder: bool = False, latent: bool = False,
-        evap: bool = False) -> dict:
+        evap: bool = False, props: dict | None = None) -> dict:
     """Giải và trả về nhiệt độ đỉnh tại các điểm đo, T_min, và cân bằng năng lượng.
 
     source: hàm (X, Y, Z, t) -> W/m³ tùy chọn (mặc định là laser); dùng cho kiểm chứng.
@@ -43,6 +44,10 @@ def run(dx: float = 10e-6, t_end: float = T_END, cfl: float = 0.4, source=None,
     """
     h = MAT.h_c if h is None else h
     eps = MAT.emissivity if eps is None else eps
+    pr = {"rho": RHO, "cp": CP, "k": K, "L_f": MAT.L_f}
+    pr.update(props or {})
+    rho_, cp_, k_, Lf_ = pr["rho"], pr["cp"], pr["k"], pr["L_f"]
+    mat_eff = replace(MAT, h_c=h, emissivity=eps, L_f=Lf_)
     src = laser_source if source is None else source
     Tamb = MAT.T_amb
     nx = round((X_MAX - X_MIN) / dx)
@@ -57,11 +62,11 @@ def run(dx: float = 10e-6, t_end: float = T_END, cfl: float = 0.4, source=None,
     if powder:
         # bột (Moser, như overhang.py): độ dẫn k = k_rắn·[1 + (k_ratio − 1)·s]; nhiệt dung biểu kiến ρc·(1 − φ·s)
         s_idx = powder_index(torch.tensor(Y, dtype=torch.float64), torch.tensor(Z, dtype=torch.float64)).numpy()
-        k_cell = K * (1.0 + (MS["k_ratio"] - 1.0) * s_idx)
-        cap_cell = RHO * CP * (1.0 - POW.porosity * s_idx)
+        k_cell = k_ * (1.0 + (MS["k_ratio"] - 1.0) * s_idx)
+        cap_cell = rho_ * cp_ * (1.0 - POW.porosity * s_idx)
     else:
-        k_cell = np.full(X.shape, K)
-        cap_cell = np.full(X.shape, RHO * CP)
+        k_cell = np.full(X.shape, k_)
+        cap_cell = np.full(X.shape, rho_ * cp_)
     alpha_max = float(np.max(k_cell / cap_cell))
     dt_max = dx * dx / (6.0 * alpha_max)  # ổn định của sơ đồ Euler tiến 3D
     nsteps = math.ceil(t_end / (cfl * dt_max))
@@ -70,15 +75,15 @@ def run(dx: float = 10e-6, t_end: float = T_END, cfl: float = 0.4, source=None,
     # nhiệt ẩn: H = g·[ρc(T − T_amb) + ρL·f_l(T)], f_l tuyến tính trên [T_sol, T_liq] (như physics.py)
     g = (1.0 - POW.porosity * s_idx) if powder else np.ones(X.shape)
     Ts, Tl = MAT.T_sol, MAT.T_liq
-    rhoL = RHO * MAT.L_f if latent else 0.0
-    Hs = RHO * CP * (Ts - Tamb)
+    rhoL = rho_ * Lf_ if latent else 0.0
+    Hs = rho_ * cp_ * (Ts - Tamb)
     Hl = Hs + rhoL
 
     def T_of(H):
         hh = H / g
-        T_solid = Tamb + hh / (RHO * CP)
-        T_mushy = Ts + (hh - Hs) / (RHO * CP + rhoL / (Tl - Ts))
-        T_liquid = Tl + (hh - Hl) / (RHO * CP)
+        T_solid = Tamb + hh / (rho_ * cp_)
+        T_mushy = Ts + (hh - Hs) / (rho_ * cp_ + rhoL / (Tl - Ts))
+        T_liquid = Tl + (hh - Hl) / (rho_ * cp_)
         return np.where(hh <= Hs, T_solid, np.where(hh >= Hl, T_liquid, T_mushy))
 
     H = np.zeros(X.shape)
@@ -123,7 +128,7 @@ def run(dx: float = 10e-6, t_end: float = T_END, cfl: float = 0.4, source=None,
         Tt = T[:, :, -1]
         if evap:
             # bay hơi + đối lưu + bức xạ (physics.top_outflux, có kẹp T_cap)
-            q_top = top_outflux(torch.tensor(Tt, dtype=torch.float64), MAT).numpy()
+            q_top = top_outflux(torch.tensor(Tt, dtype=torch.float64), mat_eff).numpy()
         else:
             q_top = h * (Tt - Tamb) + eps * SIGMA_SB * (Tt**4 - Tamb**4)
         out[:, :, 0] += q_bot
@@ -147,7 +152,7 @@ def run(dx: float = 10e-6, t_end: float = T_END, cfl: float = 0.4, source=None,
     E_stored = float(H.sum()) * V
     rel = (E_in - E_top - E_bot - E_stored) / E_in if E_in > 0 else float("nan")
     return {
-        "dx_um": dx * 1e6, "powder": powder, "latent": latent, "evap": evap, "grid": [nx, ny, nz], "dt_s": dt, "nsteps": nsteps, "t_end_s": t_end,
+        "dx_um": dx * 1e6, "props": pr, "powder": powder, "latent": latent, "evap": evap, "grid": [nx, ny, nz], "dt_s": dt, "nsteps": nsteps, "t_end_s": t_end,
         "energy": {"E_in_J": E_in, "E_out_top_J": E_top, "E_out_bottom_J": E_bot,
                    "E_stored_J": E_stored, "rel_error": rel},
         "probes": {k: {"T_max_K": v[0], "t_at_max_s": v[1], "t_first_above_Tsol_s": t_first[k],
