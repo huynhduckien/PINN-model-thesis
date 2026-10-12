@@ -8,3 +8,4 @@ tailieu/
 
 # moi truong ao tren may cuc bo
 .venv/
+results/**/model.pt
