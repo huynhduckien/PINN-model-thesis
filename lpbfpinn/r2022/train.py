@@ -142,6 +142,7 @@ def main() -> None:
     ap.add_argument("--w-top", type=float, default=1.0)
     ap.add_argument("--w-face", type=float, default=1.0)
     ap.add_argument("--seed", type=int, default=0)
+    ap.add_argument("--hard-delta", type=float, default=10e-6, help="δ của ràng buộc cứng (m), prereg 27.11")
     ap.add_argument("--surface", choices=["flux", "pinned", "hard"], default="flux",
                     help="pinned: kẹp penalty (27.9); hard: ràng buộc cứng (27.11)")
     ap.add_argument("--phase1-iters", type=int, default=0,
@@ -153,7 +154,7 @@ def main() -> None:
 
     torch.manual_seed(args.seed)
     dev = torch.device(args.device)
-    case = R2022Case(surface=args.surface)
+    case = R2022Case(surface=args.surface, hard_delta=args.hard_delta)
     model = PINN(case).to(dev).double()
     opt = torch.optim.Adam(model.parameters(), lr=args.lr)
     gen = torch.Generator().manual_seed(args.seed)
