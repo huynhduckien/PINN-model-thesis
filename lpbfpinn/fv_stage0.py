@@ -176,7 +176,7 @@ def run_charles(dx: float = 10e-6, t_end: float = T_END, cfl: float = 0.4, powde
                 device: str = "cpu", kratio: float | None = None, r_b: float | None = None,
                 phi: float | None = None, evap_model: str = "cook", accom: float | None = None,
                 tcap: float | None = None, bottom: str = "dirichlet", record_top: bool = False,
-                power: float | None = None, snapshots: int = 0) -> dict:
+                power: float | None = None, snapshots: int = 0, speed: float | None = None) -> dict:
     """FV theo công thức Charles (PyTorch, chạy được trên CPU hoặc GPU).
 
     Laser là thông lượng bề mặt (eq. 8, 12); enthalpy và tính chất pha (eq. 6–7, 13–15, Bảng 1);
@@ -186,6 +186,7 @@ def run_charles(dx: float = 10e-6, t_end: float = T_END, cfl: float = 0.4, powde
     dev = torch.device(device)
     dt64 = torch.float64
     P_W = PROC.power if power is None else power
+    V_S = PROC.speed if speed is None else speed
     C = CHARLES
     A_abs = C["absorptivity"] if absorptivity is None else absorptivity
     rb = PROC.r_b if r_b is None else r_b
@@ -260,9 +261,9 @@ def run_charles(dx: float = 10e-6, t_end: float = T_END, cfl: float = 0.4, powde
     T_SOL = Ts
     for n in range(nsteps):
         t = n * dt
-        ramp = min(t / (PROC.ramp_length / PROC.speed), 1.0)
+        ramp = min(t / (PROC.ramp_length / V_S), 1.0)
         q_las = (2.0 * A_abs * P_W * ramp / (math.pi * rb**2)) * torch.exp(
-            -2.0 * ((Xs - (X_START + PROC.speed * t)) ** 2 + (Ys - Y_TIP) ** 2) / rb**2)
+            -2.0 * ((Xs - (X_START + V_S * t)) ** 2 + (Ys - Y_TIP) ** 2) / rb**2)
         kc = k_of(T) * kpow
         fx = -0.5 * (kc[1:] + kc[:-1]) * (T[1:] - T[:-1]) / dx
         fy = -0.5 * (kc[:, 1:] + kc[:, :-1]) * (T[:, 1:] - T[:, :-1]) / dx
@@ -321,7 +322,7 @@ def run_charles(dx: float = 10e-6, t_end: float = T_END, cfl: float = 0.4, powde
         extra["_snap_t"] = np.array(snap_t)
         extra["_snap_x"], extra["_snap_y"], extra["_snap_z"] = xn, yn, z.cpu().numpy()
     return {**extra,
-        "model": "charles", "power_W": P_W, "bottom": bottom, "evap_model": evap_model, "accom": accom, "device": device, "tcap": mat_c.T_cap, "dx_um": dx * 1e6, "powder": powder, "evap": evap, "kratio": kr,
+        "model": "charles", "power_W": P_W, "speed_m_s": V_S, "P_over_v_J_mm": P_W / (V_S * 1000.0), "bottom": bottom, "evap_model": evap_model, "accom": accom, "device": device, "tcap": mat_c.T_cap, "dx_um": dx * 1e6, "powder": powder, "evap": evap, "kratio": kr,
         "absorptivity": A_abs, "r_b_um": rb * 1e6, "phi": mat_c.phi_evap, "kratio_used": kr, "grid": [nx, ny, nz], "dt_s": dt, "nsteps": nsteps, "t_end_s": t_end,
         "energy": {"E_in_J": E_in, "E_out_top_J": E_top, "E_out_bottom_J": E_bot,
                    "E_stored_J": E_stored, "rel_error": rel},
