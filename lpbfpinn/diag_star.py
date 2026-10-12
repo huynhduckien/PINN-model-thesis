@@ -34,9 +34,9 @@ def energy_balance_star(model, sc: Scales, n_t=40, n_xy=(120, 40), n_vol=(96, 32
         xs = np.column_stack([A.ravel(), B.ravel(), np.full(A.size, Lz), np.full(A.size, ts_i)])
         th = _theta(model, xs)
         T = sc.to_T(th)
-        F_top.append(float(top_loss(torch.tensor(T, dtype=torch.float64), evap=False).numpy().sum() * dA))
+        F_top.append(float(top_loss(torch.tensor(T, dtype=torch.float64), evap=False).detach().cpu().numpy().sum() * dA))
         x, y, _, t = sc.to_phys(torch.tensor(xs, dtype=torch.float64))
-        F_in.append(float(laser_surface_flux(x, y, t).numpy().sum() * dA))
+        F_in.append(float(laser_surface_flux(x, y, t).detach().cpu().numpy().sum() * dA))
     t_s = ts * sc.t_c
     trap = getattr(np, "trapezoid", None) or np.trapz
     E_in = float(trap(np.array(F_in), t_s))
