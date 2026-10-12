@@ -91,7 +91,9 @@ def loss_terms(model: PINN, case: R2022Case, pts: dict[str, torch.Tensor]) -> di
         # kẹp T = T_b trong vết laser (prereg 27.9), thông lượng ngoài vết laser
         spot = spot_mask(pts["top"], case)
         r_pin = pinned_residual(model, pts["top"], case)
-        r_flux = top_residual(model, pts["top"], case) / peak_star
+        # ngoài vết laser: chuẩn hóa theo thang nhiệt độ θ_b (prereg 27.10), không theo đỉnh thông lượng
+        theta_b = (case.material().T_b - case.T_amb) / case.T_scale
+        r_flux = top_residual(model, pts["top"], case) / theta_b
         n_spot = spot.sum().clamp(min=1)
         top = ((r_pin ** 2) * spot).sum() / n_spot + ((r_flux ** 2) * (~spot)).sum() / (~spot).sum().clamp(min=1)
         r_top = None
