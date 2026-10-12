@@ -18,7 +18,7 @@ import numpy as np
 import torch
 
 from .materials import SIGMA_SB
-from .overhang import MAT, MS, PROC, T_END, X_MAX, X_MIN, Y_MAX, Y_TIP, Z_MAX, X_START
+from .overhang import MAT, MS, POW, PROC, T_END, X_MAX, X_MIN, Y_MAX, Y_TIP, Z_MAX, X_START, powder_index
 from .physics import beer_lambert_source
 
 RHO, CP, K = 4106.0, 838.0, 33.1     # Ti hằng số, như PINN giai đoạn 0 (mục 11)
@@ -34,7 +34,7 @@ def laser_source(X, Y, Z, t: float) -> np.ndarray:
 
 def run(dx: float = 10e-6, t_end: float = T_END, cfl: float = 0.4, source=None,
         h: float | None = None, eps: float | None = None, probes_um=(-300.0, 0.0, 300.0, 500.0),
-        points: dict | None = None) -> dict:
+        points: dict | None = None, powder: bool = False) -> dict:
     """Giải và trả về nhiệt độ đỉnh tại các điểm đo, T_min, và cân bằng năng lượng.
 
     source: hàm (X, Y, Z, t) -> W/m³ tùy chọn (mặc định là laser); dùng cho kiểm chứng.
@@ -53,8 +53,16 @@ def run(dx: float = 10e-6, t_end: float = T_END, cfl: float = 0.4, source=None,
     X, Y, Z = np.meshgrid(x, y, z, indexing="ij")
     V = dx**3
     A = dx * dx                       # diện tích mặt trên và đáy của một ô
-    alpha = K / (RHO * CP)
-    dt_max = dx * dx / (6.0 * alpha)  # ổn định của sơ đồ Euler tiến 3D
+    if powder:
+        # bột (Moser, như overhang.py): độ dẫn k = k_rắn·[1 + (k_ratio − 1)·s]; nhiệt dung biểu kiến ρc·(1 − φ·s)
+        s_idx = powder_index(torch.tensor(Y, dtype=torch.float64), torch.tensor(Z, dtype=torch.float64)).numpy()
+        k_cell = K * (1.0 + (MS["k_ratio"] - 1.0) * s_idx)
+        cap_cell = RHO * CP * (1.0 - POW.porosity * s_idx)
+    else:
+        k_cell = np.full(X.shape, K)
+        cap_cell = np.full(X.shape, RHO * CP)
+    alpha_max = float(np.max(k_cell / cap_cell))
+    dt_max = dx * dx / (6.0 * alpha_max)  # ổn định của sơ đồ Euler tiến 3D
     nsteps = math.ceil(t_end / (cfl * dt_max))
     dt = t_end / nsteps
 
@@ -81,10 +89,10 @@ def run(dx: float = 10e-6, t_end: float = T_END, cfl: float = 0.4, source=None,
     for n in range(nsteps):
         t = n * dt
         q = src(X, Y, Z, t)
-        # thông lượng theo mặt giữa hai ô (W/m²), dương theo chiều tăng chỉ số
-        fx = -K * (T[1:] - T[:-1]) / dx
-        fy = -K * (T[:, 1:] - T[:, :-1]) / dx
-        fz = -K * (T[:, :, 1:] - T[:, :, :-1]) / dx
+        # thông lượng theo mặt giữa hai ô (W/m²), độ dẫn mặt = trung bình hai ô
+        fx = -0.5 * (k_cell[1:] + k_cell[:-1]) * (T[1:] - T[:-1]) / dx
+        fy = -0.5 * (k_cell[:, 1:] + k_cell[:, :-1]) * (T[:, 1:] - T[:, :-1]) / dx
+        fz = -0.5 * (k_cell[:, :, 1:] + k_cell[:, :, :-1]) * (T[:, :, 1:] - T[:, :, :-1]) / dx
         # tổng thông lượng RA khỏi mỗi ô (W/m²); ô nhận có dấu âm
         out = np.zeros_like(T)
         out[:-1] += fx
@@ -94,7 +102,7 @@ def run(dx: float = 10e-6, t_end: float = T_END, cfl: float = 0.4, source=None,
         out[:, :, :-1] += fz
         out[:, :, 1:] -= fz
         # đáy z = 0: nhiệt rời miền qua nửa ô tới T_amb (ô đáy)
-        q_bot = K * (T[:, :, 0] - Tamb) / (dx / 2)
+        q_bot = k_cell[:, :, 0] * (T[:, :, 0] - Tamb) / (dx / 2)
         # mặt trên z = Lz: đối lưu + bức xạ, dương = rời miền
         Tt = T[:, :, -1]
         q_top = h * (Tt - Tamb) + eps * SIGMA_SB * (Tt**4 - Tamb**4)
@@ -104,7 +112,7 @@ def run(dx: float = 10e-6, t_end: float = T_END, cfl: float = 0.4, source=None,
         E_in += float(q.sum()) * V * dt
         E_bot += float(q_bot.sum()) * A * dt
         E_top += float(q_top.sum()) * A * dt
-        T = T + dt * (q - out / dx) / (RHO * CP)
+        T = T + dt * (q - out / dx) / cap_cell
         Tmin_seen = min(Tmin_seen, float(T.min()))
         for k, (ix, iy, iz) in ip.items():
             Tk = float(T[ix, iy, iz])
@@ -115,10 +123,10 @@ def run(dx: float = 10e-6, t_end: float = T_END, cfl: float = 0.4, source=None,
                 if t_first[k] is None:
                     t_first[k] = (n + 1) * dt
 
-    E_stored = RHO * CP * float((T - Tamb).sum()) * V
+    E_stored = float((cap_cell * (T - Tamb)).sum()) * V
     rel = (E_in - E_top - E_bot - E_stored) / E_in if E_in > 0 else float("nan")
     return {
-        "dx_um": dx * 1e6, "grid": [nx, ny, nz], "dt_s": dt, "nsteps": nsteps, "t_end_s": t_end,
+        "dx_um": dx * 1e6, "powder": powder, "grid": [nx, ny, nz], "dt_s": dt, "nsteps": nsteps, "t_end_s": t_end,
         "energy": {"E_in_J": E_in, "E_out_top_J": E_top, "E_out_bottom_J": E_bot,
                    "E_stored_J": E_stored, "rel_error": rel},
         "probes": {k: {"T_max_K": v[0], "t_at_max_s": v[1], "t_first_above_Tsol_s": t_first[k],

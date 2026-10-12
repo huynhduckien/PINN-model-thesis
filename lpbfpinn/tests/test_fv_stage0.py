@@ -15,3 +15,8 @@ def test_fv_energy_balance_laser_coarse():
     res = fv_stage0.run(dx=40e-6, t_end=2e-4)
     assert abs(res["energy"]["rel_error"]) < 1e-10, res["energy"]
     assert res["T_min_K"] >= 298.0 - 1e-9
+
+
+def test_fv_energy_balance_with_powder():
+    res = fv_stage0.run(dx=40e-6, t_end=2e-4, powder=True)
+    assert abs(res["energy"]["rel_error"]) < 1e-10, res["energy"]
