@@ -121,6 +121,7 @@ def main() -> None:
     ap.add_argument("--nonneg", action="store_true", help="θ = softplus(·) ≥ 0, T ≥ T_amb")
     ap.add_argument("--laser", choices=["top_bc", "volume"], default="top_bc",
                     help="laser qua biên trên (mặc định) hoặc nguồn thể tích Beer–Lambert như DED")
+    ap.add_argument("--lbfgs", action="store_true", help="thêm giai đoạn L-BFGS sau Adam (hoặc sau khi nạp model)")
     ap.add_argument("--load", type=str, default=None,
                     help="đường dẫn file model-<bước>.pt đã lưu: bỏ qua huấn luyện, chỉ chạy chẩn đoán")
     args = ap.parse_args()
@@ -134,9 +135,15 @@ def main() -> None:
     else:
         model.train(iterations=args.iters, display_every=max(args.iters // 4, 1))
         model.save(str(out / "model"), verbose=0)
+    if args.lbfgs:
+        # giai đoạn tinh chỉnh L-BFGS sau Adam (như notebook DED); trọng số loss giữ nguyên = 1
+        model.compile("L-BFGS", loss_weights=[1.0] * (1 + len(model.data.bcs)))
+        lh, _ = model.train()
+        model.save(str(out / "model_lbfgs"), verbose=0)
+        print("L-BFGS:", len(lh.steps), "bước")
     Lx, Ly, Lz, tmax = sc.dimless_domain()
-    res = {"iters": args.iters, "T_c": sc.T_c, "L_c": sc.L_c, "t_c": sc.t_c, "hard_ic": args.hard_ic,
-           "nonneg": args.nonneg, "laser": args.laser}
+    res = {"iters": "load" if args.load else args.iters, "lbfgs": args.lbfgs, "T_c": sc.T_c, "L_c": sc.L_c,
+           "t_c": sc.t_c, "hard_ic": args.hard_ic, "nonneg": args.nonneg, "laser": args.laser}
     res["energy"] = energy_balance_star(model, sc)
     res["pde_residual"] = residual_star(model, sc, args.laser)
     # nhiệt độ tại các điểm cố định (z = 230 µm) theo thời gian
