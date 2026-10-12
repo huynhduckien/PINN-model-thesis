@@ -55,3 +55,12 @@ def test_energy_balance_exact_uniform_top_flux():
     rel = (res["E_in_J"] - res["E_out_top_J"] - res["E_out_faces_J"] - dE) / res["E_in_J"]
     print({"E_in": res["E_in_J"], "dE_stored": dE, "E_out_faces": res["E_out_faces_J"], "rel": rel})
     assert abs(rel) < 1e-3, f"sai số cân bằng năng lượng trên nghiệm đúng = {rel:.3e}"
+
+
+def test_pde_residual_zero_on_analytic_solution():
+    sc = Scales()
+    Lx, Ly, Lz, tmax = sc.dimless_domain()
+    c = 1.0 / tmax
+    res = diag_star.residual_star(AnalyticModel(c), sc, laser="top_bc")
+    for k, v in res.items():
+        assert v["rms_residual_over_rms_theta_t"] < 1e-4, (k, v)

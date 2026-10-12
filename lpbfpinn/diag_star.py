@@ -84,6 +84,34 @@ def energy_balance_star(model, sc: Scales, n_t=40, n_xy=(120, 40), n_vol=(96, 32
             "rel_error": rel}
 
 
+def residual_star(model, sc: Scales, laser: str, n_grid=(48, 16, 12), fracs=(0.25, 0.5, 1.0)) -> dict:
+    """Residual PDE θ_t − Δθ − Q trên lưới trung điểm ô tại vài thời điểm, chuẩn hóa theo RMS θ_t.
+
+    Residual gần 0 trên miền nhưng năng lượng vẫn thiếu cho thấy lỗi nằm ở biên, không phải ở PDE.
+    """
+    import deepxde as dde
+
+    Lx, Ly, Lz, tmax = sc.dimless_domain()
+    dev = next(model.net.parameters()).device
+    gx = (np.arange(n_grid[0]) + 0.5) * Lx / n_grid[0]
+    gy = (np.arange(n_grid[1]) + 0.5) * Ly / n_grid[1]
+    gz = (np.arange(n_grid[2]) + 0.5) * Lz / n_grid[2]
+    G = np.array(np.meshgrid(gx, gy, gz, indexing="ij")).reshape(3, -1).T
+    out = {}
+    for f in fracs:
+        xs = np.column_stack([G, np.full(len(G), f * tmax)])
+        X = torch.tensor(xs, dtype=torch.float32, device=dev, requires_grad=True)
+        th = model.net(X)
+        th_t = dde.grad.jacobian(th, X, i=0, j=3)
+        lap = sum(dde.grad.hessian(th, X, i=k, j=k) for k in range(3))
+        Q = source_star(sc, X) if laser == "volume" else torch.zeros_like(th_t)
+        r = (th_t - lap - Q).detach().cpu().numpy().ravel()
+        scale = float(np.sqrt(np.mean(th_t.detach().cpu().numpy() ** 2))) + 1e-30
+        out[f"t={f:g}*tmax"] = {"rms_residual_over_rms_theta_t": float(np.sqrt(np.mean(r**2)) / scale),
+                                "mean_residual_over_rms_theta_t": float(np.mean(r) / scale)}
+    return out
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--iters", type=int, default=2000)
@@ -93,18 +121,24 @@ def main() -> None:
     ap.add_argument("--nonneg", action="store_true", help="θ = softplus(·) ≥ 0, T ≥ T_amb")
     ap.add_argument("--laser", choices=["top_bc", "volume"], default="top_bc",
                     help="laser qua biên trên (mặc định) hoặc nguồn thể tích Beer–Lambert như DED")
+    ap.add_argument("--load", type=str, default=None,
+                    help="đường dẫn file model-<bước>.pt đã lưu: bỏ qua huấn luyện, chỉ chạy chẩn đoán")
     args = ap.parse_args()
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
     sc = Scales()
     model = build_stage0_star(sc, n_domain=args.n_domain, n_bnd=2000, n_anchor=args.n_domain, n_init=1000,
                               hard_ic=args.hard_ic, nonneg=args.nonneg, laser=args.laser)
-    model.train(iterations=args.iters, display_every=max(args.iters // 4, 1))
-    model.save(str(out / "model"), verbose=0)
+    if args.load:
+        model.restore(args.load, verbose=0)
+    else:
+        model.train(iterations=args.iters, display_every=max(args.iters // 4, 1))
+        model.save(str(out / "model"), verbose=0)
     Lx, Ly, Lz, tmax = sc.dimless_domain()
     res = {"iters": args.iters, "T_c": sc.T_c, "L_c": sc.L_c, "t_c": sc.t_c, "hard_ic": args.hard_ic,
            "nonneg": args.nonneg, "laser": args.laser}
     res["energy"] = energy_balance_star(model, sc)
+    res["pde_residual"] = residual_star(model, sc, args.laser)
     # nhiệt độ tại các điểm cố định (z = 230 µm) theo thời gian
     probes = {}
     for x_um in (-300.0, 0.0, 300.0, 500.0):
