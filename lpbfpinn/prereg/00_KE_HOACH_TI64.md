@@ -145,6 +145,7 @@ Hình học (mục 12): phần rắn là tam giác phía bên phải trên; mép
 
 ## 10. Nhật ký thay đổi
 
+- 2026-10-12: ghi nhận kết quả PINN giai đoạn 0 theo thí nghiệm 4 (mục 18): tiêu chí năng lượng 5.3% không đạt, các tiêu chí khác đạt. Chuyển sang bộ giải số thể tích hữu hạn làm tham chiếu cho giai đoạn 0 (sửa mục 13 cho phạm vi này).
 - 2026-10-12: thêm mục 17 chọn thí nghiệm 4 của Cook & Ritchie (120 W, 0.6 m/s, r_b 71 µm, α_s 0.27) làm kiểm chứng giai đoạn 0. Thay mốc 2500–3000 K tự đặt bằng mốc từ bài báo. Mục 2 (bài overhang chính) không đổi.
 - 2026-10-10: khóa φ_bột = 0.405 (thay 0.60) và giữ h_c = 40 theo duyệt.
 - 2026-10-10: khóa d50 = 30 µm và k_gas = 0.01772 W/m·K theo Li et al. 2022.
@@ -246,3 +247,26 @@ Tiêu chí chấp nhận (đề xuất, chưa chạy; không đổi sau khi có 
 Không đạt tiêu chí 1 hoặc 3 thì không kết luận pipeline đúng; phải chẩn đoán trước khi chuyển sang bài overhang.
 
 - Cấu hình thực hiện: `LPBF_PROC=exp4` (cần thêm vào `config.py`, chưa làm). Cần sửa thêm: vận tốc trong T_END (hiện cố định 0.8 m/s) và α (hiện lấy từ Moser). Hai thay đổi này chưa làm, chờ duyệt.
+
+## 18. Kết quả PINN giai đoạn 0 theo thí nghiệm 4 và chuyển sang bộ giải số (ngày 2026-10-12)
+
+Kết quả ghi nhận (không đổi tiêu chí mục 17, không đổi ngưỡng sau khi có kết quả):
+
+| Lượt | Cấu hình | Nhiệt độ đỉnh (x = 0) | Sai số năng lượng | Residual PDE (RMS/RMS θ_t) |
+|---|---|---|---|---|
+| exp4_volume_10k | Adam 10000, nguồn thể tích, nonneg | 2339 K | +0.362 | 0.46–0.51 |
+| exp4_volume_lbfgs | + L-BFGS | 2467 K | +0.066 | 0.02–0.04 |
+| exp4_refine_lbfgs | + Adam tinh chỉnh 5000 trên 20000 điểm, + L-BFGS | 2466 K | +0.053 | 0.02–0.04 |
+
+- Tiêu chí 1 (đỉnh 2000–2600 K): **đạt**.
+- Tiêu chí 4 (không có T < 298 K): **đạt**.
+- Tiêu chí 3 (|sai số năng lượng| < 5%): **không đạt**, sai số 5.3%, sát ngưỡng.
+- Tiêu chí 2 (kích thước vùng nóng chảy): không đánh giá được, vì hình học hộp overhang (y_tip = 110 µm) không khớp thí nghiệm 4 (tấm phẳng, laser trên mặt đối xứng y = 0).
+
+Kết luận: PINN giai đoạn 0 chỉ đạt gần đúng với cấu hình hiện tại. Residual giảm mạnh nhờ L-BFGS nhưng không giảm thêm khi tăng điểm lấy mẫu và tinh chỉnh; sai số năng lượng còn lại có dấu nhất quán (mạng thiếu năng lượng), nên không coi là nhiễu thống kê. Các lỗi đã sửa trong quá trình (không ảnh hưởng kết luận): nguồn laser bị tính hai lần ở bản nondim; diện tích lưới trong đoạn tính năng lượng (chỉ ảnh hưởng thông lượng đều, đã kiểm chứng bằng nghiệm giải tích); nhiệt độ dưới môi trường (đã thêm ràng buộc θ ≥ 0).
+
+Hướng tiếp theo, theo quyết định của người nghiên cứu (2026-10-12):
+- Viết bộ giải số thể tích hữu hạn cho giai đoạn 0 (cùng cấu hình exp4, tính chất Ti hằng số, nguồn thể tích Beer–Lambert, biên như mục 6), bảo toàn năng lượng theo cấu trúc.
+- Bộ giải số này là tham chiếu số cho giai đoạn 0. Kiểm chứng bằng nghiệm giải tích (cùng nghiệm θ = c(t + z²/2) dùng cho đoạn tính năng lượng) trước khi so với PINN.
+- PINN giữ làm đối chứng; so sánh nhiệt độ đỉnh và sai số năng lượng với bộ giải số.
+- Mục 13 được bổ sung: bộ giải số thể tích hữu hạn được phép làm tham chiếu cho giai đoạn 0 và thí nghiệm 4 (không dùng trong loss của PINN). Lý do: PINN không đạt tiêu chí năng lượng sau nhiều cấu hình; bộ giải số bảo toàn năng lượng theo cấu trúc, nên là tham chiếu độc lập. Bài overhang chính vẫn không có tham chiếu số (mục 13 không đổi cho bài này).
