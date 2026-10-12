@@ -167,83 +167,89 @@ CHARLES = dict(rho=4400.0, cp_s=573.0, cp_l=750.0, k_s=13.0, k_l=33.0, L_f=286e3
 
 
 def run_charles(dx: float = 10e-6, t_end: float = T_END, cfl: float = 0.4, powder: bool = False,
-                evap: bool = True, points: dict | None = None, absorptivity: float | None = None) -> dict:
-    """FV theo công thức Charles: laser là thông lượng bề mặt (eq. 8, 12), enthalpy và tính chất pha (eq. 6–7, 13–15).
+                evap: bool = True, points: dict | None = None, absorptivity: float | None = None,
+                device: str = "cpu") -> dict:
+    """FV theo công thức Charles (PyTorch, chạy được trên CPU hoặc GPU).
 
-    Tính chất pha: f_l tuyến tính trên [T_s, T_l]; k = (1 − f_l)k_s + f_l k_l (eq. 14);
-    c_p = (1 − f_l)c_s + f_l c_l (eq. 15, cùng ρ); enthalpy H(T) = ρ[∫c dT + f_l·L_f] (eq. 6), đảo bằng bảng.
-    Biên trên: laser·A − (bay hơi + đối lưu + bức xạ) (eq. 8–11); đáy T = T_surr; mặt bên cách nhiệt.
+    Laser là thông lượng bề mặt (eq. 8, 12); enthalpy và tính chất pha (eq. 6–7, 13–15, Bảng 1);
+    biên trên: bay hơi (công thức Cook, mục 21), đối lưu, bức xạ (eq. 9–11); đáy T = T_surr; mặt bên cách nhiệt.
+    Thông lượng qua mặt chung được cộng/trừ cho hai ô, nên cân bằng năng lượng đúng đến sai số máy.
     """
+    dev = torch.device(device)
+    dt64 = torch.float64
     C = CHARLES
     A_abs = C["absorptivity"] if absorptivity is None else absorptivity
     Tamb = C["T_surr"]
+    Ts, Tl = MAT.T_sol, MAT.T_liq
     mat_c = replace(MAT, h_c=C["h"], emissivity=C["eps"], T_amb=Tamb, L_f=C["L_f"])
     nx = round((X_MAX - X_MIN) / dx)
     ny = round(Y_MAX / dx)
     nz = round(Z_MAX / dx)
-    x = X_MIN + (np.arange(nx) + 0.5) * dx
-    y = (np.arange(ny) + 0.5) * dx
-    z = (np.arange(nz) + 0.5) * dx
-    X, Y, Z = np.meshgrid(x, y, z, indexing="ij")
+    x = X_MIN + (torch.arange(nx, dtype=dt64, device=dev) + 0.5) * dx
+    y = (torch.arange(ny, dtype=dt64, device=dev) + 0.5) * dx
+    z = (torch.arange(nz, dtype=dt64, device=dev) + 0.5) * dx
+    X, Y, Z = torch.meshgrid(x, y, z, indexing="ij")
     V = dx**3
     A = dx * dx
-    Xs, Ys = np.meshgrid(x, y, indexing="ij")
-    Ts, Tl = MAT.T_sol, MAT.T_liq
+    Xs, Ys = X[:, :, 0], Y[:, :, 0]
 
-    # bảng H(T) và T(H): c(T) = c_s + (c_l − c_s) f_l(T); H = ρ[∫_{Tamb}^{T} c dτ + L f_l]
-    Tg = np.arange(Tamb, 8000.0 + 0.5, 0.5)
-    fl_g = np.clip((Tg - Ts) / (Tl - Ts), 0.0, 1.0)
+    # bảng H(T) và nghịch đảo: c(T) = c_s + (c_l − c_s) f_l(T); H = ρ[∫_{Tamb}^{T} c dτ + L f_l]
+    Tg = torch.arange(Tamb, 8000.0 + 0.5, 0.5, dtype=dt64, device=dev)
+    fl_g = torch.clamp((Tg - Ts) / (Tl - Ts), 0.0, 1.0)
     c_g = C["cp_s"] + (C["cp_l"] - C["cp_s"]) * fl_g
-    Hg = C["rho"] * (np.concatenate([[0.0], np.cumsum(0.5 * (c_g[1:] + c_g[:-1]) * 0.5)]) + C["L_f"] * fl_g)
+    cum = torch.cat([torch.zeros(1, dtype=dt64, device=dev),
+                     torch.cumsum(0.5 * (c_g[1:] + c_g[:-1]) * 0.5, dim=0)])
+    Hg = C["rho"] * (cum + C["L_f"] * fl_g)
 
     def T_of(H):
-        return np.interp(H, Hg, Tg)
+        idx = torch.clamp(torch.bucketize(H, Hg), 1, Hg.numel() - 1)
+        h0, h1 = Hg[idx - 1], Hg[idx]
+        t0, t1 = Tg[idx - 1], Tg[idx]
+        w = (H - h0) / (h1 - h0)
+        return t0 + w * (t1 - t0)
 
     def k_of(T):
-        f = np.clip((T - Ts) / (Tl - Ts), 0.0, 1.0)
+        f = torch.clamp((T - Ts) / (Tl - Ts), 0.0, 1.0)
         return (1.0 - f) * C["k_s"] + f * C["k_l"]
 
     if powder:
-        s_idx = powder_index(torch.tensor(Y, dtype=torch.float64), torch.tensor(Z, dtype=torch.float64)).numpy()
+        s_idx = powder_index(Y, Z)
         kpow = 1.0 + (MS["k_ratio"] - 1.0) * s_idx
         g = 1.0 - POW.porosity * s_idx
     else:
-        kpow = np.ones(X.shape)
-        g = np.ones(X.shape)
+        kpow = torch.ones_like(X)
+        g = torch.ones_like(X)
 
-    alpha_max = C["k_l"] / (C["rho"] * C["cp_s"] * float(np.min(g)))
+    alpha_max = C["k_l"] / (C["rho"] * C["cp_s"] * float(g.min()))
     dt_max = dx * dx / (6.0 * alpha_max)
     nsteps = math.ceil(t_end / (cfl * dt_max))
     dt = t_end / nsteps
 
-    H = np.zeros(X.shape)
-    T = np.full(X.shape, Tamb, dtype=np.float64)
-    ip = {}
+    H = torch.zeros_like(X)
+    T = torch.full_like(X, Tamb)
     if points is None:
         points = {"top_y110_z230": (0.0, Y_TIP * 1e6, 230.0)}
+    xn, yn, zn = x.cpu().numpy(), y.cpu().numpy(), z.cpu().numpy()
+    ip = {}
     for name, (xu, yu, zu) in points.items():
-        ip[name] = (int(np.argmin(np.abs(x - xu * 1e-6))), int(np.argmin(np.abs(y - yu * 1e-6))),
-                    int(np.argmin(np.abs(z - zu * 1e-6))))
+        ip[name] = (int(np.argmin(np.abs(xn - xu * 1e-6))), int(np.argmin(np.abs(yn - yu * 1e-6))),
+                    int(np.argmin(np.abs(zn - zu * 1e-6))))
     tmax = {k: (Tamb, 0.0) for k in ip}
-    T_SOL = MAT.T_sol
     t_first = {k: None for k in ip}
     t_above = {k: 0.0 for k in ip}
     E_in = E_top = E_bot = 0.0
     Tmin_seen = Tamb
+    T_SOL = Ts
     for n in range(nsteps):
         t = n * dt
         ramp = min(t / (PROC.ramp_length / PROC.speed), 1.0)
-        # laser: thông lượng bề mặt (eq. 12), không phải nguồn thể tích
-        q_las = (2.0 * A_abs * PROC.power * ramp / (math.pi * PROC.r_b**2)) * np.exp(
+        q_las = (2.0 * A_abs * PROC.power * ramp / (math.pi * PROC.r_b**2)) * torch.exp(
             -2.0 * ((Xs - (X_START + PROC.speed * t)) ** 2 + (Ys - Y_TIP) ** 2) / PROC.r_b**2)
         kc = k_of(T) * kpow
-        kf_x = 0.5 * (kc[1:] + kc[:-1])
-        kf_y = 0.5 * (kc[:, 1:] + kc[:, :-1])
-        kf_z = 0.5 * (kc[:, :, 1:] + kc[:, :, :-1])
-        fx = -kf_x * (T[1:] - T[:-1]) / dx
-        fy = -kf_y * (T[:, 1:] - T[:, :-1]) / dx
-        fz = -kf_z * (T[:, :, 1:] - T[:, :, :-1]) / dx
-        out = np.zeros_like(T)
+        fx = -0.5 * (kc[1:] + kc[:-1]) * (T[1:] - T[:-1]) / dx
+        fy = -0.5 * (kc[:, 1:] + kc[:, :-1]) * (T[:, 1:] - T[:, :-1]) / dx
+        fz = -0.5 * (kc[:, :, 1:] + kc[:, :, :-1]) * (T[:, :, 1:] - T[:, :, :-1]) / dx
+        out = torch.zeros_like(T)
         out[:-1] += fx
         out[1:] -= fx
         out[:, :-1] += fy
@@ -252,14 +258,16 @@ def run_charles(dx: float = 10e-6, t_end: float = T_END, cfl: float = 0.4, powde
         out[:, :, 1:] -= fz
         q_bot = kc[:, :, 0] * (T[:, :, 0] - Tamb) / (dx / 2)
         Tt = T[:, :, -1]
-        q_loss = top_outflux(torch.tensor(Tt, dtype=torch.float64), mat_c).numpy() if evap else (
-            C["h"] * (Tt - Tamb) + C["eps"] * SIGMA_SB * (Tt**4 - Tamb**4))
+        if evap:
+            q_loss = top_outflux(Tt, mat_c)
+        else:
+            q_loss = C["h"] * (Tt - Tamb) + C["eps"] * SIGMA_SB * (Tt**4 - Tamb**4)
         out[:, :, 0] += q_bot
-        out[:, :, -1] += q_loss - q_las          # laser đi vào mặt trên (âm = nhận nhiệt)
+        out[:, :, -1] += q_loss - q_las
         E_in += float(q_las.sum()) * A * dt
         E_top += float(q_loss.sum()) * A * dt
         E_bot += float(q_bot.sum()) * A * dt
-        H = H + dt * (-out / dx)          # H là enthalpy thể tích thật (đã gồm hệ số bột g)
+        H = H + dt * (-out / dx)
         T = T_of(H / g)
         Tmin_seen = min(Tmin_seen, float(T.min()))
         for k, (ix, iy, iz) in ip.items():
@@ -273,8 +281,8 @@ def run_charles(dx: float = 10e-6, t_end: float = T_END, cfl: float = 0.4, powde
     E_stored = float(H.sum()) * V
     rel = (E_in - E_top - E_bot - E_stored) / E_in if E_in > 0 else float("nan")
     return {
-        "model": "charles", "dx_um": dx * 1e6, "powder": powder, "evap": evap, "absorptivity": A_abs,
-        "grid": [nx, ny, nz], "dt_s": dt, "nsteps": nsteps, "t_end_s": t_end,
+        "model": "charles", "device": device, "dx_um": dx * 1e6, "powder": powder, "evap": evap,
+        "absorptivity": A_abs, "grid": [nx, ny, nz], "dt_s": dt, "nsteps": nsteps, "t_end_s": t_end,
         "energy": {"E_in_J": E_in, "E_out_top_J": E_top, "E_out_bottom_J": E_bot,
                    "E_stored_J": E_stored, "rel_error": rel},
         "probes": {k: {"T_max_K": v[0], "t_at_max_s": v[1], "t_first_above_Tsol_s": t_first[k],
@@ -289,12 +297,13 @@ def main() -> None:
     ap.add_argument("--dx", type=float, default=10e-6)
     ap.add_argument("--out", type=str, default="runs/fv_charles_main")
     ap.add_argument("--no-powder", action="store_true", help="bỏ lớp bột (chỉ để so sánh)")
+    ap.add_argument("--device", type=str, default="cpu", help="cpu hoặc cuda")
     args = ap.parse_args()
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
     pts = {"A_y150_z5": (0.0, 150.0, 5.0), "B_y30_z125": (0.0, 30.0, 125.0),
            "top_z235": (0.0, Y_TIP * 1e6, 235.0), "sub_z225": (0.0, Y_TIP * 1e6, 225.0)}
-    res = run_charles(dx=args.dx, points=pts, powder=not args.no_powder, evap=True)
+    res = run_charles(dx=args.dx, points=pts, powder=not args.no_powder, evap=True, device=args.device)
     res["dx_m"] = args.dx
     (out / "diag.json").write_text(json.dumps(res, indent=2), encoding="utf-8")
     print(json.dumps(res["probes"], indent=2))
