@@ -168,7 +168,8 @@ CHARLES = dict(rho=4400.0, cp_s=573.0, cp_l=750.0, k_s=13.0, k_l=33.0, L_f=286e3
 
 def run_charles(dx: float = 10e-6, t_end: float = T_END, cfl: float = 0.4, powder: bool = False,
                 evap: bool = True, points: dict | None = None, absorptivity: float | None = None,
-                device: str = "cpu", kratio: float | None = None, r_b: float | None = None) -> dict:
+                device: str = "cpu", kratio: float | None = None, r_b: float | None = None,
+                phi: float | None = None) -> dict:
     """FV theo công thức Charles (PyTorch, chạy được trên CPU hoặc GPU).
 
     Laser là thông lượng bề mặt (eq. 8, 12); enthalpy và tính chất pha (eq. 6–7, 13–15, Bảng 1);
@@ -182,7 +183,8 @@ def run_charles(dx: float = 10e-6, t_end: float = T_END, cfl: float = 0.4, powde
     rb = PROC.r_b if r_b is None else r_b
     Tamb = C["T_surr"]
     Ts, Tl = MAT.T_sol, MAT.T_liq
-    mat_c = replace(MAT, h_c=C["h"], emissivity=C["eps"], T_amb=Tamb, L_f=C["L_f"])
+    mat_c = replace(MAT, h_c=C["h"], emissivity=C["eps"], T_amb=Tamb, L_f=C["L_f"],
+                    phi_evap=MAT.phi_evap if phi is None else phi)
     nx = round((X_MAX - X_MIN) / dx)
     ny = round(Y_MAX / dx)
     nz = round(Z_MAX / dx)
@@ -286,7 +288,7 @@ def run_charles(dx: float = 10e-6, t_end: float = T_END, cfl: float = 0.4, powde
     rel = (E_in - E_top - E_bot - E_stored) / E_in if E_in > 0 else float("nan")
     return {
         "model": "charles", "device": device, "dx_um": dx * 1e6, "powder": powder, "evap": evap, "kratio": kr,
-        "absorptivity": A_abs, "r_b_um": rb * 1e6, "grid": [nx, ny, nz], "dt_s": dt, "nsteps": nsteps, "t_end_s": t_end,
+        "absorptivity": A_abs, "r_b_um": rb * 1e6, "phi": mat_c.phi_evap, "kratio_used": kr, "grid": [nx, ny, nz], "dt_s": dt, "nsteps": nsteps, "t_end_s": t_end,
         "energy": {"E_in_J": E_in, "E_out_top_J": E_top, "E_out_bottom_J": E_bot,
                    "E_stored_J": E_stored, "rel_error": rel},
         "probes": {k: {"T_max_K": v[0], "t_at_max_s": v[1], "t_first_above_Tsol_s": t_first[k],
