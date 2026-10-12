@@ -89,6 +89,15 @@ def loss_terms(model: PINN, case: R2022Case, pts: dict[str, torch.Tensor]) -> di
             "face": (r_fx ** 2).mean() + (r_fy ** 2).mean()}
 
 
+def continuation_fraction(it: int, phase1: int, ramp: int) -> float:
+    """Tỷ lệ của h và ε: 0 trong giai đoạn 1, tăng tuyến tính trong giai đoạn 2, 1 sau đó."""
+    if it < phase1:
+        return 0.0
+    if ramp <= 0:
+        return 1.0
+    return min((it - phase1) / ramp, 1.0)
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--device", default="cpu")
@@ -101,6 +110,10 @@ def main() -> None:
     ap.add_argument("--w-top", type=float, default=1.0)
     ap.add_argument("--w-face", type=float, default=1.0)
     ap.add_argument("--seed", type=int, default=0)
+    ap.add_argument("--phase1-iters", type=int, default=0,
+                    help="tiếp tục hóa: số vòng đầu tắt đối lưu và bức xạ (h = ε = 0)")
+    ap.add_argument("--ramp-iters", type=int, default=0,
+                    help="tiếp tục hóa: số vòng tăng tuyến tính h và ε lên giá trị vật lý")
     ap.add_argument("--out", default="results/pinn_r2022")
     args = ap.parse_args()
 
@@ -115,8 +128,10 @@ def main() -> None:
     hist = []
     t0 = time.time()
     for it in range(args.iters):
+        frac = continuation_fraction(it, args.phase1_iters, args.ramp_iters)
+        case_it = R2022Case(h_c=case.h_c * frac, emissivity=case.emissivity * frac)
         pts = sample(case, args.n_domain, args.n_near, args.n_top, args.n_face, gen, dev)
-        terms = loss_terms(model, case, pts)
+        terms = loss_terms(model, case_it, pts)
         loss = terms["pde"] + args.w_top * terms["top"] + args.w_face * terms["face"]
         if not torch.isfinite(loss):
             raise RuntimeError(f"loss không hữu hạn tại vòng {it}: {terms}")
@@ -124,7 +139,7 @@ def main() -> None:
         loss.backward()
         opt.step()
         if it % max(args.iters // 50, 1) == 0 or it == args.iters - 1:
-            rec = {"iter": it, "loss": float(loss), **{k: float(v) for k, v in terms.items()},
+            rec = {"iter": it, "frac": frac, "loss": float(loss), **{k: float(v) for k, v in terms.items()},
                    "elapsed_s": time.time() - t0}
             hist.append(rec)
             print(json.dumps(rec), flush=True)
