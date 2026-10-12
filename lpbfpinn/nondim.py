@@ -108,9 +108,19 @@ def build_stage0_star(sc: Scales = Scales(), n_domain: int = 5000, n_bnd: int = 
                + dde.grad.hessian(theta, x, i=2, j=2))
         return th_t - lap - source_star(sc, x)
 
-    def top(inputs, theta, X):
+    def top_res(inputs, theta):
         dz = dde.grad.jacobian(theta, inputs, i=0, j=2)
         return -dz - loss_star(sc, theta) + top_laser_star(sc, inputs)
+
+    q_far = far_scale_star(sc)
+
+    def top_far(inputs, theta, X):
+        # biên đều xa vết laser: chuẩn hóa theo thông lượng trung bình (không theo đỉnh laser)
+        return top_res(inputs, theta) / q_far
+
+    def top_beam(inputs, theta, X):
+        # biên quanh vết laser: chuẩn hóa theo đỉnh thông lượng (θ-units)
+        return top_res(inputs, theta)
 
     def lateral(axis):
         def f(inputs, theta, X):
@@ -124,15 +134,24 @@ def build_stage0_star(sc: Scales = Scales(), n_domain: int = 5000, n_bnd: int = 
         return lambda x, on: on and np.isclose(x[axis], value)
 
     ic = dde.icbc.IC(gt, lambda x: np.zeros((len(x), 1)), lambda x, on: on and np.isclose(x[3], 0.0))
-    bcs = [
-        dde.icbc.OperatorBC(gt, top, on_top),
+    bcs_pre = [
+        dde.icbc.OperatorBC(gt, top_far, on_top),
         dde.icbc.OperatorBC(gt, lateral(0), on_face(0, 0.0)),
         dde.icbc.OperatorBC(gt, lateral(0), on_face(0, Lx)),
         dde.icbc.OperatorBC(gt, lateral(1), on_face(1, 0.0)),
         dde.icbc.OperatorBC(gt, lateral(1), on_face(1, Ly)),
         ic,
     ]
-    # điểm neo quanh vết laser (tâm y = 0 theo công thức hiện tại)
+    bcs = bcs_pre
+    # điểm biên trên quanh vết laser (lấy đều hầu như không trúng vết)
+    rng_b = np.random.default_rng(seed + 11)
+    tb = rng_b.uniform(0.0, tmax, n_bnd)
+    xlb = (X_START - X_MIN) / sc.L_c + oh_speed_star(sc) * tb
+    beam_pts = np.column_stack([np.clip(xlb + rng_b.uniform(-2, 2, n_bnd), 0, Lx),
+                                np.clip(Y_TIP / sc.L_c + rng_b.uniform(-2, 2, n_bnd), 0, Ly),
+                                np.full(n_bnd, Lz), tb])
+    bcs.append(dde.icbc.PointSetOperatorBC(beam_pts, 0.0, top_beam))
+    # điểm neo quanh vết laser (tâm y = Y_TIP)
     rng = np.random.default_rng(seed)
     t = rng.uniform(0.0, tmax, n_anchor)
     xc = (X_START - X_MIN) / sc.L_c + oh_speed_star(sc) * t
@@ -156,6 +175,12 @@ def build_stage0_star(sc: Scales = Scales(), n_domain: int = 5000, n_bnd: int = 
     model.sc = sc
     model.hard_ic = hard_ic
     return model
+
+
+def far_scale_star(sc: Scales) -> float:
+    """Thông lượng trung bình trên mặt trên (P_abs/diện tích) đổi sang không thứ nguyên (θ-units)."""
+    area = (X_MAX - X_MIN) * Y_MAX
+    return MS["alpha_eff"] * PROC.power / area * sc.flux_scale
 
 
 def oh_speed_star(sc: Scales) -> float:
