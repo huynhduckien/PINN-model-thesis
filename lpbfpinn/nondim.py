@@ -88,7 +88,7 @@ def top_laser_star(sc: Scales, xs: torch.Tensor) -> torch.Tensor:
 
 
 def build_stage0_star(sc: Scales = Scales(), n_domain: int = 5000, n_bnd: int = 2000, n_anchor: int = 5000,
-                      n_init: int = 1000, seed: int = 0):
+                      n_init: int = 1000, seed: int = 0, hard_ic: bool = False):
     """Dựng mô hình giai đoạn 0 hoàn toàn không thứ nguyên (PDE, biên, IC đều theo θ).
 
     Đầu ra mạng là θ; đáy z* = 0 được cứng hóa bằng θ = z*·y; IC mềm θ(t*=0) = 0; mọi trọng số loss = 1.
@@ -146,10 +146,15 @@ def build_stage0_star(sc: Scales = Scales(), n_domain: int = 5000, n_bnd: int = 
     lo = torch.tensor([0.0, 0.0, 0.0, 0.0], dtype=torch.float32)
     hi = torch.tensor([Lx, Ly, Lz, tmax], dtype=torch.float32)
     net.apply_feature_transform(lambda x: 2.0 * (x - lo.to(x.device)) / (hi.to(x.device) - lo.to(x.device)) - 1.0)
-    net.apply_output_transform(lambda x, y: x[:, 2:3] * y)   # đáy z* = 0: θ = 0
+    if hard_ic:
+        # IC cứng: θ = z*·y·(1 − e^{−t*}), đúng θ = 0 tại t* = 0
+        net.apply_output_transform(lambda x, y: x[:, 2:3] * y * (1.0 - torch.exp(-x[:, 3:4])))
+    else:
+        net.apply_output_transform(lambda x, y: x[:, 2:3] * y)   # đáy z* = 0: θ = 0
     model = dde.Model(data, net)
     model.compile("adam", lr=1e-3, loss_weights=[1.0] * (1 + len(bcs)))
     model.sc = sc
+    model.hard_ic = hard_ic
     return model
 
 

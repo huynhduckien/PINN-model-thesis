@@ -88,15 +88,17 @@ def main() -> None:
     ap.add_argument("--iters", type=int, default=2000)
     ap.add_argument("--n-domain", type=int, default=5000)
     ap.add_argument("--out", type=str, default="runs/star_s0")
+    ap.add_argument("--hard-ic", action="store_true")
     args = ap.parse_args()
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
     sc = Scales()
-    model = build_stage0_star(sc, n_domain=args.n_domain, n_bnd=2000, n_anchor=args.n_domain, n_init=1000)
+    model = build_stage0_star(sc, n_domain=args.n_domain, n_bnd=2000, n_anchor=args.n_domain, n_init=1000,
+                              hard_ic=args.hard_ic)
     model.train(iterations=args.iters, display_every=max(args.iters // 4, 1))
     model.save(str(out / "model"), verbose=0)
     Lx, Ly, Lz, tmax = sc.dimless_domain()
-    res = {"iters": args.iters, "T_c": sc.T_c, "L_c": sc.L_c, "t_c": sc.t_c}
+    res = {"iters": args.iters, "T_c": sc.T_c, "L_c": sc.L_c, "t_c": sc.t_c, "hard_ic": args.hard_ic}
     res["energy"] = energy_balance_star(model, sc)
     # nhiệt độ tại các điểm cố định (z = 230 µm) theo thời gian
     probes = {}
