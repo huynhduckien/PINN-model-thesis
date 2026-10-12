@@ -134,63 +134,6 @@ def test_hard_ic_zero_and_gradient_finite_at_surface():
     assert torch.isfinite(g).all()
 
 
-def test_cone_radius_endpoints():
-    from lpbfpinn.r2022.operator import cone_radius
-    case = R2022Case(source="cone")
-    z_t = case.z_max
-    z_i = z_t - case.cone_H_u
-    z_b = z_i - case.cone_H_l
-    r = cone_radius(torch.tensor([[z_b], [z_i], [z_t]], dtype=torch.float64), case).numpy().ravel()
-    np.testing.assert_allclose(r, [case.cone_r_b, case.cone_r_i, case.cone_r_t], rtol=1e-12)
-
-
-def test_cone_source_integrates_to_absorbed_power():
-    """∫ q dV = ηP·ramp (sau đoạn khởi động). Kiểm tra bằng lưới đều tại một thời điểm."""
-    from lpbfpinn.r2022.operator import cone_source_star
-    case = R2022Case(source="cone")
-    t_s = 0.5 * case.t_end
-    dx = 4e-6
-    x_l = case.x_start + case.speed * t_s
-    xg = np.arange(x_l - 250e-6, x_l + 250e-6, dx) + 0.5 * dx
-    yg = np.arange(case.y_tip - 250e-6, case.y_tip + 250e-6, dx) + 0.5 * dx
-    zg = np.arange(case.z_max - case.cone_H_u - case.cone_H_l, case.z_max, dx) + 0.5 * dx
-    X, Y, Z = np.meshgrid(xg, yg, zg, indexing="ij")
-    xs = torch.tensor(np.column_stack([
-        ((X.ravel() - case.x_min) / case.L_c), Y.ravel() / case.L_c, Z.ravel() / case.L_c,
-        np.full(X.size, t_s / case.t_c)]), dtype=torch.float64)
-    q = cone_source_star(xs, case).numpy().ravel() * case.k_c * case.T_scale / case.L_c**2
-    E = float(q.sum() * dx**3)
-    assert abs(E / (case.absorptivity * case.power) - 1.0) < 0.02, E / (case.absorptivity * case.power)
-
-
-def test_cone_pde_residual_includes_source_and_top_has_no_laser():
-    from lpbfpinn.r2022.operator import cone_source_star, top_residual, loss_star
-    case = R2022Case(source="cone")
-    c = 1e-3
-    theta = lambda p: c * p[:, 2:3] ** 2 * p[:, 3:4]          # θ_t = c z², Δθ = 2ct, θ_z = 2czt
-    xs = torch.tensor([[0.2, 0.3, 0.9, 0.5]], dtype=torch.float64)
-    r = pde_residual(theta, xs, case).detach().numpy().ravel()[0]
-    z, tt = 0.9, 0.5
-    u = (z * case.L_c - case.z_powder) / (case.interface_width / 2.197)
-    kap = 1.0 + (case.k_ratio - 1.0) * 0.5 * (1.0 + math.tanh(u))
-    dkap = (case.k_ratio - 1.0) * 0.5 / math.cosh(u) ** 2 * case.L_c / (case.interface_width / 2.197)
-    g = 1.0 - case.porosity * 0.5 * (1.0 + math.tanh(u))
-    closed = g * c * z**2 - (kap * 2 * c * tt + dkap * 2 * c * z * tt)
-    src = float(cone_source_star(xs, case))
-    assert abs(r - (closed - src)) < 1e-9 * max(1.0, abs(closed))
-    # biên trên không có thông lượng laser: θ = 0 cho residual = mất nhiệt tại 298 K
-    xs_top = torch.tensor([[0.2, 0.3, case.domain_star[2], 0.5]], dtype=torch.float64)
-    zero = lambda p: p[:, 0:1] * 0.0
-    rt = float(top_residual(zero, xs_top, case).detach())
-    assert abs(rt - float(loss_star(torch.zeros(1, 1, dtype=torch.float64), case))) < 1e-12
-
-
-def test_cone_requires_flux_surface():
-    import pytest
-    with pytest.raises(ValueError):
-        R2022Case(source="cone", surface="pinned")
-
-
 def test_robin_side_residual_linear_field():
     """θ = a·x* trên mặt x min: r = κ·a − side_loss(θ) (prereg 27.15)."""
     from lpbfpinn.r2022.operator import face_residual, kappa, side_loss_star

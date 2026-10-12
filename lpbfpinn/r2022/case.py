@@ -46,21 +46,9 @@ class R2022Case:
     # bề mặt: "flux" (thông lượng cân bằng, mặc định) hoặc "pinned" (kẹp T = T_b trong vết laser, prereg 27.9)
     surface: str = "flux"           # "hard": ràng buộc cứng trong vết laser (prereg 27.11)
     hard_delta: float = 10e-6       # m, độ dày lớp chuyển tiếp của ràng buộc cứng
-    # nguồn: "surface" (Gaussian bề mặt, mặc định) hoặc "cone" (nguồn thể tích hai nón, prereg 27.12)
-    source: str = "surface"
-    cone_r_t: float = 50e-6         # m, bán kính mặt trên
-    cone_r_i: float = 25e-6         # m, bán kính tại z_i
-    cone_r_b: float = 10e-6         # m, bán kính đáy
-    cone_H_u: float = 40e-6         # m, chiều cao nón trên
-    cone_H_l: float = 40e-6         # m, chiều cao nón dưới
     # biên bên: "adiabatic" (mặc định) hoặc "robin" (đối lưu–bức xạ, prereg 27.15)
     side_bc: str = "adiabatic"
 
-    def __post_init__(self):
-        if self.source not in ("surface", "cone"):
-            raise ValueError(f"source phải là 'surface' hoặc 'cone', nhận {self.source!r}")
-        if self.source == "cone" and self.surface != "flux":
-            raise ValueError("nguồn thể tích hình nón chỉ dùng với surface='flux' (prereg 27.12)")
     # bột (Moser, như FV)
     porosity: float = 0.405
     k_ratio: float = 0.05

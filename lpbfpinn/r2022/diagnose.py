@@ -144,16 +144,11 @@ def energy_budget(model: PINN, case: R2022Case, n_t: int = 120, dx: float = 10e-
         xs = torch.tensor(pts, dtype=torch.float64)
         with torch.no_grad():
             loss = loss_star(model(xs), case).numpy().ravel() * case.flux_scale
-        if case.source == "surface":
-            q = laser_flux_star(xs, case).numpy().ravel() * case.flux_scale
-            F_in.append(float(q.sum() * dA))
+        q = laser_flux_star(xs, case).numpy().ravel() * case.flux_scale
+        F_in.append(float(q.sum() * dA))
         F_top.append(float(loss.sum() * dA))
     trap = getattr(np, "trapezoid", None) or np.trapz
-    if case.source == "surface":
-        E_in = float(trap(F_in, ts))
-    else:
-        # nguồn thể tích: ∫ q dV = ηP·(t_end − ramp/(2v)) (đoạn khởi động làm giảm một nửa thời gian ramp)
-        E_in = case.absorptivity * case.power * (case.t_end - case.ramp_length / (2 * case.speed))
+    E_in = float(trap(F_in, ts))
     E_top = float(trap(F_top, ts))
     # bên và đáy: thông lượng ra = k·∂T/∂n (T = T_amb + T_scale·θ), tính bằng autograd trên lưới mặt
     E_bot, E_side = [], []
@@ -203,10 +198,9 @@ def main() -> None:
     ap.add_argument("--device", default="cpu")
     ap.add_argument("--surface", choices=["flux", "pinned", "hard"], default="flux")
     ap.add_argument("--hard-delta", type=float, default=10e-6)
-    ap.add_argument("--source", choices=["surface", "cone"], default="surface")
     ap.add_argument("--side-bc", choices=["adiabatic", "robin"], default="adiabatic")
     args = ap.parse_args()
-    case = R2022Case(surface=args.surface, hard_delta=args.hard_delta, source=args.source, side_bc=args.side_bc)
+    case = R2022Case(surface=args.surface, hard_delta=args.hard_delta, side_bc=args.side_bc)
     ck = torch.load(args.ckpt, map_location=args.device, weights_only=False)
     model = PINN(case).double()
     model.load_state_dict(ck["model_state_dict"])
@@ -216,7 +210,7 @@ def main() -> None:
     melt = melt_metrics(model, case)
     energy = energy_budget(model, case)
     temps = temperature_summary(model, case)
-    spot = laser_spot_residual(model, case) if case.source == "surface" else {"note": "không áp dụng: nguồn thể tích"}
+    spot = laser_spot_residual(model, case)
     summary = {"case": "R2022 300 W, 1.75 m/s, r_b 50 µm, α 0.4, bulk + bột phẳng 60 µm, Bảng 5 (L_v Cook)",
                "ckpt": args.ckpt, "melt_pool": {k: v for k, v in melt.items() if k != "series"},
                "melt_pool_series": melt["series"], "energy": energy, "temperature": temps,

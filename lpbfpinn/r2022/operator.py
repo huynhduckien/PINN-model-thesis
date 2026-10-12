@@ -75,8 +75,6 @@ def pde_residual(theta_fn, xs: torch.Tensor, case: R2022Case) -> torch.Tensor:
     kap_z = _grad(kap, xs)[:, 2:3]
     g = heat_capacity(xs[:, 2:3], case)
     res = g * th_t - (kap * (th_xx + th_yy + th_zz) + kap_z * g1[:, 2:3])
-    if case.source == "cone":
-        res = res - cone_source_star(xs, case)
     return res
 
 
@@ -86,8 +84,7 @@ def top_residual(theta_fn, xs: torch.Tensor, case: R2022Case) -> torch.Tensor:
     th = theta_fn(xs)
     th_z = _grad(th, xs)[:, 2:3]
     kap = kappa(xs[:, 2:3], case)
-    laser = 0.0 if case.source == "cone" else laser_flux_star(xs, case)
-    return kap * th_z - (laser - loss_star(th, case))
+    return kap * th_z - (laser_flux_star(xs, case) - loss_star(th, case))
 
 
 def face_residual(theta_fn, xs: torch.Tensor, axis: int, case: R2022Case | None = None) -> torch.Tensor:
@@ -166,32 +163,6 @@ class HardPinned(torch.nn.Module):
         H = hard_weight(spot_distance(xs, self.case), self.case.hard_delta)
         return theta_bc(xs, self.case) * (1.0 - H) + self.model(xs) * H
 
-
-def cone_radius(z: torch.Tensor, case: R2022Case) -> torch.Tensor:
-    """Bán kính nón hai đoạn theo độ sâu z (m), prereg 27.12."""
-    z_t = case.z_max
-    z_i = z_t - case.cone_H_u
-    z_b = z_i - case.cone_H_l
-    lower = case.cone_r_i - (case.cone_r_i - case.cone_r_b) * (z_i - z) / (z_i - z_b)
-    upper = case.cone_r_t - (case.cone_r_t - case.cone_r_i) * (z_t - z) / (z_t - z_i)
-    return torch.where(z < z_i, lower, upper)
-
-
-def cone_source_star(xs: torch.Tensor, case: R2022Case) -> torch.Tensor:
-    """Q* của nguồn thể tích hình nón (prereg 27.12): ∫ q dV = ηP·ramp."""
-    x = case.x_min + xs[:, 0:1] * case.L_c
-    y = xs[:, 1:2] * case.L_c
-    z = xs[:, 2:3] * case.L_c
-    t = xs[:, 3:4] * case.t_c
-    x_l = case.x_start + case.speed * t
-    ramp = torch.clamp(t / (case.ramp_length / case.speed), max=1.0)
-    H = case.cone_H_u + case.cone_H_l
-    z_b = case.z_max - H
-    inside = ((z >= z_b) & (z <= case.z_max)).to(xs.dtype)
-    r = torch.clamp(cone_radius(z, case), min=1e-9)
-    rho2 = (x - x_l) ** 2 + (y - case.y_tip) ** 2
-    q = (case.absorptivity * case.power * ramp / H) * (3.0 / (math.pi * r**2)) * torch.exp(-3.0 * rho2 / r**2) * inside
-    return q * case.L_c**2 / (case.k_c * case.T_scale)
 
 
 def energy_penalty(theta_fn, case: R2022Case, pts: dict) -> torch.Tensor:
