@@ -120,8 +120,8 @@
   "temperature": {
     "T_max_grid_K": 2727.893894700406,
     "t_at_T_max_s": 0.0006857142857142858,
-    "T_surface_centre_max_K": 2430.14463271485,
-    "T_50um_centre_max_K": 341.82042466992965
+    "T_surface_centre_max_K": 2431.538245121086,
+    "T_50um_centre_max_K": 354.09469634034025
   },
   "top_bc_laser_spot": {
     "rms_K": 73.26087857505449,
