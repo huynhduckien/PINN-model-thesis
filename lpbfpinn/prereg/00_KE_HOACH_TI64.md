@@ -408,7 +408,7 @@ Kết quả so sánh sẽ ghi vào `results/fv_v24/` trước khi kết luận.
 
 **26.7 Tiêu chí chấp nhận (sửa theo đề xuất của thiết kế, cần người nghiên cứu xác nhận).**
 - Mặt trên: sai số tương đối ≤ 2% so với FV, tại thời điểm cực đại.
-- Điểm B: tiêu chí 2% tính trên nhiệt độ tuyệt đối cho sai số khoảng 6 K tại 300 K, quá khắt khe vì nhiệt tăng tại B chỉ 12 K. Đề xuất: sai số tuyệt đối ≤ 2 K trên mức tăng so với môi trường (ΔT_B), hoặc sai số ≤ 2% của ΔT_B. Điều này phải được xác nhận vì tiêu chí mục 25.2 đã ghi là "2% tại B".
+- **Điểm B (đã duyệt ngày 2026-10-12): sai số tuyệt đối ≤ 2 K hoặc 2% của ΔT_B = T_B − T_amb, lấy giá trị lớn hơn.** Lý do: tiêu chí cũ tính trên nhiệt độ tuyệt đối (2% của 300 K ≈ 6 K) quá lớn so với mức tăng 12 K tại B. Bản gốc của đề xuất: cho sai số khoảng 6 K tại 300 K, quá khắt khe vì nhiệt tăng tại B chỉ 12 K. Đề xuất: sai số tuyệt đối ≤ 2 K trên mức tăng so với môi trường (ΔT_B), hoặc sai số ≤ 2% của ΔT_B. Điều này phải được xác nhận vì tiêu chí mục 25.2 đã ghi là "2% tại B".
 - Cân bằng năng lượng của surrogate ≤ 5%.
 
 **26.8 Rủi ro và giới hạn.**
