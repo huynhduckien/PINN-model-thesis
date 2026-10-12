@@ -17,7 +17,7 @@ from pathlib import Path
 import torch
 
 from .case import R2022Case
-from .operator import HardPinned, energy_penalty, face_residual, heat_capacity, pde_residual, pinned_residual, spot_mask, top_residual, kappa
+from .operator import HardPinned, cone_source_star, energy_penalty, face_residual, heat_capacity, pde_residual, pinned_residual, spot_mask, top_residual, kappa
 
 
 class PINN(torch.nn.Module):
@@ -45,7 +45,7 @@ class PINN(torch.nn.Module):
 
 
 def sample(case: R2022Case, n_domain: int, n_near: int, n_top: int, n_face: int, gen: torch.Generator,
-           device: torch.device, n_band: int = 0) -> dict[str, torch.Tensor]:
+           device: torch.device, n_band: int = 0, n_core: int = 0) -> dict[str, torch.Tensor]:
     """Điểm huấn luyện: miền đều, miền quanh vết laser, mặt trên, và các mặt bên."""
     Lx, Ly, Lz, Tmax = case.domain_star
     v_star = case.speed * case.t_c / case.L_c
@@ -67,6 +67,15 @@ def sample(case: R2022Case, n_domain: int, n_near: int, n_top: int, n_face: int,
     dom = torch.cat([u(n_domain, 0, Lx), u(n_domain, 0, Ly), u(n_domain, 0, Lz), u(n_domain, 0, Tmax)], dim=1)
     z_near = Lz - 2.0 if case.source == "surface" else (case.cone_H_u + case.cone_H_l) / case.L_c
     dom = torch.cat([dom, near_laser(n_near, Lz - z_near, Lz)])
+    if case.source == "cone" and n_core > 0:
+        # lõi nguồn hình nón (prereg 27.14): z đều trong nón, (x, y) đều trong ±r(z) quanh tâm laser
+        from .operator import cone_radius
+        t_c = u(n_core, 0.0, Tmax)
+        z_phys = torch.rand(n_core, 1, generator=gen, dtype=torch.float64) * (case.cone_H_u + case.cone_H_l) + (case.z_max - case.cone_H_u - case.cone_H_l)
+        r_star = cone_radius(z_phys, case) / case.L_c
+        x_core = (x0_star + v_star * t_c + (2 * torch.rand(n_core, 1, generator=gen, dtype=torch.float64) - 1) * r_star).clamp(0.0, Lx)
+        y_core = (case.y_tip / case.L_c + (2 * torch.rand(n_core, 1, generator=gen, dtype=torch.float64) - 1) * r_star).clamp(0.0, Ly)
+        dom = torch.cat([dom, torch.cat([x_core, y_core, z_phys / case.L_c, t_c], dim=1)])
     top_uniform = torch.cat([u(n_top, 0, Lx), u(n_top, 0, Ly), torch.full((n_top, 1), Lz, dtype=torch.float64),
                              u(n_top, 0, Tmax)], dim=1)
     # vùng xa vết laser: mặt trên với y ≥ y_tip + 100 µm (prereg 27.9 bổ sung, vùng nung sai)
@@ -111,9 +120,11 @@ def loss_terms(model: PINN, case: R2022Case, pts: dict[str, torch.Tensor]) -> di
         # PDE chuẩn hóa theo đỉnh nguồn Q* tại đáy nón (prereg 27.12, bổ sung)
         q_pk = 3.0 * case.absorptivity * case.power / ((case.cone_H_u + case.cone_H_l) * math.pi * case.cone_r_b**2)
         q_pk_star = q_pk * case.L_c**2 / (case.k_c * case.T_scale)
+        # trọng số PDE theo mức nguồn tại điểm (prereg 27.14), không tính đạo hàm qua w
+        w = 1.0 + (cone_source_star(pts["dom"], case) / q_pk_star).detach()
         r_fx = face_residual(model, pts["fx"], axis=0)
         r_fy = face_residual(model, pts["fy"], axis=1)
-        return {"pde": ((r_pde / q_pk_star) ** 2).mean(), "top": top,
+        return {"pde": (((r_pde / q_pk_star) ** 2) * w).mean(), "top": top,
                 "face": (r_fx ** 2).mean() + (r_fy ** 2).mean()}
     if case.surface == "pinned":
         # kẹp T = T_b trong vết laser (prereg 27.9), thông lượng ngoài vết laser
@@ -171,6 +182,8 @@ def main() -> None:
     ap.add_argument("--w-top", type=float, default=1.0)
     ap.add_argument("--w-face", type=float, default=1.0)
     ap.add_argument("--seed", type=int, default=0)
+    ap.add_argument("--lv0", type=float, default=9.0e5, help="L_v(0) J/kg; 9.0e5 theo Bảng 5, 9.83e6 theo Cook (kiểm tra độ nhạy)")
+    ap.add_argument("--n-core", type=int, default=0, help="điểm lõi nguồn hình nón (prereg 27.14)")
     ap.add_argument("--w-pde", type=float, default=1.0, help="trọng số hạng PDE (prereg 27.13 bổ sung)")
     ap.add_argument("--w-energy", type=float, default=0.0, help="trọng số L_E (prereg 27.13), 0 = tắt")
     ap.add_argument("--n-energy", type=int, default=400, help="số điểm Monte Carlo cho mỗi nhóm của L_E")
@@ -187,7 +200,7 @@ def main() -> None:
 
     torch.manual_seed(args.seed)
     dev = torch.device(args.device)
-    case = R2022Case(surface=args.surface, hard_delta=args.hard_delta, source=args.source)
+    case = R2022Case(surface=args.surface, hard_delta=args.hard_delta, source=args.source, L_v0=args.lv0)
     model = PINN(case).to(dev).double()
     opt = torch.optim.Adam(model.parameters(), lr=args.lr)
     gen = torch.Generator().manual_seed(args.seed)
@@ -198,7 +211,8 @@ def main() -> None:
     for it in range(args.iters):
         frac = continuation_fraction(it, args.phase1_iters, args.ramp_iters)
         case_it = replace(case, h_c=case.h_c * frac, emissivity=case.emissivity * frac)
-        pts = sample(case, args.n_domain, args.n_near, args.n_top, args.n_face, gen, dev, n_band=args.n_band)
+        pts = sample(case, args.n_domain, args.n_near, args.n_top, args.n_face, gen, dev, n_band=args.n_band,
+                     n_core=args.n_core)
         terms = loss_terms(model, case_it, pts)
         loss = args.w_pde * terms["pde"] + args.w_top * terms["top"] + args.w_face * terms["face"]
         if args.w_energy > 0:
