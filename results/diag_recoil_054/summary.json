@@ -1,0 +1,28 @@
+{
+  "A_p_Pa": 54715.5,
+  "B_p": 15.005607765788762,
+  "beta_R": 0.18,
+  "energy_rel": 1.4037186888845486e-13,
+  "device": "cuda",
+  "dx_um": 10.0,
+  "surface": {
+    "tmax": {
+      "T_max_surface_K": 4636.947570096679,
+      "ratio_max": 96.6036650874161,
+      "ratio_median_above_Tboil": 40.409348960793324,
+      "fraction_above_Tboil": 0.22105263157894736,
+      "fraction_ratio_gt_1": 0.22035087719298246,
+      "x_at_ratio_max_um": -515.0,
+      "y_at_ratio_max_um": 115.0
+    },
+    "final": {
+      "T_max_surface_K": 4623.15231681198,
+      "ratio_max": 93.06053706662021,
+      "ratio_median_above_Tboil": 13.694327110616715,
+      "fraction_above_Tboil": 0.015438596491228071,
+      "fraction_ratio_gt_1": 0.013333333333333334,
+      "x_at_ratio_max_um": 645.0000000000002,
+      "y_at_ratio_max_um": 105.0
+    }
+  }
+}
