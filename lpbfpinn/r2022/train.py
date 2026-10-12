@@ -45,7 +45,7 @@ class PINN(torch.nn.Module):
 
 
 def sample(case: R2022Case, n_domain: int, n_near: int, n_top: int, n_face: int, gen: torch.Generator,
-           device: torch.device, n_band: int = 0, n_core: int = 0) -> dict[str, torch.Tensor]:
+           device: torch.device, n_band: int = 0, n_core: int = 0, sobol: bool = False) -> dict[str, torch.Tensor]:
     """Điểm huấn luyện: miền đều, miền quanh vết laser, mặt trên, và các mặt bên."""
     Lx, Ly, Lz, Tmax = case.domain_star
     v_star = case.speed * case.t_c / case.L_c
@@ -64,7 +64,13 @@ def sample(case: R2022Case, n_domain: int, n_near: int, n_top: int, n_face: int,
         z = u(n, zlo, zhi)
         return torch.cat([x, y, z, t], dim=1)
 
-    dom = torch.cat([u(n_domain, 0, Lx), u(n_domain, 0, Ly), u(n_domain, 0, Lz), u(n_domain, 0, Tmax)], dim=1)
+    if sobol:
+        # Sobol có xáo trộn, mật độ theo z dày hơn gần mặt trên: z = L_z(1 − U²) (prereg 27.15)
+        seed = int(torch.randint(0, 2**31 - 1, (1,), generator=gen))   # seed đổi theo vòng, không lặp cùng batch
+        s = torch.quasirandom.SobolEngine(4, scramble=True, seed=seed).draw(n_domain).double()
+        dom = torch.stack([Lx * s[:, 0], Ly * s[:, 1], Lz * (1.0 - s[:, 2] ** 2), Tmax * s[:, 3]], dim=1)
+    else:
+        dom = torch.cat([u(n_domain, 0, Lx), u(n_domain, 0, Ly), u(n_domain, 0, Lz), u(n_domain, 0, Tmax)], dim=1)
     z_near = Lz - 2.0 if case.source == "surface" else (case.cone_H_u + case.cone_H_l) / case.L_c
     dom = torch.cat([dom, near_laser(n_near, Lz - z_near, Lz)])
     if case.source == "cone" and n_core > 0:
@@ -107,8 +113,8 @@ def loss_terms(model: PINN, case: R2022Case, pts: dict[str, torch.Tensor]) -> di
         r_flux = top_residual(field, pts["top"], case) / theta_b
         top = ((r_flux ** 2) * (~spot)).sum() / (~spot).sum().clamp(min=1)
         r_pde = pde_residual(field, pts["dom"], case)
-        r_fx = face_residual(field, pts["fx"], axis=0)
-        r_fy = face_residual(field, pts["fy"], axis=1)
+        r_fx = face_residual(field, pts["fx"], axis=0, case=case if case.side_bc == "robin" else None)
+        r_fy = face_residual(field, pts["fy"], axis=1, case=case if case.side_bc == "robin" else None)
         return {"pde": (r_pde ** 2).mean(), "top": top,
                 "face": (r_fx ** 2).mean() + (r_fy ** 2).mean()}
     r_pde = pde_residual(model, pts["dom"], case)
@@ -122,8 +128,8 @@ def loss_terms(model: PINN, case: R2022Case, pts: dict[str, torch.Tensor]) -> di
         q_pk_star = q_pk * case.L_c**2 / (case.k_c * case.T_scale)
         # trọng số PDE theo mức nguồn tại điểm (prereg 27.14), không tính đạo hàm qua w
         w = 1.0 + (cone_source_star(pts["dom"], case) / q_pk_star).detach()
-        r_fx = face_residual(model, pts["fx"], axis=0)
-        r_fy = face_residual(model, pts["fy"], axis=1)
+        r_fx = face_residual(model, pts["fx"], axis=0, case=case if case.side_bc == "robin" else None)
+        r_fy = face_residual(model, pts["fy"], axis=1, case=case if case.side_bc == "robin" else None)
         return {"pde": (((r_pde / q_pk_star) ** 2) * w).mean(), "top": top,
                 "face": (r_fx ** 2).mean() + (r_fy ** 2).mean()}
     if case.surface == "pinned":
@@ -139,8 +145,8 @@ def loss_terms(model: PINN, case: R2022Case, pts: dict[str, torch.Tensor]) -> di
     else:
         r_top = top_residual(model, pts["top"], case) / peak_star
         top = (r_top ** 2).mean()
-    r_fx = face_residual(model, pts["fx"], axis=0)
-    r_fy = face_residual(model, pts["fy"], axis=1)
+    r_fx = face_residual(model, pts["fx"], axis=0, case=case if case.side_bc == "robin" else None)
+    r_fy = face_residual(model, pts["fy"], axis=1, case=case if case.side_bc == "robin" else None)
     return {"pde": (r_pde ** 2).mean(), "top": top,
             "face": (r_fx ** 2).mean() + (r_fy ** 2).mean()}
 
@@ -183,6 +189,8 @@ def main() -> None:
     ap.add_argument("--w-face", type=float, default=1.0)
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--lv0", type=float, default=9.0e5, help="L_v(0) J/kg; 9.0e5 theo Bảng 5, 9.83e6 theo Cook (kiểm tra độ nhạy)")
+    ap.add_argument("--side-bc", choices=["adiabatic", "robin"], default="adiabatic", help="prereg 27.15")
+    ap.add_argument("--sobol", action="store_true", help="lấy mẫu miền bằng Sobol (prereg 27.15)")
     ap.add_argument("--n-core", type=int, default=0, help="điểm lõi nguồn hình nón (prereg 27.14)")
     ap.add_argument("--w-pde", type=float, default=1.0, help="trọng số hạng PDE (prereg 27.13 bổ sung)")
     ap.add_argument("--w-energy", type=float, default=0.0, help="trọng số L_E (prereg 27.13), 0 = tắt")
@@ -200,7 +208,8 @@ def main() -> None:
 
     torch.manual_seed(args.seed)
     dev = torch.device(args.device)
-    case = R2022Case(surface=args.surface, hard_delta=args.hard_delta, source=args.source, L_v0=args.lv0)
+    case = R2022Case(surface=args.surface, hard_delta=args.hard_delta, source=args.source, L_v0=args.lv0,
+                     side_bc=args.side_bc)
     model = PINN(case).to(dev).double()
     opt = torch.optim.Adam(model.parameters(), lr=args.lr)
     gen = torch.Generator().manual_seed(args.seed)
@@ -212,7 +221,7 @@ def main() -> None:
         frac = continuation_fraction(it, args.phase1_iters, args.ramp_iters)
         case_it = replace(case, h_c=case.h_c * frac, emissivity=case.emissivity * frac)
         pts = sample(case, args.n_domain, args.n_near, args.n_top, args.n_face, gen, dev, n_band=args.n_band,
-                     n_core=args.n_core)
+                     n_core=args.n_core, sobol=args.sobol)
         terms = loss_terms(model, case_it, pts)
         loss = args.w_pde * terms["pde"] + args.w_top * terms["top"] + args.w_face * terms["face"]
         if args.w_energy > 0:

@@ -46,6 +46,13 @@ def laser_flux_star(xs: torch.Tensor, case: R2022Case) -> torch.Tensor:
     return q / case.flux_scale
 
 
+def side_loss_star(theta: torch.Tensor, case: R2022Case) -> torch.Tensor:
+    """Mất nhiệt mặt bên (đối lưu + bức xạ, không bay hơi), đơn vị không thứ nguyên (prereg 27.15)."""
+    T = case.T_amb + case.T_scale * theta
+    q = case.h_c * (T - case.T_amb) + case.emissivity * 5.670374419e-8 * (T**4 - case.T_amb**4)
+    return q / case.flux_scale
+
+
 def loss_star(theta: torch.Tensor, case: R2022Case) -> torch.Tensor:
     """Mất nhiệt bề mặt không thứ nguyên: (q_evap + đối lưu + bức xạ)/(k_c T_scale/L_c).
 
@@ -83,11 +90,22 @@ def top_residual(theta_fn, xs: torch.Tensor, case: R2022Case) -> torch.Tensor:
     return kap * th_z - (laser - loss_star(th, case))
 
 
-def face_residual(theta_fn, xs: torch.Tensor, axis: int) -> torch.Tensor:
-    """Biên bên (cách nhiệt): ∂θ/∂n = 0 trên mặt x* hoặc y* cố định."""
+def face_residual(theta_fn, xs: torch.Tensor, axis: int, case: R2022Case | None = None) -> torch.Tensor:
+    """Biên bên. Không có case: cách nhiệt ∂θ/∂n = 0. Có case: đối lưu–bức xạ (prereg 27.15).
+
+    Robin: dấu ở mặt min là +κ∂θ/∂n*, ở mặt max là −κ∂θ/∂n*, với mất nhiệt bên không có bay hơi.
+    """
     xs = xs.clone().requires_grad_(True)
     th = theta_fn(xs)
-    return _grad(th, xs)[:, axis:axis + 1]
+    d = _grad(th, xs)[:, axis:axis + 1]
+    if case is None:
+        return d
+    kap = kappa(xs[:, 2:3], case)
+    # mặt min (x* = 0 hoặc y* = 0) có pháp tuyến âm, mặt max có pháp tuyến dương; xác định bằng vị trí điểm
+    coord = xs[:, axis:axis + 1].detach()
+    length = (case.domain_star[0] if axis == 0 else case.domain_star[1])
+    sign = torch.where(coord < 0.5 * length, torch.ones_like(coord), -torch.ones_like(coord))
+    return sign * kap * d - side_loss_star(th, case)
 
 
 def spot_mask(xs: torch.Tensor, case: R2022Case) -> torch.Tensor:

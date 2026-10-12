@@ -53,6 +53,8 @@ class R2022Case:
     cone_r_b: float = 10e-6         # m, bán kính đáy
     cone_H_u: float = 40e-6         # m, chiều cao nón trên
     cone_H_l: float = 40e-6         # m, chiều cao nón dưới
+    # biên bên: "adiabatic" (mặc định) hoặc "robin" (đối lưu–bức xạ, prereg 27.15)
+    side_bc: str = "adiabatic"
 
     def __post_init__(self):
         if self.source not in ("surface", "cone"):

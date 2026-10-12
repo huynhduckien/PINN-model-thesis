@@ -189,3 +189,15 @@ def test_cone_requires_flux_surface():
     import pytest
     with pytest.raises(ValueError):
         R2022Case(source="cone", surface="pinned")
+
+
+def test_robin_side_residual_linear_field():
+    """θ = a·x* trên mặt x min: r = κ·a − side_loss(θ) (prereg 27.15)."""
+    from lpbfpinn.r2022.operator import face_residual, kappa, side_loss_star
+    case = R2022Case(side_bc="robin")
+    a = 0.05
+    lin = lambda p: a * p[:, 0:1]
+    xs = torch.tensor([[0.0, 0.3, 0.6, 0.5]], dtype=torch.float64)
+    r = float(face_residual(lin, xs, axis=0, case=case).detach())
+    expected = float(kappa(xs[:, 2:3], case)) * a - float(side_loss_star(torch.zeros(1, 1, dtype=torch.float64), case))
+    assert abs(r - expected) < 1e-9, (r, expected)
