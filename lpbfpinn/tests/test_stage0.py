@@ -12,7 +12,7 @@ def test_laser_surface_flux_integrates_to_absorbed_power():
     # tích phân thông lượng trên mặt (ramp đã bão hòa) = α_eff·P
     t = 550e-6 / PROC.speed  # s: tâm laser ở x = 0, sau đoạn khởi động
     xs = torch.linspace(-400e-6, 400e-6, 801, dtype=torch.float64)
-    ys = torch.linspace(-200e-6, 200e-6, 401, dtype=torch.float64)
+    ys = torch.linspace(0.0, 380e-6, 401, dtype=torch.float64)
     X, Y = torch.meshgrid(xs, ys, indexing="ij")
     q = laser_surface_flux(X, Y, torch.full_like(X, t))
     dA = float(xs[1] - xs[0]) * float(ys[1] - ys[0])

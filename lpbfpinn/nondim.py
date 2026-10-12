@@ -15,7 +15,7 @@ import numpy as np
 import torch
 
 from .materials import SIGMA_SB
-from .overhang import (CONST_PROPS, MAT, MS, PROC, T_END, X_END, X_MAX, X_MIN, X_START, Y_MAX, Z_MAX,
+from .overhang import (CONST_PROPS, MAT, MS, PROC, T_END, X_END, X_MAX, X_MIN, X_START, Y_MAX, Y_TIP, Z_MAX,
                        laser_surface_flux)
 from .physics import beer_lambert_source
 
@@ -72,7 +72,7 @@ class Scales:
 def source_star(sc: Scales, xs: torch.Tensor) -> torch.Tensor:
     """Q* của nguồn thể tích Beer–Lambert (cùng công thức với dimensional)."""
     x, y, z, t = sc.to_phys(xs)
-    q = beer_lambert_source(x, y, z, t, MS["alpha_eff"], MS["beta"], PROC, Z_MAX, X_START)
+    q = beer_lambert_source(x, y - Y_TIP, z, t, MS["alpha_eff"], MS["beta"], PROC, Z_MAX, X_START)
     return q * sc.source_scale
 
 
@@ -137,7 +137,7 @@ def build_stage0_star(sc: Scales = Scales(), n_domain: int = 5000, n_bnd: int = 
     t = rng.uniform(0.0, tmax, n_anchor)
     xc = (X_START - X_MIN) / sc.L_c + oh_speed_star(sc) * t
     xa = np.clip(xc + rng.uniform(-4, 4, n_anchor), 0, Lx)
-    ya = np.clip(rng.uniform(0, 4, n_anchor), 0, Ly)
+    ya = np.clip(Y_TIP / sc.L_c + rng.uniform(-4, 4, n_anchor), 0, Ly)
     za = np.clip(Lz - rng.uniform(0, 3 * 28e-6 / sc.L_c, n_anchor), 0, Lz)
     anchors = np.column_stack([xa, ya, za, t])
     data = dde.data.TimePDE(gt, pde, bcs, num_domain=n_domain, num_boundary=n_bnd,

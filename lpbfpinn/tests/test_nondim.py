@@ -34,8 +34,8 @@ def _sample_star(n=40, seed=3, z_top=False):
     z_u = np.full(n, Lz) if z_top else rng.uniform(0, Lz, n)
     xl = (X_START - X_MIN) / SC.L_c + oh.PROC.speed * SC.t_c / SC.L_c * t_u
     x_u[:m] = np.clip(xl[:m] + rng.uniform(-1.5, 1.5, m), 0, Lx)
-    # tâm chùm ở y = 0 theo công thức beer_lambert_source (y² không trừ tâm)
-    y_u[:m] = np.clip(rng.uniform(0.0, 1.5, m), 0, Ly)
+    # tâm chùm tại y = Y_TIP
+    y_u[:m] = np.clip(oh.Y_TIP / SC.L_c + rng.uniform(-1.5, 1.5, m), 0, Ly)
     if not z_top:
         z_u[:m] = rng.uniform(Lz - 1.5, Lz, m)
     xs = np.column_stack([x_u, y_u, z_u, t_u])

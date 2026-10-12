@@ -36,7 +36,8 @@ T_S = 1e-4
 X_MIN, X_MAX = -750e-6, 750e-6
 Y_MAX = 380e-6
 Z_MAX = 240e-6
-Z_POW = 180e-6          # đỉnh phần rắn phẳng; mặt treo: z + y = Z_POW
+Z_POW = 180e-6          # đỉnh phần rắn phẳng; mặt treo: z + (y − Y_TIP) = Z_POW
+Y_TIP = 110e-6          # y của đầu nhọn phần treo và tâm đường quét (Figure 4b bài báo L-PBF overhang)
 X_START = -550e-6       # bắt đầu quét (cấu hình cũ: margin 200 µm)
 X_END = 650e-6          # kết thúc quét (margin 100 µm)
 S_T = 1000.0            # thang nhiệt độ của đầu ra mạng (K)
@@ -88,7 +89,7 @@ def lookup_M(inputs: torch.Tensor, grid: dict) -> torch.Tensor:
 
 def powder_index(y: torch.Tensor, z: torch.Tensor) -> torch.Tensor:
     """Chỉ số bột s ∈ [0,1] theo hình học nêm (y, z tính bằng mét)."""
-    d = torch.maximum(z - Z_POW, (Z_POW - z - y) / math.sqrt(2.0))
+    d = torch.maximum(z - Z_POW, (Z_POW - z - (y - Y_TIP)) / math.sqrt(2.0))
     a = POW.interface_width / 2.197
     return 0.5 * (1.0 + torch.tanh(d / a))
 
@@ -114,7 +115,7 @@ def focus_points(n: int, rng: np.random.Generator, tau0: float = 0.0, tau1: floa
     x_l = np.full_like(tau, x_fixed) if x_fixed is not None else X_START + PROC.speed * tau * T_S
     x = rng.uniform(x_l - R_FOCUS, x_l + R_FOCUS)
     x = np.clip(x, X_MIN, X_MAX)
-    y = rng.uniform(0.0, R_FOCUS, n)
+    y = np.clip(rng.uniform(Y_TIP - R_FOCUS, Y_TIP + R_FOCUS, n), 0.0, Y_MAX)
     z = rng.uniform(Z_MAX - Z_FOCUS, Z_MAX, n)
     return np.column_stack([x / L_S, y / L_S, z / L_S, tau])
 
@@ -130,7 +131,7 @@ def laser_surface_flux(x_m, y_m, t_m):
     """Thông lượng laser đưa vào trên mặt trên (W/m²); tích phân = α_eff·P(t), cùng ramp với nguồn thể tích."""
     ramp = torch.clamp(t_m / (PROC.ramp_length / PROC.speed), max=1.0)
     P = PROC.power * ramp
-    beam = torch.exp(-2.0 * ((x_m - (X_START + PROC.speed * t_m)) ** 2 + y_m**2) / PROC.r_b**2)
+    beam = torch.exp(-2.0 * ((x_m - (X_START + PROC.speed * t_m)) ** 2 + (y_m - Y_TIP) ** 2) / PROC.r_b**2)
     return (2.0 * MS["alpha_eff"] * P / (math.pi * PROC.r_b**2)) * beam
 
 
@@ -159,10 +160,10 @@ def pde_terms(x, T, grid: dict, source_scale: float = 1.0, x_fixed: float | None
     if laser != "volume":
         q = torch.zeros_like(T)
     elif x_fixed is None:
-        q = beer_lambert_source(x_m, y_m, z_m, t_m, MS["alpha_eff"], MS["beta"], PROC, Z_MAX, X_START)
+        q = beer_lambert_source(x_m, y_m - Y_TIP, z_m, t_m, MS["alpha_eff"], MS["beta"], PROC, Z_MAX, X_START)
     else:
         # laser đứng yên tại x_fixed, công suất đầy đủ (không có đoạn khởi động): cùng dạng Beer–Lambert
-        beam = torch.exp(-2.0 * ((x_m - x_fixed) ** 2 + y_m**2) / PROC.r_b**2)
+        beam = torch.exp(-2.0 * ((x_m - x_fixed) ** 2 + (y_m - Y_TIP) ** 2) / PROC.r_b**2)
         q = (2.0 * MS["alpha_eff"] * PROC.power / (math.pi * PROC.r_b**2)) * beam * MS["beta"] * torch.exp(
             -MS["beta"] * (Z_MAX - z_m))
     return C * Tt, div, source_scale * q

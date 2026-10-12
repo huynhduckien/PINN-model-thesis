@@ -9,10 +9,11 @@ from lpbfpinn.overhang import powder_index
 
 
 def test_wedge_powder_index_matches_geometry():
-    # rắn: z ≤ 180 µm và z + y ≥ 180 µm; bột ở các vùng còn lại
+    # rắn: z ≤ 180 µm và z + (y − Y_TIP) ≥ 180 µm; bột ở các vùng còn lại (y đo từ đầu nhọn)
+    from lpbfpinn.overhang import Y_TIP
     y = torch.tensor([30e-6, 30e-6, 150e-6, 150e-6, 300e-6], dtype=torch.float64)
     z = torch.tensor([145e-6, 160e-6, 25e-6, 40e-6, 200e-6], dtype=torch.float64)
-    s = powder_index(y, z).numpy()
+    s = powder_index(y + Y_TIP, z).numpy()
     assert s[0] > 0.5          # dưới mặt treo (z + y = 175 < 180): bột
     assert s[1] < 0.5          # trên mặt treo, trong rắn (z + y = 190 ≥ 180, z ≤ 180): rắn
     assert s[2] > 0.5          # dưới mặt treo tại y = 150 (z + y = 175): bột
@@ -69,7 +70,8 @@ def test_focus_points_lie_near_laser_at_their_time():
     x_l = oh.X_START + oh.PROC.speed * tau * oh.T_S
     inside_x = (np.abs(x_m - x_l) <= oh.R_FOCUS + 1e-12) | (x_m == oh.X_MIN) | (x_m == oh.X_MAX)
     assert inside_x.all()
-    assert (y_m >= 0).all() and (y_m <= oh.R_FOCUS + 1e-12).all()
+    assert (y_m >= 0).all() and (y_m <= oh.Y_MAX).all()
+    assert (np.abs(y_m - oh.Y_TIP) <= oh.R_FOCUS + 1e-12).all()
     assert (z_m >= oh.Z_MAX - oh.Z_FOCUS - 1e-12).all() and (z_m <= oh.Z_MAX + 1e-12).all()
 
 
