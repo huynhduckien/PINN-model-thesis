@@ -68,6 +68,35 @@ def melt_metrics(model: PINN, case: R2022Case, n_times: int = 20, dx: float = 5e
             "series": rows}
 
 
+def temperature_summary(model: PINN, case: R2022Case, n_times: int = 8, dx: float = 10e-6) -> dict:
+    """T_max trên lưới trong toàn miền, và T tại tâm vết laser trên mặt và ở sâu 50 µm."""
+    Lx, Ly, Lz, _ = case.domain_star
+    gx = (np.arange(int(round((case.x_max - case.x_min) / dx))) + 0.5) * dx + case.x_min
+    gy = (np.arange(int(round(case.y_max / dx))) + 0.5) * dx
+    gz = (np.arange(int(round(case.z_max / dx))) + 0.5) * dx
+    G = np.array(np.meshgrid(gx, gy, gz, indexing="ij")).reshape(3, -1).T
+    tmax_all, t_at = -np.inf, None
+    surf_c, deep_c = [], []
+    for t_s in np.linspace(0.0, case.t_end, n_times):
+        x_l = case.x_start + case.speed * t_s
+        xs = torch.tensor(np.column_stack([(G[:, 0] - case.x_min) / case.L_c, G[:, 1] / case.L_c,
+                                           G[:, 2] / case.L_c, np.full(len(G), t_s / case.t_c)]),
+                          dtype=torch.float64)
+        T = _temp(model, case, xs).numpy().ravel()
+        if T.max() > tmax_all:
+            tmax_all, t_at = float(T.max()), t_s
+        near = (np.abs(G[:, 0] - x_l) < dx) & (np.abs(G[:, 1] - case.y_tip) < dx)
+        top = near & (np.abs(G[:, 2] - (case.z_max - dx / 2)) < dx / 2)
+        deep = near & (np.abs(G[:, 2] - (case.z_max - 50e-6)) < dx / 2)
+        if top.any():
+            surf_c.append(float(T[top].mean()))
+        if deep.any():
+            deep_c.append(float(T[deep].mean()))
+    return {"T_max_grid_K": tmax_all, "t_at_T_max_s": t_at,
+            "T_surface_centre_max_K": max(surf_c) if surf_c else None,
+            "T_50um_centre_max_K": max(deep_c) if deep_c else None}
+
+
 def energy_budget(model: PINN, case: R2022Case, n_t: int = 120, dx: float = 10e-6) -> dict:
     """Cân bằng năng lượng như chẩn đoán: E_in − E_top − E_đáy − E_bên − E_tích lũy."""
     Lx, Ly, Lz, _ = case.domain_star
@@ -144,14 +173,15 @@ def main() -> None:
     model.eval()
     melt = melt_metrics(model, case)
     energy = energy_budget(model, case)
+    temps = temperature_summary(model, case)
     summary = {"case": "R2022 300 W, 1.75 m/s, r_b 50 µm, α 0.4, bulk + bột phẳng 60 µm, Bảng 5 (L_v Cook)",
                "ckpt": args.ckpt, "melt_pool": {k: v for k, v in melt.items() if k != "series"},
-               "melt_pool_series": melt["series"], "energy": energy, "paper_reference": BOOK,
+               "melt_pool_series": melt["series"], "energy": energy, "temperature": temps, "paper_reference": BOOK,
                "note": "Chẩn đoán, không có ngưỡng đạt/không đạt (prereg mục 27.4)."}
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
     (out / "diag.json").write_text(json.dumps(summary, indent=2), encoding="utf-8")
-    print(json.dumps({"melt_pool": summary["melt_pool"], "energy": energy}, indent=2))
+    print(json.dumps({"melt_pool": summary["melt_pool"], "temperature": temps, "energy": energy}, indent=2))
 
 
 if __name__ == "__main__":
