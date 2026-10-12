@@ -140,7 +140,7 @@ def main() -> None:
         model.compile("L-BFGS", loss_weights=[1.0] * (1 + len(model.data.bcs)))
         lh, _ = model.train()
         model.save(str(out / "model_lbfgs"), verbose=0)
-        print("L-BFGS:", len(lh.steps), "bước")
+        print("L-BFGS: %d dong log" % len(lh.steps))  # ASCII: console Windows cp1252 khong in duoc tieng Viet
     Lx, Ly, Lz, tmax = sc.dimless_domain()
     res = {"iters": "load" if args.load else args.iters, "lbfgs": args.lbfgs, "T_c": sc.T_c, "L_c": sc.L_c,
            "t_c": sc.t_c, "hard_ic": args.hard_ic, "nonneg": args.nonneg, "laser": args.laser}
