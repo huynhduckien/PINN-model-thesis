@@ -626,3 +626,9 @@ Kết luận: hướng 2 riêng lẻ không đạt tiêu chí 27.24(e) trên GPU
 (g) Giới hạn đã biết. Nếu A1–A3 đều không đạt, kết luận là PINN thuần không tái tạo được thông lượng laser ở cấu hình này, và kết quả âm được báo cáo. Không dùng kẹp T hay dữ liệu mục tiêu để cứu kết quả.
 
 **27.25 (kết quả CPU A2, ngày 2026-10-13).** Lượt 2000 vòng Adam (không hướng 27.24, seed 0, miền thu nhỏ) rồi 50 bước L-BFGS trên 1000 điểm cố định. Adam kết thúc với hạng PDE 6.5·10⁻⁶ và hạng biên trên 0.0089. L-BFGS không tiến triển: loss 0.010334 ở bước đầu và giữ nguyên ở các bước sau, tức là đường tìm kiếm không giảm được loss. Diagnose: nhiệt cực đại 295.9 K, bề mặt 295.5 K, không vũng, sai số năng lượng 0.991. Không đạt tiêu chí 27.25(e). Kết quả cho thấy L-BFGS trên tập điểm cố định không thoát được nghiệm nguội trong cấu hình này.
+
+**27.25 (h) Hướng A4: trọng số thích nghi theo độ lớn gradient (ngày 2026-10-13, quyết định của người nghiên cứu).** Cờ `--adaptive-weights`, mặc định tắt. Mỗi `--adapt-every` vòng (mặc định 100), tính ‖∇θ L_k‖ cho ba hạng k ∈ {PDE, biên trên, biên bên}, rồi đặt w_k = max_j ‖∇L_j‖ / ‖∇L_k‖, làm trơn bằng EMA với hệ số `--adapt-alpha` (0.9). Hạng PDE được giữ ở trọng số tham chiếu nếu cần; trọng số PDE vẫn nhân với ramp của 27.24(b) nếu có. Cơ sở: Wang, Teng và Perdikaris (2021). Không đổi vật lý, không kẹp T, không dùng dữ liệu mục tiêu (27.4).
+
+Kiểm tra mã: lượt 300 vòng CPU cho w_top ≈ 574 và w_face ≈ 1032, w_pde = 1; loss cuối 4.68 do hạng biên trên nhân trọng số lớn. Hệ số biên bên lớn vì hạng biên bên rất nhỏ (~10⁻⁷). Đây chưa phải kết quả.
+
+Tiêu chí và quy trình như 27.25(e)–(g): thử CPU ngắn 2000 vòng trước, chỉ chạy GPU nếu đạt tín hiệu sớm.

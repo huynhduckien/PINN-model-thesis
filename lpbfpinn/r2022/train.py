@@ -174,6 +174,10 @@ def main() -> None:
                     help="tiếp tục hóa: số vòng đầu tắt đối lưu và bức xạ (h = ε = 0)")
     ap.add_argument("--ramp-iters", type=int, default=0,
                     help="tiếp tục hóa: số vòng tăng tuyến tính h và ε lên giá trị vật lý")
+    ap.add_argument("--adaptive-weights", action="store_true",
+                    help="trọng số thích nghi theo độ lớn gradient của từng hạng (prereg 27.25, A4)")
+    ap.add_argument("--adapt-every", type=int, default=100, help="cập nhật trọng số thích nghi mỗi bao nhiêu vòng")
+    ap.add_argument("--adapt-alpha", type=float, default=0.9, help="hệ số làm trơn (EMA) của trọng số thích nghi")
     ap.add_argument("--lbfgs-iters", type=int, default=0,
                     help="số bước L-BFGS sau Adam (mỗi bước tối đa 20 lần lặp), trên một tập điểm cố định (prereg 27.25, A2)")
     ap.add_argument("--out", default="results/pinn_r2022")
@@ -190,19 +194,30 @@ def main() -> None:
     out.mkdir(parents=True, exist_ok=True)
     hist = []
     t0 = time.time()
+    wts = {"pde": args.w_pde, "top": args.w_top, "face": args.w_face}
     for it in range(args.iters):
         frac = continuation_fraction(it, args.phase1_iters, args.ramp_iters)
         case_it = replace(case, h_c=case.h_c * frac, emissivity=case.emissivity * frac, phi_scale=frac)
         pts = sample(case, args.n_domain, args.n_near, args.n_top, args.n_face, gen, dev, n_band=args.n_band,
                      sobol=args.sobol)
         terms = loss_terms(model, case_it, pts, spot_balance=args.spot_balance)
+        if args.adaptive_weights and it >= args.pre_iters and it % args.adapt_every == 0:
+            # w_k = max_j ||∇L_j|| / ||∇L_k||, làm trơn bằng EMA (Wang và cộng sự 2021)
+            gn = {}
+            for k in ("pde", "top", "face"):
+                g = torch.autograd.grad(terms[k], list(model.parameters()), retain_graph=True, allow_unused=True)
+                gn[k] = torch.sqrt(sum((gi ** 2).sum() for gi in g if gi is not None)).item()
+            gmax = max(gn.values())
+            for k in wts:
+                target = gmax / max(gn[k], 1e-30)
+                wts[k] = args.adapt_alpha * wts[k] + (1.0 - args.adapt_alpha) * target
         if it < args.pre_iters:
             loss = terms["top"]
         else:
-            w_pde = args.w_pde
+            w_pde = wts["pde"]
             if args.pde_ramp_iters > 0:
                 w_pde *= min((it - args.pre_iters) / args.pde_ramp_iters, 1.0)
-            loss = w_pde * terms["pde"] + args.w_top * terms["top"] + args.w_face * terms["face"]
+            loss = w_pde * terms["pde"] + wts["top"] * terms["top"] + wts["face"] * terms["face"]
         if not torch.isfinite(loss):
             raise RuntimeError(f"loss không hữu hạn tại vòng {it}: {terms}")
         if args.lr_final is not None and args.decay_iters > 0:
@@ -216,7 +231,7 @@ def main() -> None:
         opt.step()
         if it % max(args.iters // 50, 1) == 0 or it == args.iters - 1:
             rec = {"iter": it, "frac": frac, "loss": float(loss), **{k: float(v) for k, v in terms.items()},
-                   "elapsed_s": time.time() - t0}
+                   **{f"w_{k}": float(v) for k, v in wts.items()}, "elapsed_s": time.time() - t0}
             hist.append(rec)
             print(json.dumps(rec), flush=True)
     if args.lbfgs_iters > 0:
