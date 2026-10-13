@@ -87,7 +87,7 @@ def sample(case: R2022Case, n_domain: int, n_near: int, n_top: int, n_face: int,
     return {k: v.to(device) for k, v in {"dom": dom, "top": top, "fx": fx, "fy": fy}.items()}
 
 
-def loss_terms(model: PINN, case: R2022Case, pts: dict[str, torch.Tensor]) -> dict[str, torch.Tensor]:
+def loss_terms(model: PINN, case: R2022Case, pts: dict[str, torch.Tensor], spot_balance: bool = False) -> dict[str, torch.Tensor]:
     """Các hạng loss, mỗi hạng chuẩn hóa theo thang đặc trưng của nó.
 
     - PDE: residual trong miền, thang 1 (θ_t và Laplacian cùng bậc khi dùng θ với T_scale).
@@ -120,7 +120,13 @@ def loss_terms(model: PINN, case: R2022Case, pts: dict[str, torch.Tensor]) -> di
         r_top = None
     else:
         r_top = top_residual(model, pts["top"], case) / peak_star
-        top = (r_top ** 2).mean()
+        if spot_balance:
+            # cân bằng hai nhóm: điểm trong vết laser và điểm ngoài vết, mỗi nhóm có trọng số 1/2 (prereg 27.24)
+            spot = spot_mask(pts["top"], case)
+            top = 0.5 * ((r_top ** 2) * spot).sum() / spot.sum().clamp(min=1) \
+                + 0.5 * ((r_top ** 2) * (~spot)).sum() / (~spot).sum().clamp(min=1)
+        else:
+            top = (r_top ** 2).mean()
     r_fx = face_residual(model, pts["fx"], axis=0, case=case if case.side_bc == "robin" else None)
     r_fy = face_residual(model, pts["fy"], axis=1, case=case if case.side_bc == "robin" else None)
     return {"pde": (r_pde ** 2).mean(), "top": top,
@@ -150,6 +156,10 @@ def main() -> None:
     ap.add_argument("--decay-iters", type=int, default=0)
     ap.add_argument("--w-top", type=float, default=1.0)
     ap.add_argument("--w-face", type=float, default=1.0)
+    ap.add_argument("--spot-balance", action="store_true",
+                    help="hạng biên trên cân bằng giữa điểm trong vết laser và điểm ngoài vết (prereg 27.24, hướng 1)")
+    ap.add_argument("--pde-ramp-iters", type=int, default=0,
+                    help="tăng tuyến tính trọng số PDE từ 0 lên w_pde trong N vòng sau pre-iters (prereg 27.24, hướng 2)")
     ap.add_argument("--pre-iters", type=int, default=0,
                     help="huấn luyện biên trên trước: số vòng đầu chỉ tối ưu hạng biên trên, rồi mới cân bằng với PDE và biên")
     ap.add_argument("--seed", type=int, default=0)
@@ -183,11 +193,14 @@ def main() -> None:
         case_it = replace(case, h_c=case.h_c * frac, emissivity=case.emissivity * frac, phi_scale=frac)
         pts = sample(case, args.n_domain, args.n_near, args.n_top, args.n_face, gen, dev, n_band=args.n_band,
                      sobol=args.sobol)
-        terms = loss_terms(model, case_it, pts)
+        terms = loss_terms(model, case_it, pts, spot_balance=args.spot_balance)
         if it < args.pre_iters:
             loss = terms["top"]
         else:
-            loss = args.w_pde * terms["pde"] + args.w_top * terms["top"] + args.w_face * terms["face"]
+            w_pde = args.w_pde
+            if args.pde_ramp_iters > 0:
+                w_pde *= min((it - args.pre_iters) / args.pde_ramp_iters, 1.0)
+            loss = w_pde * terms["pde"] + args.w_top * terms["top"] + args.w_face * terms["face"]
         if not torch.isfinite(loss):
             raise RuntimeError(f"loss không hữu hạn tại vòng {it}: {terms}")
         if args.lr_final is not None and args.decay_iters > 0:

@@ -578,3 +578,19 @@ Ba bài: Yuan và cộng sự 2025 (IJAMT, PINN 3D L-DED, đa đường, dữ li
 (c) Không thêm hệ số hiệu chỉnh bay hơi để khớp kích thước vũng. Đối chứng Cook với hệ số lớn, nếu có, chỉ để kiểm tra độ nhạy và phải ghi là đối chứng, không phải cấu hình chính.
 
 (d) Báo cáo: kích thước vũng và nhiệt cực đại của R2022 được so với Bảng 3 nhưng không kết luận là khớp hay không khớp mà không nêu giới hạn này.
+
+**27.24 Thử hai hướng cho vấn đề PDE kéo nghiệm về trạng thái nguội (ngày 2026-10-13, quyết định của người nghiên cứu).**
+
+Quan sát nền: lượt CPU 4000 vòng (2000 vòng biên trên trước, rồi cả hai hạng) cho nhiệt cực đại 455 K và không có vũng. Khi PDE bật ở vòng 2000, hạng PDE là 44.5 và sau đó giảm về 10⁻⁴, trong khi hạng biên trên quay từ 5·10⁻⁵ lên 0.0073. Giả thuyết: hạng biên trên trung bình trên tất cả điểm mặt trên, nên các điểm trong vết laser (một phần nhỏ) bị pha loãng, và mạng được thưởng khi giữ θ nhỏ để thỏa PDE.
+
+(a) Hướng 1, `--spot-balance`: hạng biên trên = ½·trung bình r² trên điểm trong vết laser + ½·trung bình r² trên điểm ngoài vết. Không đổi vật lý, không dùng kẹp T.
+
+(b) Hướng 2, `--pde-ramp-iters N`: trọng số PDE tăng tuyến tính từ 0 lên w_pde trong N vòng sau `--pre-iters` (mặc định 0). Không đổi vật lý.
+
+(c) Lượt GPU (cấu hình chính, seed 0, 20 000 vòng, lr 10⁻³ → 10⁻⁴ trong 5000 vòng cuối, không kẹp T, không bay hơi, T_amb 293 K, biên bên cách nhiệt). Lượt đối chứng là `results/pinn_r2022_flux_T293` (mục 27.22, chưa chạy xong):
+- A (hướng 1): `python -m lpbfpinn.r2022.train --device cuda --surface flux --side-bc adiabatic --seed 0 --iters 20000 --lr 1e-3 --lr-final 1e-4 --decay-iters 5000 --spot-balance --out results/pinn_r2022_flux_spotbal`
+- B (hướng 2): `python -m lpbfpinn.r2022.train --device cuda --surface flux --side-bc adiabatic --seed 0 --iters 20000 --lr 1e-3 --lr-final 1e-4 --decay-iters 5000 --pde-ramp-iters 5000 --out results/pinn_r2022_flux_pderamp`
+
+(d) Thử ngắn trên CPU (600 vòng, lấy mẫu nhỏ) đã chạy để kiểm tra mã: cả hai tùy chọn chạy được, hạng biên trên trong vết laser hiện lớn hơn khi cân bằng (0.05 so với 0.0066), nghĩa là sai số trong vết laser không còn bị che. Đây không phải kết quả.
+
+(e) Tiêu chí đánh giá (mục 27.4 không đổi): một hướng được coi là có ích nếu, sau diagnose trên lượt GPU, (i) nhiệt cực đại trên lưới vượt T_sol = 1877 K, (ii) xuất hiện vũng nóng chảy (rộng và sâu lớn hơn 0), (iii) hạng biên trên trong vết laser (rms/peak) và hạng PDE đều nhỏ. Kết quả so với Bảng 3 được báo cáo đầy đủ, không chọn lượt theo kích thước mục tiêu.
