@@ -1,0 +1,31 @@
+{
+ "tag": "gpu_lam100_W100_10k",
+ "times": [
+  {
+   "t_s": 0.0004,
+   "laser_x_um": 400.0,
+   "T_max_K": 685.8602905273438,
+   "T_min_K": 308.5921630859375,
+   "T_max_below_T_V": true,
+   "W_um": 0.0,
+   "D_sub_um": 0.0,
+   "D_top_um": 0.0
+  },
+  {
+   "t_s": 0.0008,
+   "laser_x_um": 700.0,
+   "T_max_K": 759.4454345703125,
+   "T_min_K": 299.82342529296875,
+   "T_max_below_T_V": true,
+   "W_um": 0.0,
+   "D_sub_um": 0.0,
+   "D_top_um": 0.0
+  }
+ ],
+ "reference": {
+  "sim_W_um": 114.8,
+  "sim_D_um": 68.7,
+  "exp_W_um": 123.21,
+  "exp_D_um": 74.72
+ }
+}
