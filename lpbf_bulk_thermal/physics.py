@@ -3,11 +3,13 @@
 Biến không thứ nguyên: x* = x/L_C, t* = t/T_SCALE_TIME, θ = (T - T0)/T_C.
 Với hằng số vật liệu, PDE trở thành θ_t* = Δ*θ.
 
-Điều kiện biên (pháp tuyến ngoài n, DeepXDE RobinBC: dθ/dn = func(x, θ)):
-  - Mặt trên z* = Z_TOP_S: -∂θ/∂z = Q_gauss - L(θ)  =>  ∂θ/∂z = L(θ) - Q_gauss
-  - Mặt bên (4 mặt):       ∂θ/∂n = L(θ)
-  - Đáy z* = 0:            θ = 0 (Dirichlet, T = T0)
-  - Điều kiện đầu:         θ = 0 tại t* = 0 (hard-IC, xem model.py)
+Điều kiện biên. Pháp tuyến ngoài n (DeepXDE: -1 tại xmin, +1 tại xmax, nghĩa là ngoài).
+Dòng nhiệt ra khỏi miền là J·n = -k ∂T/∂n. Tại biên có tổn thất L và nguồn q:
+  - Mặt trên z* = Z_TOP_S (n = +z): -k∂T/∂z = L - q  =>  ∂θ/∂z* = Q_gauss - L(θ)
+  - Mặt bên (4 mặt, n ngoài):       -k∂T/∂n = L      =>  ∂θ/∂n* = -L(θ)
+  - Đáy z* = 0:                     θ = 0 (Dirichlet, T = T0)
+  - Điều kiện đầu:                  θ = 0 tại t* = 0 (hard-IC, xem model.py)
+DeepXDE RobinBC enforce dθ/dn = func(x, θ), nên func là các vế phải ở trên.
 
 L(θ) = Bi·θ + C_rad·[(T0 + T_C·θ)^4 - T0^4]  là tổn thất đối lưu + bức xạ.
 Trên mặt trên có thêm tổn thất bốc hơi q_v(θ) nếu cfg.EVAPORATION = True.
@@ -59,16 +61,16 @@ def pde(x, theta):
 
 
 def top_flux(x, theta):
-    """dθ/dn trên mặt trên (n = +z): L(θ) + q_v(θ) - Q_gauss (q_v chỉ khi bật bốc hơi)."""
+    """dθ/dn trên mặt trên (n = +z): Q_gauss - L(θ) - q_v(θ) (q_v chỉ khi bật bốc hơi)."""
     loss = losses_nondim(theta)
     if cfg.EVAPORATION:
         loss = loss + evaporation_nondim(theta)
-    return loss - gauss_flux_nondim(x, theta)
+    return gauss_flux_nondim(x, theta) - loss
 
 
 def side_flux(x, theta):
-    """dθ/dn trên 4 mặt bên: L(θ)."""
-    return losses_nondim(theta)
+    """dθ/dn trên 4 mặt bên (n ngoài): -L(θ)."""
+    return -losses_nondim(theta)
 
 
 def zero_theta(x):
