@@ -673,3 +673,29 @@ Không σ nào đạt tiêu chí sớm. Không chạy GPU. Với σ nhỏ, PDE �
 - Thông lượng không kẹp (pderamp GPU, các lượt CPU): năng lượng 0.85–0.998, nhiệt không vượt 500 K. Không đạt M1a, M1b, M1c.
 
 (e) Quy trình: giai đoạn 1 chỉ chuyển sang giai đoạn 2 (bột) khi M1a, M1b và M1c cùng đạt trên cùng một lượt chạy có seed đã ghi. Nếu không đạt, báo cáo là không đạt giai đoạn 1 và không thêm bột để che lỗi.
+
+**27.26 Giai đoạn 1: cấu trúc bài toán PINN thuần (Ti6Al4V, không bột) (ngày 2026-10-13, đề xuất để người nghiên cứu xác nhận).**
+
+(a) Phạm vi. Khối Ti6Al4V đặc, dẫn nhiệt thuần (không bột, không bay hơi, không áp suất phản lực, không đối lưu trong vũng, không nhiệt ẩn). Cùng phạm vi với nghiệm Rosenthal và với Faegh và cộng sự 2026, nên các so sánh là nhất quán. Bột và nhiệt ẩn là giai đoạn 2 và 1b.
+
+(b) Phương trình (thứ nguyên). ρc ∂T/∂t = ∇·(k∇T) trong miền, với ρ, c, k hằng số (giả định đơn giản hóa, cần đối chiếu Hình 14 của Ransenigo; xem (f)).
+
+(c) Điều kiện ban đầu và biên.
+- Ban đầu: T(x, 0) = T_amb = 293 K.
+- Đáy z = 0: T = T_amb (Dirichlet; Ransenigo Hình 5, Faegh, Yuan).
+- Mặt trên z = L_z, nguồn di động: k∂T/∂z = Q(x,y,t) − [h(T − T_amb) + εσ(T⁴ − T_amb⁴)], với Q = 2αP/(πr_b²)·exp(−2ρ²/r_b²) di chuyển theo x_l = x_start + vt, có đoạn khởi động. Dấu theo pháp tuyến ngoài (đã kiểm chứng cùng Zhu eq. 8 và Yuan eq. 2b). h = 25, ε = 0.2 là giá trị hiện tại, cần lý do (f).
+- Mặt bên: cách nhiệt (mặc định); Robin là lựa chọn đối chứng (27.15).
+
+(d) Ràng buộc: IC và đáy là ràng buộc cứng θ = z·softplus(raw)·(1 − e^{−t}) (Zhu 2021 cho ràng buộc cứng; dạng cụ thể là thiết kế riêng). Mặt trên và mặt bên là hạng mất mát mềm. Không kẹp T, không dùng dữ liệu thực nghiệm.
+
+(e) Chiến lược huấn luyện. Adam, lr 10⁻³ giảm tuyến tính đến 10⁻⁴ trong 5000 vòng cuối, tổng 20 000 vòng (GPU), seed 0. Lấy mẫu: miền đều và Sobol, cộng điểm quanh vết laser; mặt trên lấy mẫu gồm điểm gần laser và điểm xa (y ≥ y_tip + 100 µm). Loss = w_pde·L_PDE + w_top·L_top + w_face·L_face, chuẩn hóa theo thông lượng đỉnh và theo nhiệt độ. Không dùng các tùy chọn đã thử ở 27.24, 27.25 (chia pha, trọng số thích nghi, L-BFGS, Fourier) làm cấu hình mặc định; chỉ dùng làm đối chứng có nhãn.
+
+(f) Các giả định đơn giản hóa cần xác nhận.
+- ρ = 4106 kg/m³: Ransenigo ghi 4430 kg/m³ ở nhiệt độ phòng. Cần nguồn.
+- k = 33.1 W/m·K: có vẻ cao so với Ti6Al4V. Cần đối chiếu Hình 14.
+- h = 25, ε = 0.2 (từ FV): khác Yuan, Faegh, Piandoro. Cần lý do hoặc đổi.
+- Vật liệu hằng số: khác Ransenigo và Yuan (phụ thuộc T). Ghi là hạn chế.
+
+(g) Mốc đánh giá (không đổi so với 27.26 bản dự thảo): M0 (kiểm tra toán) đã đạt; M1a (cân bằng năng lượng dưới 5%); M1b (nhiệt cực đại trong vết laser vượt T_sol và có vũng); M1c (độ rộng vũng tại T_sol trên mặt trong ±20% của Rosenthal, khoảng 105 µm). M1d (FEM bên ngoài) là tùy chọn, chưa cấp.
+
+(h) Việc cần làm theo thứ tự: (1) viết mốc Rosenthal vào diagnose hoặc script riêng; (2) xác nhận vật liệu (f); (3) sửa cân bằng năng lượng (M1a) rồi mới đánh giá M1b, M1c. Không thêm bột trước khi M1 đạt.
