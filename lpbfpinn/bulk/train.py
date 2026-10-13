@@ -101,6 +101,9 @@ def main() -> None:
     ap.add_argument("--width", type=int, default=64)
     ap.add_argument("--depth", type=int, default=4)
     ap.add_argument("--seed", type=int, default=0)
+    ap.add_argument("--w-pde", type=float, default=1.0)
+    ap.add_argument("--w-top", type=float, default=1.0, help="trọng số hạng biên trên (prereg 27.28(g))")
+    ap.add_argument("--w-side", type=float, default=1.0)
     ap.add_argument("--lbfgs-iters", type=int, default=0,
                     help="số bước L-BFGS sau Adam (mỗi bước tối đa 20 lần lặp), trên tập điểm cố định")
     ap.add_argument("--out", default="results/bulk_pinn")
@@ -120,7 +123,7 @@ def main() -> None:
     for it in range(args.iters):
         pts = sample(case, args.n_domain, args.n_near, args.n_top, args.n_face, gen, dev)
         terms = loss_terms(model, case, pts)
-        loss = terms["pde"] + terms["top"] + terms["face"]
+        loss = args.w_pde * terms["pde"] + args.w_top * terms["top"] + args.w_side * terms["face"]
         if not torch.isfinite(loss):
             raise RuntimeError(f"loss không hữu hạn tại vòng {it}: {terms}")
         if it >= decay_start:
@@ -144,7 +147,7 @@ def main() -> None:
         def closure():
             opt2.zero_grad()
             t = loss_terms(model, case, pts_fix)
-            loss_l = t["pde"] + t["top"] + t["face"]
+            loss_l = args.w_pde * t["pde"] + args.w_top * t["top"] + args.w_side * t["face"]
             loss_l.backward()
             return loss_l
 

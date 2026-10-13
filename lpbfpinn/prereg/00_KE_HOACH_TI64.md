@@ -788,3 +788,7 @@ Kiểm tra CPU: 300 vòng Adam + 5 bước L-BFGS chạy được, loss từ 4.5
 Lệnh GPU (chưa chạy): `python -m lpbfpinn.bulk.train --device cuda --iters 20000 --lbfgs-iters 100 --out results/bulk_pinn_adam_lbfgs_s0`. Tiêu chí: như 27.27(h), không có mốc đạt/không đạt.
 
 **27.28 (ghi chú nguồn C2, ngày 2026-10-13).** T_scale = 2000 K là lựa chọn thiết kế của người nghiên cứu, không lấy từ bài báo nào đã tải lên (đã kiểm tra: không bài nào nêu thang không thứ nguyên của nhiệt độ). Lý do chọn: làm θ ≈ 1 ở vùng nóng chảy để điều kiện tối ưu tốt hơn. T_scale chỉ đổi cách biểu diễn không thứ nguyên, không đổi nghiệm vật lý. Lượt r2022 cũ dùng 4000 K từ cấu hình trước đó.
+
+**27.28 (g) Quét trọng số biên trên trên CPU (ngày 2026-10-13, theo đề xuất đã được người nghiên cứu đồng ý).** Thử w_top ∈ {1, 10, 100}, với w_PDE = 1 và w_side = 1. Cấu hình: 2000 vòng Adam, lr 10⁻³ → 10⁻⁴ (25% vòng cuối), miền và số điểm như kiểm tra CPU trước, seed 0.
+
+Tiêu chí chọn, ghi trước khi chạy: đo tỷ số L_top/L_PDE tại vòng cuối. Cân bằng nếu tỷ số nằm trong [0.1, 10]. Không chọn trọng số theo nhiệt cực đại hay kích thước vũng (27.4). Nếu nhiều giá trị đạt, chọn giá trị có L_PDE nhỏ nhất. Nếu không giá trị nào đạt, báo cáo không có trọng số cân bằng trong tập đã thử.
