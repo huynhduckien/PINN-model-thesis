@@ -568,3 +568,13 @@ Ba bài: Yuan và cộng sự 2025 (IJAMT, PINN 3D L-DED, đa đường, dữ li
 (d) Chạy trên CPU (4 nhân, không có GPU trong môi trường này), khoảng 0.14 s/vòng. Kết quả và kiểm tra: diag.json, profile, và so sánh với mục tiêu Bảng 3 (vũng rộng 84.4 ± 12.6 µm, sâu 68.0 ± 10.0 µm). Tiêu chí chấp nhận không đổi (mục 27.4).
 
 **27.22 (cập nhật, ngày 2026-10-13).** Lượt CPU 20 000 vòng đã dừng theo yêu cầu của người nghiên cứu, chưa hoàn thành; log `results/pinn_r2022_flux_T293.log` là lượt dừng sớm, không dùng làm kết quả. Lượt chính chuyển sang GPU của người nghiên cứu với cùng cấu hình: `python -m lpbfpinn.r2022.train --device cuda --surface flux --side-bc adiabatic --seed 0 --iters 20000 --lr 1e-3 --lr-final 1e-4 --decay-iters 5000 --out results/pinn_r2022_flux_T293`. Sau khi chạy xong, chạy diagnose và profile trên `results/pinn_r2022_flux_T293/model.pt`, rồi push diag.json, profile.json, history.json và log.
+
+**27.22 Giới hạn đã biết: bay hơi và áp suất phản lực (ngày 2026-10-13, quyết định của người nghiên cứu).**
+
+(a) Mô hình R2022 không có bay hơi (phi_evap = 0, mục 27.21) và không có áp suất phản lực trên mặt tự do. Kết quả vũng nóng chảy sẽ lệch khỏi Bảng 3 của Ransenigo và cộng sự 2022, và lệch này được ghi là giới hạn của mô hình, không phải là kết quả thất bại của tối ưu hóa.
+
+(b) Cơ sở: Wu và cộng sự 2018 (Bảng 2 và Hình 8) cho thấy không có bay hơi, vũng 146 × 68 µm, nhiệt cực đại 5439 K; có bay hơi kèm phản lực, vũng 108 × 82 µm, nhiệt cực đại 2676 K. Cơ chế làm vũng hẹp và sâu là phản lực trên mặt tự do, cần bề mặt biến dạng (level set hoặc VOF), không nằm trong phạm vi PINN dẫn nhiệt thuần. Bay hơi Cook với L_v = 9·10⁵ J/kg chỉ khoảng 0.1% thông lượng đỉnh, nên không thay thế được cơ chế này.
+
+(c) Không thêm hệ số hiệu chỉnh bay hơi để khớp kích thước vũng. Đối chứng Cook với hệ số lớn, nếu có, chỉ để kiểm tra độ nhạy và phải ghi là đối chứng, không phải cấu hình chính.
+
+(d) Báo cáo: kích thước vũng và nhiệt cực đại của R2022 được so với Bảng 3 nhưng không kết luận là khớp hay không khớp mà không nêu giới hạn này.
