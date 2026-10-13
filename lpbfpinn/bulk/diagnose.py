@@ -143,7 +143,9 @@ def main() -> None:
     case = BulkCase(latent=bool(ck["args"].get("latent", False)), w_vap=float(ck["args"].get("w_vap", 100.0)),
                     source=ck["args"].get("source", "surface"), d_vol=float(ck["args"].get("d_vol", 0.0)))
     model = BulkPINN(case, width=ck["args"].get("width", 64), depth=ck["args"].get("depth", 4),
-                     ansatz=ck["args"].get("ansatz", "softplus")).double().to(args.device)
+                     ansatz=ck["args"].get("ansatz", "softplus"),
+                     ic_hard=ck["args"].get("ic", "hard") == "hard",
+                     bottom_hard=ck["args"].get("bottom", "hard") == "hard").double().to(args.device)
     model.load_state_dict(ck["model_state_dict"])
     model.eval()
     res = run(model, case, args.dx, args.n_t, args.device)

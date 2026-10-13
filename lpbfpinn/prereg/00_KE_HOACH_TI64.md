@@ -843,3 +843,11 @@ Kết quả CPU 2000 vòng, w_top = 1: nhiệt cực đại 3606 K (gần điể
 - d = 50 µm: nhiệt cực đại 3772 K, vũng 60 × 40 µm, sai số năng lượng +0.09.
 - d = 100 µm: nhiệt cực đại 2301 K, vũng 20 µm rộng và 0 µm sâu, sai số năng lượng +0.08.
 Nhận xét: nhiệt cực đại giảm khi d tăng; độ rộng vũng giảm khi d tăng; độ sâu vũng ổn định ở 40 µm với d ≤ 50 µm. Tỷ số cân bằng biên trên/PDE không còn ý nghĩa vì biên trên chỉ còn mất nhiệt (không có thông lượng laser). Không có d nào khớp mục tiêu 84 × 68 µm.
+
+**27.31 Thử bỏ ba ràng buộc suy diễn: IC cứng (E8), đáy cứng (E9), chuẩn hóa θ_ref (E10) (ngày 2026-10-13, quyết định của người nghiên cứu).** Mỗi thay đổi thử riêng lẻ so với cấu hình hiện tại (nguồn thể tích d = 50 µm, dạng raw², w_top = 1, seed 0, CPU 2000 vòng, chẩn đoán dx = 20 µm):
+- Đối chứng: IC cứng, đáy cứng, chuẩn hóa θ_ref.
+- A: IC mềm (`--ic soft`, hạng IC có trọng số w_IC = 1). Cơ sở: Sharma và cộng sự 2026 (IC là hạng mất mềm).
+- B: đáy mềm (`--bottom soft`, hạng đáy có trọng số 1). Cơ sở: Faegh và cộng sự 2026 (Eq. 17), Sharma 2025.
+- C: không chuẩn hóa (`--norm none`, mọi trọng số bằng 1). Cơ sở: Sharma 2025 và Yuan 2025 dùng trọng số thay vì chuẩn hóa. Kỳ vọng: các hạng lệch thang, có thể làm nghiệm nguội như đã thấy ở r2022.
+
+Tiêu chí, cố định trước khi chạy: (i) sai số năng lượng trong ±10%; (ii) nhiệt tại điểm xa laser (x = −750 µm, y = 380 µm, z = 600 µm, t* = 0.25) trong 298 ± 20 K; (iii) hạng PDE và biên trên không đánh đổi (tỷ số trong [0.1, 10]). Không dùng nhiệt cực đại hay kích thước vũng để chọn (27.4). Báo cáo đầy đủ bốn lượt.
