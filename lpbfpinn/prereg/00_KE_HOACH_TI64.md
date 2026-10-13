@@ -808,3 +808,9 @@ Kết luận: biên trên không được thỏa hoàn toàn (5.7% tại vết l
 Nguyên nhân: vùng xa laser bị nóng sớm. Tại t* = 0.25, điểm cách laser 750 µm có T ≈ 385 K ở mặt trên, trong khi nhiệt chỉ lan khoảng 40 µm. Cơ chế: dạng nghiệm θ = z·softplus(raw)·(1 − e^{−t}) không thể cho θ = 0 ở vùng xa, vì softplus luôn dương (sàn ≈ 0.007 khi raw ≈ −5). Nhân với z* = 12 ở mặt trên, sàn này thành θ ≈ 0.04. Đây là lỗi cấu trúc của ràng buộc cứng IC, không phải lỗi huấn luyện hay lưới.
 
 Hệ quả: tất cả các số đã đo trên model w_top = 1 (nhiệt cực đại, vũng, sai số năng lượng) đều bị ảnh hưởng bởi sàn nhiệt này. Cần sửa dạng nghiệm trước khi đánh giá lại. Các lựa chọn sửa (chưa thực hiện): (a) thay softplus bằng hàm có thể bằng 0 đúng, ví dụ raw²; (b) bỏ ràng buộc cứng IC và dùng hạng mất mềm cho IC; (c) trừ sàn bằng một hàm đã biết có cùng dạng. Cần xác nhận lựa chọn trước khi sửa.
+
+**27.28 (k) Kết quả sau khi sửa dạng nghiệm raw² (CPU 2000 vòng Adam, ngày 2026-10-13).**
+- w_top = 1: cân bằng loss đạt (tỷ số biên trên/PDE = 3.18). Sai số năng lượng −2.7%, giảm mạnh so với −124% trước khi sửa, xác nhận nguyên nhân là sàn nhiệt của dạng softplus. Nhiệt cực đại 12 623 K, vẫn quá cao so với điểm sôi 3533 K. Vũng rộng 100 µm, sâu 20 µm (một ô lưới, không đáng tin).
+- w_top = 10: cân bằng loss đạt (tỷ số 0.42) nhưng sai số năng lượng −54%.
+- w_top = 100: không đạt cân bằng (tỷ số 0.06), sai số năng lượng −296%, vũng sâu 480 µm (bất thường).
+Theo tiêu chí 27.28(g), chọn w_top = 1. Vấn đề nhiệt cực đại vẫn còn và được giải thích bởi việc không có bay hơi (27.28(i)).
