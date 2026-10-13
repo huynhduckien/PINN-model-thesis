@@ -652,3 +652,8 @@ Thử CPU so với đối chứng cùng cấu hình (2000 vòng Adam, seed 0, mi
 **27.25 (j, kết quả CPU A5, ngày 2026-10-13).** Lượt 2000 vòng Adam với N = 32, σ = 10 (cùng cấu hình đối chứng). Hạng PDE ban đầu 912, cuối 0.497 (đối chứng 7·10⁻⁶). Hạng biên trên cuối 0.0088. Diagnose: nhiệt cực đại trên lưới 9302 K, bề mặt 9295 K, vũng rộng 385 µm và sâu 200 µm, sai số năng lượng −25.2. Không đạt tín hiệu sớm (PDE tăng hơn 10 lần so với đối chứng và nhiệt vượt xa giới hạn vật lý). Không chạy GPU. Nguyên nhân khả dĩ: σ = 10 tạo tần số quá cao so với kích thước miền, khiến PDE không hội tụ và mạng dao động quanh nghiệm rất nóng. Chưa thử σ nhỏ hơn; nếu muốn tiếp tục A5, cần một quét σ trên CPU (ví dụ 1 và 3) có ghi trước trong prereg.
 
 **27.25 (j2) Quét σ cho nhúng Fourier (ngày 2026-10-13, quyết định của người nghiên cứu).** Sau 27.25(j) (σ = 10 không đạt), quét σ ∈ {1, 3} với N = 32, cùng cấu hình CPU 2000 vòng Adam, seed 0. Tiêu chí sớm để chạy GPU, ghi trước khi chạy: (i) nhiệt cực đại trên lưới trong khoảng 1000–4000 K; (ii) hạng PDE cuối không vượt 10 lần đối chứng (7·10⁻⁵); (iii) không có vũng vượt Bảng 3 đáng kể. Đạt cả ba thì mới đề xuất chạy GPU. Không chọn σ theo kích thước mục tiêu (27.4).
+
+**27.25 (j2, kết quả quét σ trên CPU, ngày 2026-10-13).** Cùng cấu hình CPU 2000 vòng, N = 32.
+- σ = 1: hạng PDE cuối 1.6·10⁻⁵ (đạt tiêu chí ii), nhiệt cực đại 352 K (không đạt tiêu chí i), không vũng.
+- σ = 3: hạng PDE cuối 5.6·10⁻⁴ (không đạt tiêu chí ii), nhiệt cực đại 590 K (không đạt tiêu chí i), không vũng.
+Không σ nào đạt tiêu chí sớm. Không chạy GPU. Với σ nhỏ, PDE ổn định nhưng nghiệm vẫn nguội; với σ lớn hơn, nhiệt tăng nhưng PDE không hội tụ. Nhúng Fourier đơn thuần không giải quyết vấn đề nguội trong phạm vi σ đã quét.
