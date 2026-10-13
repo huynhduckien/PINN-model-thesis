@@ -24,8 +24,13 @@ class BulkPINN(torch.nn.Module):
     Ràng buộc cứng IC và đáy: θ = z*·softplus(raw)·(1 − e^{−t*}).
     """
 
-    def __init__(self, case: BulkCase, width: int = 64, depth: int = 4, ansatz: str = "square"):
+    def __init__(self, case: BulkCase, width: int = 64, depth: int = 4, ansatz: str = "square",
+                 delta_z_star: float = 10e-6 / 50e-6, delta_t_star: float = 0.05):
         super().__init__()
+        # "zhu": θ = θ_NN·H_z(z)·H_t(t), H = ½(1 − cos(πd/δ)) khi d < δ, 1 khi d ≥ δ (Zhu 2021 Eq. 16–19;
+        # δ_z = 10 µm, δ_t = 0.05 t* là lựa chọn của ta, prereg 27.28(m))
+        self.delta_z_star = delta_z_star
+        self.delta_t_star = delta_t_star
         # "square": θ = z·raw²·(1 − e^{−t}), đạt 0 đúng khi raw = 0 (sửa sàn nhiệt, prereg 27.28(j));
         # "softplus": dạng cũ, giữ để đọc lại checkpoint cũ
         self.ansatz = ansatz
@@ -43,8 +48,16 @@ class BulkPINN(torch.nn.Module):
         t = xs[:, 3:4]
         scaled = 2.0 * (xs - self.lo) / (self.hi - self.lo) - 1.0
         raw = self.net(scaled)
+        if self.ansatz == "zhu":
+            return raw * self._smooth_step(z, self.delta_z_star) * self._smooth_step(t, self.delta_t_star)
         pos = raw ** 2 if self.ansatz == "square" else torch.nn.functional.softplus(raw)
         return z * pos * (1.0 - torch.exp(-t))
+
+    @staticmethod
+    def _smooth_step(d: torch.Tensor, delta: float) -> torch.Tensor:
+        """H(d) = ½(1 − cos(πd/δ)) khi d < δ, 1 khi d ≥ δ; khả vi, liên tục."""
+        smooth = 0.5 * (1.0 - torch.cos(math.pi * torch.clamp(d, max=delta) / delta))
+        return torch.where(d < delta, smooth, torch.ones_like(d))
 
 
 def sample(case: BulkCase, n_domain: int, n_near: int, n_top: int, n_face: int,
@@ -105,7 +118,7 @@ def main() -> None:
     ap.add_argument("--width", type=int, default=64)
     ap.add_argument("--depth", type=int, default=4)
     ap.add_argument("--seed", type=int, default=0)
-    ap.add_argument("--ansatz", choices=["square", "softplus"], default="square")
+    ap.add_argument("--ansatz", choices=["square", "softplus", "zhu"], default="square")
     ap.add_argument("--w-pde", type=float, default=1.0)
     ap.add_argument("--w-top", type=float, default=1.0, help="trọng số hạng biên trên (prereg 27.28(g))")
     ap.add_argument("--w-side", type=float, default=1.0)
