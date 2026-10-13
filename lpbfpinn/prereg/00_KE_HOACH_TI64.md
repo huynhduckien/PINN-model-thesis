@@ -768,3 +768,15 @@ Tìm kiếm bài khác (chưa mở toàn văn, chỉ dựa trên tóm tắt tìm
 (i) Xác nhận h = 25 W/m²·K (ngày 2026-10-13, quyết định của người nghiên cứu). Sharma 2026 không nêu h; giá trị giữ từ FV.
 
 (j) Mã cho PINN giai đoạn 1 được thiết kế riêng, không dùng chung với code r2022 (quyết định của người nghiên cứu). Không thay đổi r2022. Các công thức và điều kiện biên phải được người nghiên cứu xác nhận trước khi viết mã.
+
+**27.28 Mã PINN thuần giai đoạn 1 (ngày 2026-10-13, quyết định C1–C6 của người nghiên cứu).**
+
+(a) Vị trí mã: `lpbfpinn/bulk/` (case, operator, train), test `lpbfpinn/tests/test_bulk.py`. Gói không import từ `lpbfpinn.r2022`; mã r2022 không đổi.
+
+(b) Giá trị xác nhận: T_scale = 2000 K (C2). Đường quét y_tip = 190 µm, tâm miền (C3). x từ −550 đến 650 µm (C4). Thang chuẩn hóa residual θ_ref = (T_sol − T_amb)/T_scale = 0.7895 (C1).
+
+(c) Chuẩn hóa: mỗi residual không thứ nguyên chia cho θ_ref. Lý do: PDE dạng thứ nguyên ρc·∂T/∂t − ∇·(k∇T) có thang ρcθ_refT_scale/t_c, và biên trên có thang kθ_refT_scale/L_c; sau khi chia cho các thang này, kết quả đều bằng residual không thứ nguyên chia cho θ_ref. Vậy tất cả hạng cùng thang (D6).
+
+(d) Kiểm tra trước GPU (C6): chỉ test PDE trên nghiệm giải tích θ = z*²t*, kết quả r = z*² − 2t*. Pass.
+
+(e) Chưa làm: diagnose (năng lượng, vũng nóng chảy), huấn luyện thử, và so sánh với Rosenthal. Sẽ bổ sung sau khi bạn xác nhận kế hoạch chạy GPU.
