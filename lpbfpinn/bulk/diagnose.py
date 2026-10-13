@@ -140,7 +140,7 @@ def main() -> None:
     ap.add_argument("--n-t", type=int, default=30)
     args = ap.parse_args()
     ck = torch.load(args.ckpt, map_location=args.device, weights_only=False)
-    case = BulkCase(latent=bool(ck["args"].get("latent", False)))
+    case = BulkCase(latent=bool(ck["args"].get("latent", False)), w_vap=float(ck["args"].get("w_vap", 100.0)))
     model = BulkPINN(case, width=ck["args"].get("width", 64), depth=ck["args"].get("depth", 4),
                      ansatz=ck["args"].get("ansatz", "softplus")).double().to(args.device)
     model.load_state_dict(ck["model_state_dict"])
