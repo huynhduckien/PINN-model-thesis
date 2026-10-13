@@ -792,3 +792,9 @@ Lệnh GPU (chưa chạy): `python -m lpbfpinn.bulk.train --device cuda --iters 
 **27.28 (g) Quét trọng số biên trên trên CPU (ngày 2026-10-13, theo đề xuất đã được người nghiên cứu đồng ý).** Thử w_top ∈ {1, 10, 100}, với w_PDE = 1 và w_side = 1. Cấu hình: 2000 vòng Adam, lr 10⁻³ → 10⁻⁴ (25% vòng cuối), miền và số điểm như kiểm tra CPU trước, seed 0.
 
 Tiêu chí chọn, ghi trước khi chạy: đo tỷ số L_top/L_PDE tại vòng cuối. Cân bằng nếu tỷ số nằm trong [0.1, 10]. Không chọn trọng số theo nhiệt cực đại hay kích thước vũng (27.4). Nếu nhiều giá trị đạt, chọn giá trị có L_PDE nhỏ nhất. Nếu không giá trị nào đạt, báo cáo không có trọng số cân bằng trong tập đã thử.
+
+**27.28 (h) Chẩn đoán CPU của model w_top = 1 (ngày 2026-10-13).** Viết `lpbfpinn/bulk/diagnose.py`: nhiệt trên lưới, vũng nóng chảy trên mặt theo thời gian (rộng, sâu tại tâm laser), cân bằng năng lượng (E_in, mất nhiệt trên và đáy, tích lũy). Không có ngưỡng đạt/không đạt (27.27(h)).
+
+Kết quả (2000 vòng Adam, w_top = 1): nhiệt cực đại 11 657 K (lưới 20 µm) và 12 844 K (lưới 10 µm), vượt xa điểm sôi 3533 K. Vũng rộng 140 µm, sâu 20 µm (một đến hai ô lưới, không đáng tin). Cân bằng năng lượng: E_in = 0.082 J, E_out_top = 0.0004 J, E_out_bottom = 0.0005 J, E_stored = 0.18 J, sai số −1.24 (−1.20 với lưới 10 µm). Năng lượng tích lũy lớn hơn năng lượng vào, nên model vi phạm bảo toàn năng lượng.
+
+Kết luận: tiêu chí cân bằng loss (27.28(g)) không đảm bảo nghiệm vật lý. Không chạy GPU với cấu hình này. Cần sửa trước: nguyên nhân có thể là hạng biên trên không ràng buộc đủ nhiệt độ bề mặt, hoặc thiếu chuẩn hóa theo thang nhiệt độ. Đối chiếu: Wu và cộng sự 2018 cho nhiệt cực đại 5439 K không bay hơi, nên 11 657 K là quá cao.
