@@ -52,12 +52,19 @@ def gauss_flux_nondim(x, like):
 
 
 def pde(x, theta):
-    """θ_t* - (θ_x*x* + θ_y*y* + θ_z*z*) = 0 trong miền."""
+    """θ_t* - (θ_x*x* + θ_y*y* + θ_z*z*) + λ·max(-θ, 0) = 0 trong miền.
+
+    Số hạng λ·max(-θ, 0) phạt nhiệt độ dưới T0 (θ < 0). Nó bằng 0 tại nghiệm đúng
+    (θ ≥ 0), nên không đổi nghiệm, chỉ loại các nghiệm vi phạm dấu. λ = cfg.NEG_PENALTY.
+    """
     theta_t = dde.grad.jacobian(theta, x, i=0, j=3)
     theta_xx = dde.grad.hessian(theta, x, i=0, j=0)
     theta_yy = dde.grad.hessian(theta, x, i=0, j=1)
     theta_zz = dde.grad.hessian(theta, x, i=0, j=2)
-    return theta_t - (theta_xx + theta_yy + theta_zz)
+    res = theta_t - (theta_xx + theta_yy + theta_zz)
+    if cfg.NEG_PENALTY > 0:
+        res = res + cfg.NEG_PENALTY * torch.relu(-theta)
+    return res
 
 
 def top_flux(x, theta):

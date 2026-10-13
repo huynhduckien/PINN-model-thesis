@@ -40,6 +40,7 @@ R_GAS = 8.314                # J/(mol K)
 M_MOL = 0.0459
 EVAP_COEF = 0.82             # hệ số bốc hơi (Ma et al. Eq. 12)
 EVAPORATION = True           # bật tổn thất bốc hơi trên mặt trên
+NEG_PENALTY = 0.0            # λ phạt θ < 0 trong PDE (0 = tắt), xem physics.pde
 
 # ---------------------------------------------------------------- Hình học (m)
 LX = 800e-6
