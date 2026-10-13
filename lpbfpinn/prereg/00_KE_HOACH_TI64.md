@@ -837,3 +837,9 @@ Kết quả CPU 2000 vòng, w_top = 1: nhiệt cực đại 3606 K (gần điể
 **27.29 (b) Thử làm trơn rộng hơn, w = 300 K (CPU 2000 vòng, w_top = 1, ngày 2026-10-13).** Kết quả: nhiệt cực đại 7707 K (w = 100 K: 3606 K; raw² không sink: 12 623 K). Không có vũng (sâu 0 µm). Hạng PDE cuối 0.62 (w = 100 K: 0.066), hạng biên trên cuối 2.76 (tỷ số 4.5), sai số năng lượng +0.57 (w = 100 K: −2.6). Kết luận: làm trơn rộng hơn không khắc phục được; nhiệt vẫn vượt xa điểm sôi, PDE và biên đều xấu hơn với w = 100 K. Giữ w = 100 K làm lựa chọn tốt nhất trong các sink đã thử, nhưng sink nói chung chưa cho nghiệm đạt được.
 
 **27.30 Nguồn thể tích Gaussian có suy giảm theo chiều sâu, quét độ nhạy d (ngày 2026-10-13, quyết định của người nghiên cứu, phương án 2).** Thay nguồn Gaussian bề mặt bằng nguồn thể tích (`--source volume`, Han 2025 Eq. 4), không còn thông lượng laser trên mặt trên. Giá trị d không có trong Han 2025 (bài chỉ định nghĩa ký hiệu), nên quét ba giá trị d ∈ {20, 50, 100} µm. Tất cả ba được báo cáo; không chọn d theo kích thước vũng hay nhiệt cực đại của Bảng 3 (27.4). Cấu hình khác: CPU 2000 vòng Adam, w_top = 1, dạng raw², không sink nhiệt hóa hơi, seed 0, cùng miền và số điểm như các lượt CPU trước. Chẩn đoán: diagnose như 27.28(h), với dx = 20 µm.
+
+**27.30 (kết quả quét d, CPU 2000 vòng, dx = 20 µm, ngày 2026-10-13; báo cáo đủ ba giá trị, không chọn theo mục tiêu).**
+- d = 20 µm: nhiệt cực đại 6493 K, vũng 100 × 40 µm, sai số năng lượng −0.56.
+- d = 50 µm: nhiệt cực đại 3772 K, vũng 60 × 40 µm, sai số năng lượng +0.09.
+- d = 100 µm: nhiệt cực đại 2301 K, vũng 20 µm rộng và 0 µm sâu, sai số năng lượng +0.08.
+Nhận xét: nhiệt cực đại giảm khi d tăng; độ rộng vũng giảm khi d tăng; độ sâu vũng ổn định ở 40 µm với d ≤ 50 µm. Tỷ số cân bằng biên trên/PDE không còn ý nghĩa vì biên trên chỉ còn mất nhiệt (không có thông lượng laser). Không có d nào khớp mục tiêu 84 × 68 µm.
