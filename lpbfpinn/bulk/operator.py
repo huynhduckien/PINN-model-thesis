@@ -18,8 +18,26 @@ def _grad(f: torch.Tensor, xs: torch.Tensor) -> torch.Tensor:
     return torch.autograd.grad(f.sum(), xs, create_graph=True)[0]
 
 
+def volume_source_star(xs: torch.Tensor, case: BulkCase) -> torch.Tensor:
+    """q_v* = q_v·t_c/(ρc·T_scale) (không thứ nguyên), q_v = (2ηP/(π r² d))·exp(−2ρ²/r²)·exp(−(z_max − z)/d)
+    (Han 2025 Eq. 4, z0 = z_max là mặt trên). Có đoạn khởi động như nguồn bề mặt.
+    """
+    x = case.x_min + xs[:, 0:1] * case.L_c
+    y = xs[:, 1:2] * case.L_c
+    z = xs[:, 2:3] * case.L_c
+    t = xs[:, 3:4] * case.t_c
+    x_l = case.x_start + case.speed * t
+    ramp = torch.clamp(t / (case.ramp_length / case.speed), max=1.0)
+    d = case.d_vol
+    qv = (2.0 * case.absorptivity * case.power * ramp / (math.pi * case.r_b**2 * d)) * torch.exp(
+        -2.0 * ((x - x_l) ** 2 + (y - case.y_tip) ** 2) / case.r_b**2) * torch.exp(-(case.z_max - z) / d)
+    return qv * case.t_c / (case.rho * case.cp * case.T_scale)
+
+
 def laser_flux_star(xs: torch.Tensor, case: BulkCase) -> torch.Tensor:
-    """Q* = q_laser / (k·T_scale/L_c) trên mặt trên, có đoạn khởi động."""
+    """Q* = q_laser / (k·T_scale/L_c) trên mặt trên, có đoạn khởi động. Bằng 0 khi nguồn là thể tích."""
+    if case.source == "volume":
+        return torch.zeros_like(xs[:, 0:1])
     x = case.x_min + xs[:, 0:1] * case.L_c
     y = xs[:, 1:2] * case.L_c
     t = xs[:, 3:4] * case.t_c
@@ -57,7 +75,10 @@ def pde_residual(theta_fn, xs: torch.Tensor, case: BulkCase) -> torch.Tensor:
     g1 = _grad(th, xs)
     th_t = g1[:, 3:4]
     lap = (_grad(g1[:, 0:1], xs)[:, 0:1] + _grad(g1[:, 1:2], xs)[:, 1:2] + _grad(g1[:, 2:3], xs)[:, 2:3])
-    return heat_cap_star(th, case) * th_t - lap
+    r = heat_cap_star(th, case) * th_t - lap
+    if case.source == "volume":
+        r = r - volume_source_star(xs, case)
+    return r
 
 
 def top_residual(theta_fn, xs: torch.Tensor, case: BulkCase) -> torch.Tensor:

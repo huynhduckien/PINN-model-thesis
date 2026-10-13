@@ -131,6 +131,8 @@ def main() -> None:
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--ansatz", choices=["square", "softplus", "zhu", "faegh"], default="square")
     ap.add_argument("--latent", action="store_true", help="sink nhiệt hóa hơi làm nhiệt dung biểu kiến (prereg 27.29)")
+    ap.add_argument("--source", choices=["surface", "volume"], default="surface")
+    ap.add_argument("--d-vol", type=float, default=0.0, help="chiều sâu xuyên d (m) khi --source volume")
     ap.add_argument("--w-vap", type=float, default=100.0, help="bề rộng làm trơn bước hóa hơi (K), prereg 27.29")
     ap.add_argument("--w-pde", type=float, default=1.0)
     ap.add_argument("--w-top", type=float, default=1.0, help="trọng số hạng biên trên (prereg 27.28(g))")
@@ -142,7 +144,9 @@ def main() -> None:
 
     torch.manual_seed(args.seed)
     dev = torch.device(args.device)
-    case = BulkCase(latent=args.latent, w_vap=args.w_vap)
+    if args.source == "volume" and args.d_vol <= 0:
+        raise SystemExit("--source volume cần --d-vol > 0 (chiều sâu xuyên d, chọn trước theo prereg)")
+    case = BulkCase(latent=args.latent, w_vap=args.w_vap, source=args.source, d_vol=args.d_vol)
     model = BulkPINN(case, width=args.width, depth=args.depth, ansatz=args.ansatz).to(dev).double()
     opt = torch.optim.Adam(model.parameters(), lr=args.lr)
     gen = torch.Generator().manual_seed(args.seed)

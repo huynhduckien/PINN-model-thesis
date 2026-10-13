@@ -35,3 +35,20 @@ def test_latent_sink_integrates_to_latent_heat():
     g = heat_cap_star(th, case).numpy().ravel()
     integral = np.trapezoid(g - 1.0, T) if hasattr(np, "trapezoid") else np.trapz(g - 1.0, T)
     np.testing.assert_allclose(integral, case.L_v / case.cp, rtol=1e-3)
+
+
+def test_volume_source_integrates_to_absorbed_power():
+    """∫q_v dV ≈ ηP (dimensional) khi d ≪ z_max, prereg 27.30."""
+    from lpbfpinn.bulk.operator import volume_source_star
+    case = BulkCase(source="volume", d_vol=50e-6)
+    Lx, Ly, Lz, _ = case.domain_star
+    n = 81
+    xs_ = np.linspace(0, Lx, n); ys_ = np.linspace(0, Ly, n); zs_ = np.linspace(0, Lz, 241)
+    t_star = 0.5 * case.domain_star[3]
+    X, Y, Z = np.meshgrid(xs_, ys_, zs_, indexing="ij")
+    pts = np.column_stack([X.ravel(), Y.ravel(), Z.ravel(), np.full(X.size, t_star)])
+    q = volume_source_star(torch.tensor(pts, dtype=torch.float64), case).numpy().ravel()
+    qd = q * case.rho * case.cp * case.T_scale / case.t_c   # W/m³
+    dx = (xs_[1]-xs_[0]) * case.L_c; dy = (ys_[1]-ys_[0]) * case.L_c; dz = (zs_[1]-zs_[0]) * case.L_c
+    total = float(qd.sum() * dx * dy * dz)
+    np.testing.assert_allclose(total, case.absorptivity * case.power, rtol=0.2)

@@ -37,6 +37,9 @@ class BulkCase:
     emissivity: float = 0.4        # Sharma 2026
     # thang nhiệt độ không thứ nguyên (C2)
     T_scale: float = 2000.0        # K
+    # nguồn: "surface" (Gaussian bề mặt) hoặc "volume" (Gaussian thể tích có suy giảm theo chiều sâu, Han 2025 Eq. 4)
+    source: str = "surface"
+    d_vol: float = 0.0             # m, chiều sâu xuyên d của Han 2025; bắt buộc khi source = "volume"
     # sink nhiệt hóa hơi làm nhiệt dung biểu kiến (prereg 27.29), tắt mặc định
     latent: bool = False
     L_v: float = 9.0e5             # J/kg, Ransenigo Bảng 5 (900 J/g)
