@@ -829,3 +829,7 @@ Kết luận: dạng Zhu không khắc phục được vấn đề, và làm x�
 - Hạng đáy cuối 4·10⁻⁴ (đáy không được thỏa tuyệt đối vì là hạng mềm).
 - Tỷ số biên trên/PDE 3.66.
 Kết luận: dạng Faegh không cải thiện so với raw²; năng lượng và nhiệt xa laser xấu hơn. Giữ raw² làm cấu hình hiện tại.
+
+**27.29 Sink nhiệt hóa hơi làm nhiệt dung biểu kiến, phạm vi giai đoạn 1 (ngày 2026-10-13, quyết định của người nghiên cứu).** Sửa đổi có phạm vi của 27.21 và 27.23: không đưa bay hơi Cook vào, chỉ thêm sink nhiệt hóa hơi làm nhiệt dung biểu kiến g(θ) = 1 + (L_v/c_p)·f'(T), với f(T) = ½(1 + tanh((T − T_vap)/w)), L_v = 9·10⁵ J/kg, T_vap = 3533 K, w = 100 K (lựa chọn của ta, làm trơn). Bật bằng `--latent`, mặc định tắt. Test: tích phân (g − 1) qua vùng hóa hơi bằng L_v/c_p, pass.
+
+Kết quả CPU 2000 vòng, w_top = 1: nhiệt cực đại 3606 K (gần điểm sôi, đây là điểm đạt chính của sink). Nhưng hạng biên trên cuối 7.04 (tỷ số 107, không khớp thông lượng laser), không có vũng (sâu 0 µm, rộng 100 µm), và sai số năng lượng −2.6 với năng lượng ra qua đáy 0.030 J (lớn bất thường). Kết luận: sink giới hạn được nhiệt cực đại, nhưng làm mạng không khớp biên trên và năng lượng lệch. Cần kiểm tra lại trước khi dùng cho đánh giá.
