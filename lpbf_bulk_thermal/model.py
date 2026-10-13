@@ -20,7 +20,9 @@ N_BOUNDARY = 20000     # điểm biên (DeepXDE lấy đều trên mặt biên)
 
 # Trọng số loss theo thứ tự [PDE, mặt trên, mặt bên, đáy].
 # Mặt trên có flux đỉnh Q*, nên chia trọng số bình phương để các số hạng có độ lớn tương đương.
-LOSS_WEIGHTS = [1.0, 1.0 / cfg.Q_STAR**2, 1.0, 1.0]
+def loss_weights():
+    """Gọi sau khi đã đặt công suất (cfg.set_power) để Q_STAR đúng."""
+    return [1.0, 1.0 / cfg.Q_STAR**2, 1.0, 1.0]
 
 
 def build_geometry():

@@ -10,6 +10,7 @@ Với hằng số vật liệu, PDE trở thành θ_t* = Δ*θ.
   - Điều kiện đầu:         θ = 0 tại t* = 0 (hard-IC, xem model.py)
 
 L(θ) = Bi·θ + C_rad·[(T0 + T_C·θ)^4 - T0^4]  là tổn thất đối lưu + bức xạ.
+Trên mặt trên có thêm tổn thất bốc hơi q_v(θ) nếu cfg.EVAPORATION = True.
 """
 import deepxde as dde
 import torch
@@ -21,6 +22,19 @@ def losses_nondim(theta):
     """Tổn thất không thứ nguyên L(θ) cho mặt bên và mặt trên."""
     T = cfg.T0 + cfg.T_C * theta
     return cfg.BI * theta + cfg.C_RAD * (T**4 - cfg.T0**4)
+
+
+def evaporation_nondim(theta):
+    """Tổn thất bốc hơi bề mặt không thứ nguyên (Ma et al. Eq. 12, Hertz-Knudsen + Clausius-Clapeyron).
+
+    q_v = 0.82 · L_v · P0 · sqrt(M / (2π R T)) · exp[L_v M (T - T_v) / (R T T_v)]
+    Hàm trơn và tiến về 0 khi T << T_v, nên không gây điểm gãy trong PDE.
+    Đối số exp bị chặn bởi L_v M /(R T_v) ≈ 16 khi T → ∞, nên không tràn số.
+    """
+    T = cfg.T0 + cfg.T_C * theta
+    arg = cfg.L_V * cfg.M_MOL * (T - cfg.T_VAPORIZATION) / (cfg.R_GAS * T * cfg.T_VAPORIZATION)
+    q_v = cfg.EVAP_COEF * cfg.L_V * cfg.P0 * torch.sqrt(cfg.M_MOL / (2.0 * torch.pi * cfg.R_GAS * T)) * torch.exp(arg)
+    return q_v * cfg.L_C / (cfg.K * cfg.T_C)
 
 
 def gauss_flux_nondim(x, like):
@@ -45,8 +59,11 @@ def pde(x, theta):
 
 
 def top_flux(x, theta):
-    """dθ/dn trên mặt trên (n = +z): L(θ) - Q_gauss."""
-    return losses_nondim(theta) - gauss_flux_nondim(x, theta)
+    """dθ/dn trên mặt trên (n = +z): L(θ) + q_v(θ) - Q_gauss (q_v chỉ khi bật bốc hơi)."""
+    loss = losses_nondim(theta)
+    if cfg.EVAPORATION:
+        loss = loss + evaporation_nondim(theta)
+    return loss - gauss_flux_nondim(x, theta)
 
 
 def side_flux(x, theta):

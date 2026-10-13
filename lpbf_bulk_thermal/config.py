@@ -31,7 +31,15 @@ CP = float(cp_solid(T_REF))  # J/(kg K)
 K = float(k_solid(T_REF))    # W/(m K)
 T_SOLIDUS = 1878.0           # K, định nghĩa biên melt pool
 T_LIQUIDUS = 1928.0          # K, chỉ để tham chiếu (giai đoạn 1 chưa dùng)
-T_VAPORIZATION = 3315.0      # K, kiểm tra T_max <= T_V
+T_VAPORIZATION = 3315.0      # K, nhiệt độ bắt đầu bốc hơi (Clausius-Clapeyron)
+L_V = 9.7e6                  # J/kg, ẩn nhiệt bốc hơi (Ma et al. Table 1)
+P0 = 1.013e5                 # Pa, áp suất khí quyển (Ma et al. Table 1)
+R_GAS = 8.314                # J/(mol K)
+# Khối lượng mol Ti-6Al-4V (kg/mol). KHÔNG có trong bảng 1 của bài báo: ước lượng từ
+# thành phần danh nghĩa Ti 90 / Al 6 / V 4 wt% (trung bình điều hòa). Cần xác nhận.
+M_MOL = 0.0459
+EVAP_COEF = 0.82             # hệ số bốc hơi (Ma et al. Eq. 12)
+EVAPORATION = True           # bật tổn thất bốc hơi trên mặt trên
 
 # ---------------------------------------------------------------- Hình học (m)
 LX = 800e-6
@@ -41,7 +49,7 @@ Z_SUBSTRATE = 260e-6      # mặt phẳng substrate, tham chiếu đo độ sâu
 Z_TOP = 290e-6            # mặt trên, bột 30 µm coi là kim loại đặc
 
 # ---------------------------------------------------------------- Laser
-P = 150.0                 # W
+P = 150.0                 # W (có thể đổi bằng set_power)
 V = 0.75                  # m/s (750 mm/s)
 R_BEAM = 50e-6            # m, bán kính Gaussian (exp(-2 r^2 / R^2))
 ALPHA = 0.41              # hấp thụ, Fresnel với ε=0.27 tại góc tới nhỏ (Ma et al. Fig. 2)
@@ -62,6 +70,13 @@ T_SCALE_TIME = L_C**2 / ALPHA_TH           # s  (t_c)
 BI = H_CONV * L_C / K                      # đối lưu
 C_RAD = EMISS * SIGMA_SB * L_C / (K * T_C) # bức xạ
 Q_STAR = 2.0 * ALPHA * P * L_C / (np.pi * R_BEAM**2 * K * T_C)  # đỉnh flux không thứ nguyên
+
+
+def set_power(p_watt):
+    """Đổi công suất laser và cập nhật đỉnh flux không thứ nguyên Q_STAR."""
+    global P, Q_STAR
+    P = float(p_watt)
+    Q_STAR = 2.0 * ALPHA * P * L_C / (np.pi * R_BEAM**2 * K * T_C)
 
 LX_S = LX / L_C
 LY_S = LY / L_C
@@ -92,7 +107,7 @@ def summary():
         f"t_c={T_SCALE_TIME*1e3:.4f} ms, T_END={T_END*1e3:.3f} ms = {T_END_S:.3f} t_c",
         f"domain (x*,y*,z*) = ({LX_S:.1f}, {LY_S:.1f}, {Z_TOP_S:.1f}), z_sub*={Z_SUBSTRATE_S:.1f}",
         f"Bi={BI:.3e}, C_rad={C_RAD:.3e}, Q*={Q_STAR:.3f}, V*={V_S:.3f}",
-        f"TAU_IC*={TAU_IC_S:.3f}, alpha={ALPHA}, P={P} W, v={V} m/s",
+        f"TAU_IC*={TAU_IC_S:.3f}, alpha={ALPHA}, P={P} W, v={V} m/s, evaporation={EVAPORATION}",
     ]
     return "\n".join(lines)
 

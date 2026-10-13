@@ -36,8 +36,14 @@ def main():
     parser.add_argument("--tag", required=True)
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--no-lbfgs", action="store_true", help="chỉ chạy Adam")
+    parser.add_argument("--power", type=float, default=cfg.P, help="công suất laser (W)")
+    parser.add_argument("--evap", type=int, choices=[0, 1], default=int(cfg.EVAPORATION),
+                        help="1: bật bốc hơi trên mặt trên")
     args = parser.parse_args()
     p = PRESETS[args.preset]
+    cfg.set_power(args.power)
+    cfg.EVAPORATION = bool(args.evap)
+    loss_w = md.loss_weights()
 
     dde.config.set_random_seed(args.seed)
     out_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "outputs", args.tag)
@@ -51,7 +57,7 @@ def main():
     model = dde.Model(data, net)
 
     t0 = time.time()
-    model.compile("adam", lr=LR, loss_weights=md.LOSS_WEIGHTS, decay=LR_DECAY)
+    model.compile("adam", lr=LR, loss_weights=loss_w, decay=LR_DECAY)
     model.train(iterations=p["adam"], display_every=p["display_every"])
     # Lưu sau Adam để không mất kết quả nếu L-BFGS bị kẹt.
     os.makedirs(out_dir, exist_ok=True)
@@ -61,7 +67,7 @@ def main():
         losshistory = model.losshistory
     else:
         dde.optimizers.set_LBFGS_options(maxiter=p["lbfgs"])
-        model.compile("L-BFGS", loss_weights=md.LOSS_WEIGHTS)
+        model.compile("L-BFGS", loss_weights=loss_w)
         losshistory, _ = model.train()
     elapsed = time.time() - t0
 
@@ -72,8 +78,8 @@ def main():
 
     meta = dict(
         tag=args.tag, preset=args.preset, seed=args.seed, preset_params=p,
-        arch=md.ARCH, lr=LR, lr_decay=LR_DECAY, loss_weights=md.LOSS_WEIGHTS,
-        T0=cfg.T0, T_C=cfg.T_C, P=cfg.P, V=cfg.V, R_BEAM=cfg.R_BEAM, ALPHA=cfg.ALPHA,
+        arch=md.ARCH, lr=LR, lr_decay=LR_DECAY, loss_weights=loss_w,
+        T0=cfg.T0, T_C=cfg.T_C, P=cfg.P, EVAPORATION=cfg.EVAPORATION, V=cfg.V, R_BEAM=cfg.R_BEAM, ALPHA=cfg.ALPHA,
         EMISS=cfg.EMISS, H_CONV=cfg.H_CONV, RHO=cfg.RHO, CP=cfg.CP, K=cfg.K,
         X_START=cfg.X_START, X_END=cfg.X_END, Y_TRACK=cfg.Y_TRACK, T_END=cfg.T_END,
         LX=cfg.LX, LY=cfg.LY, Z_TOP=cfg.Z_TOP, TAU_IC=cfg.TAU_IC,
