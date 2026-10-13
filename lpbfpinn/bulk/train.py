@@ -48,6 +48,9 @@ class BulkPINN(torch.nn.Module):
         t = xs[:, 3:4]
         scaled = 2.0 * (xs - self.lo) / (self.hi - self.lo) - 1.0
         raw = self.net(scaled)
+        if self.ansatz == "faegh":
+            # IC bằng output transform (Faegh 2026 Eq. 19); đáy là hạng mất mềm, không ràng buộc cứng (Eq. 17)
+            return raw * (1.0 - torch.exp(-t))
         if self.ansatz == "zhu":
             return raw * self._smooth_step(z, self.delta_z_star) * self._smooth_step(t, self.delta_t_star)
         pos = raw ** 2 if self.ansatz == "square" else torch.nn.functional.softplus(raw)
@@ -90,7 +93,9 @@ def sample(case: BulkCase, n_domain: int, n_near: int, n_top: int, n_face: int,
 
     fx = torch.cat([pick_end(n_face, Lx), u(n_face, 0, Ly), u(n_face, 0, Lz), u(n_face, 0, Tmax)], dim=1)
     fy = torch.cat([u(n_face, 0, Lx), pick_end(n_face, Ly), u(n_face, 0, Lz), u(n_face, 0, Tmax)], dim=1)
-    return {k: v.to(device) for k, v in {"dom": dom, "top": top, "fx": fx, "fy": fy}.items()}
+    bot = torch.cat([u(n_face, 0, Lx), u(n_face, 0, Ly), torch.zeros(n_face, 1, dtype=torch.float64),
+                     u(n_face, 0, Tmax)], dim=1)
+    return {k: v.to(device) for k, v in {"dom": dom, "top": top, "fx": fx, "fy": fy, "bot": bot}.items()}
 
 
 def loss_terms(model: BulkPINN, case: BulkCase, pts: dict[str, torch.Tensor]) -> dict[str, torch.Tensor]:
@@ -100,7 +105,13 @@ def loss_terms(model: BulkPINN, case: BulkCase, pts: dict[str, torch.Tensor]) ->
     r_top = top_residual(model, pts["top"], case) / ref
     r_fx = face_residual(model, pts["fx"], axis=0) / ref
     r_fy = face_residual(model, pts["fy"], axis=1) / ref
-    return {"pde": (r_pde ** 2).mean(), "top": (r_top ** 2).mean(),
+    # đáy Dirichlet θ = 0 là hạng mất mềm khi ansatz = faegh (Faegh 2026 Eq. 17)
+    if model.ansatz == "faegh":
+        bot = (model(pts["bot"]) / ref) ** 2
+        bot_term = bot.mean()
+    else:
+        bot_term = torch.zeros((), dtype=torch.float64, device=r_pde.device)
+    return {"bot": bot_term, "pde": (r_pde ** 2).mean(), "top": (r_top ** 2).mean(),
             "face": (r_fx ** 2).mean() + (r_fy ** 2).mean()}
 
 
@@ -118,7 +129,7 @@ def main() -> None:
     ap.add_argument("--width", type=int, default=64)
     ap.add_argument("--depth", type=int, default=4)
     ap.add_argument("--seed", type=int, default=0)
-    ap.add_argument("--ansatz", choices=["square", "softplus", "zhu"], default="square")
+    ap.add_argument("--ansatz", choices=["square", "softplus", "zhu", "faegh"], default="square")
     ap.add_argument("--w-pde", type=float, default=1.0)
     ap.add_argument("--w-top", type=float, default=1.0, help="trọng số hạng biên trên (prereg 27.28(g))")
     ap.add_argument("--w-side", type=float, default=1.0)
@@ -141,7 +152,7 @@ def main() -> None:
     for it in range(args.iters):
         pts = sample(case, args.n_domain, args.n_near, args.n_top, args.n_face, gen, dev)
         terms = loss_terms(model, case, pts)
-        loss = args.w_pde * terms["pde"] + args.w_top * terms["top"] + args.w_side * terms["face"]
+        loss = args.w_pde * terms["pde"] + args.w_top * terms["top"] + args.w_side * terms["face"] + terms["bot"]
         if not torch.isfinite(loss):
             raise RuntimeError(f"loss không hữu hạn tại vòng {it}: {terms}")
         if it >= decay_start:
@@ -165,7 +176,7 @@ def main() -> None:
         def closure():
             opt2.zero_grad()
             t = loss_terms(model, case, pts_fix)
-            loss_l = args.w_pde * t["pde"] + args.w_top * t["top"] + args.w_side * t["face"]
+            loss_l = args.w_pde * t["pde"] + args.w_top * t["top"] + args.w_side * t["face"] + t["bot"]
             loss_l.backward()
             return loss_l
 
