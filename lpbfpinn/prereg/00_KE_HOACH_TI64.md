@@ -696,6 +696,6 @@ Không σ nào đạt tiêu chí sớm. Không chạy GPU. Với σ nhỏ, PDE �
 - h = 25, ε = 0.2 (từ FV): khác Yuan, Faegh, Piandoro. Cần lý do hoặc đổi.
 - Vật liệu hằng số: khác Ransenigo và Yuan (phụ thuộc T). Ghi là hạn chế.
 
-(g) Mốc đánh giá (không đổi so với 27.26 bản dự thảo): M0 (kiểm tra toán) đã đạt; M1a (cân bằng năng lượng dưới 5%); M1b (nhiệt cực đại trong vết laser vượt T_sol và có vũng); M1c (độ rộng vũng tại T_sol trên mặt trong ±20% của Rosenthal, khoảng 105 µm). M1d (FEM bên ngoài) là tùy chọn, chưa cấp.
+(g) Mốc đánh giá (tương tự tiêu chí 27.24(e)): M0 (kiểm tra toán) đã đạt; M1a (cân bằng năng lượng dưới 5%); M1b (nhiệt cực đại trong vết laser vượt T_sol và có vũng); M1c (độ rộng vũng tại T_sol trên mặt trong ±20% của Rosenthal, khoảng 105 µm). M1d (FEM bên ngoài) là tùy chọn, chưa cấp.
 
 (h) Việc cần làm theo thứ tự: (1) viết mốc Rosenthal vào diagnose hoặc script riêng; (2) xác nhận vật liệu (f); (3) sửa cân bằng năng lượng (M1a) rồi mới đánh giá M1b, M1c. Không thêm bột trước khi M1 đạt.
