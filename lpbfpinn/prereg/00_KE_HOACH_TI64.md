@@ -707,3 +707,29 @@ Không σ nào đạt tiêu chí sớm. Không chạy GPU. Với σ nhỏ, PDE �
 Kết luận: ba hằng số hiện tại là giá trị gần điểm nóng chảy. Dùng hằng số cho cả miền làm sai nhiệt độ vùng xa vết laser (k thực tế thấp hơn nhiều ở nhiệt độ phòng). Đây là hạn chế cần ghi, hoặc cần k(T), c_p(T), ρ(T) theo Hình 14.
 
 Tìm kiếm bài khác (chưa mở toàn văn, chỉ dựa trên tóm tắt tìm kiếm): (1) preprint Research Square rs-10433902 có công thức k, c_p, ρ theo nhiệt độ cho Ti-6Al-4V, cần kiểm chứng đã bình duyệt chưa; (2) Bartsch et al., Frontiers in Mechanical Engineering 2022 (fmech.2022.830104): đo độ dẫn nhiệt Ti-6Al-4V trong LPBF, khối và bột; (3) arXiv 2604.24669 (mô hình 1D, Ti-6Al-4V): bảng tham số, ρ ≈ 4090, c ≈ 1130, k ≈ 20, cần kiểm tra lại vì cột bảng không rõ ràng. Hệ số phát xạ đo được 0.36 (một nghiên cứu hiệu chuẩn IR, không phải bột LPBF). Không tìm được bảng chuẩn cho h và ε trong nung Ti-6Al-4V bằng laser.
+
+**27.27 Đặc tả cuối cùng cho PINN thuần giai đoạn 1 (ngày 2026-10-13, quyết định của người nghiên cứu D1–D8 theo mục 27.26).**
+
+(a) Phạm vi: khối Ti-6Al-4V đặc, không bột, không bay hơi, không áp suất phản lực, không dòng chảy trong vũng, không nhiệt ẩn. Dẫn nhiệt không dừng với nguồn Gaussian bề mặt di chuyển, cách nhiệt hai mặt bên.
+
+(b) D1, kích thước miền: giữ nguyên kích thước mặc định ban đầu (x ∈ [−750, 750] µm, y ∈ [0, 380] µm, z ∈ [0, 240] µm). Ghi nhận rủi ro: với z_max = 240 µm, nhiệt có thể ảnh hưởng đến đáy trong thời gian quét. Không sửa theo quyết định này.
+
+(c) D2, vật liệu theo Ti-6Al-4V (hằng số, không phụ thuộc nhiệt độ): ρ = 4122 kg/m³, c = 831 J/kg·K, k = 35 W/m·K (Sharma và cộng sự 2026, Bảng 2). Thay thế ρ = 4106, c = 838, k = 33.1 của cấu hình cũ. Phụ thuộc nhiệt độ theo Han và cộng sự 2025 (Bảng 1) là lựa chọn nâng cấp về sau, không dùng trong giai đoạn 1.
+
+(d) D3, đối lưu và bức xạ: h = 25 W/m²·K, ε = 0.2 (giữ giá trị cũ theo quyết định của người nghiên cứu). Ghi nhận: Sharma 2026 dùng ε = 0.4, Han 2025 dùng h = 40, ε = 0.7; khác biệt này được ghi là giới hạn.
+
+(e) D4, nhiệt đáy và nhiệt ban đầu: 298 K (theo Sharma 2026, Piandoro 2026, Ransenigo Hình 5). Nhiệt môi trường T_amb = 298 K cũng dùng cho biên đối lưu, bức xạ và điều kiện ban đầu, để giữ một giá trị duy nhất. Điều này thay thế lựa chọn 293 K trước đây; cần xác nhận lại (xem mục (k)).
+
+(f) D5, biên bên: cách nhiệt (∂θ/∂n = 0).
+
+(g) D6, chuẩn hóa hàm loss: mọi hạng residual chia cho θ_peak theo đơn vị không thứ nguyên, tương đương θ_peak/t_c với hạng PDE và θ_peak/L_c với hạng biên. θ_peak là nhiệt độ đỉnh kỳ vọng của trường không thứ nguyên, cố định trước khi chạy và ghi trong checkpoint. Hệ quả: hạng biên trên không còn chia cho đỉnh thông lượng như trước, nên trọng số hiệu dụng của biên trên thay đổi; cần ghi khi báo cáo.
+
+(h) D7, learning rate: 10⁻³ giảm tuyến tính đến 10⁻⁴ trong 25% vòng cuối (5000 trên 20 000 vòng).
+
+(i) D8, tiêu chí: không có mốc đạt/không đạt ở giai đoạn 1. Mỗi lượt báo cáo đầy đủ các chỉ số trong 27.26(7) (cân bằng năng lượng, nhiệt cực đại, vũng tại T_sol, so với Rosenthal) mà không gán nhãn.
+
+(j) Cấu hình huấn luyện: Adam, 20 000 vòng trên GPU, seed 0 (sau đó seed 1, 2 để đo lặp lại), lấy mẫu đều và Sobol quanh vết laser. Không dùng các tùy chọn đã thử (biên trước, cân bằng vết laser, tăng dần PDE, L-BFGS, Fourier, trọng số thích nghi) làm mặc định.
+
+(k) Cần xác nhận: (1) D2 được đọc là hằng số Ti-6Al-4V của Sharma 2026; (2) D4 thay thế T_amb = 293 K bằng 298 K cho toàn bộ. Nếu không đúng ý, ghi lại và cập nhật prereg.
+
+(l) Việc tiếp theo: triển khai bulk (cờ powder = False), chuẩn hóa thống nhất theo θ_peak, cập nhật vật liệu, rồi kiểm thử đơn vị và chạy CPU ngắn để kiểm tra mã (không thành mốc).
