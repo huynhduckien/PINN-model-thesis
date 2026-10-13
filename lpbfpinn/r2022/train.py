@@ -150,6 +150,8 @@ def main() -> None:
     ap.add_argument("--decay-iters", type=int, default=0)
     ap.add_argument("--w-top", type=float, default=1.0)
     ap.add_argument("--w-face", type=float, default=1.0)
+    ap.add_argument("--pre-iters", type=int, default=0,
+                    help="huấn luyện biên trên trước: số vòng đầu chỉ tối ưu hạng biên trên, rồi mới cân bằng với PDE và biên")
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--lv0", type=float, default=9.0e5, help="L_v(0) J/kg; 9.0e5 theo Bảng 5 (mặc định)")
     ap.add_argument("--side-bc", choices=["adiabatic", "robin"], default="adiabatic", help="prereg 27.15")
@@ -182,7 +184,10 @@ def main() -> None:
         pts = sample(case, args.n_domain, args.n_near, args.n_top, args.n_face, gen, dev, n_band=args.n_band,
                      sobol=args.sobol)
         terms = loss_terms(model, case_it, pts)
-        loss = args.w_pde * terms["pde"] + args.w_top * terms["top"] + args.w_face * terms["face"]
+        if it < args.pre_iters:
+            loss = terms["top"]
+        else:
+            loss = args.w_pde * terms["pde"] + args.w_top * terms["top"] + args.w_face * terms["face"]
         if not torch.isfinite(loss):
             raise RuntimeError(f"loss không hữu hạn tại vòng {it}: {terms}")
         if args.lr_final is not None and args.decay_iters > 0:
