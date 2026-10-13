@@ -733,3 +733,16 @@ Tìm kiếm bài khác (chưa mở toàn văn, chỉ dựa trên tóm tắt tìm
 (k) Cần xác nhận: (1) D2 được đọc là hằng số Ti-6Al-4V của Sharma 2026; (2) D4 thay thế T_amb = 293 K bằng 298 K cho toàn bộ. Nếu không đúng ý, ghi lại và cập nhật prereg.
 
 (l) Việc tiếp theo: triển khai bulk (cờ powder = False), chuẩn hóa thống nhất theo θ_peak, cập nhật vật liệu, rồi kiểm thử đơn vị và chạy CPU ngắn để kiểm tra mã (không thành mốc).
+
+**27.27 Đặc tả PINN thuần giai đoạn 1 (Ti6Al4V, không bột) (ngày 2026-10-13, quyết định của người nghiên cứu D1–D8 theo mục 27.26).**
+
+- **D1 Kích thước miền:** z_max = 600 µm. x và y giữ như cấu hình cũ (x ∈ [−750, 750] µm, y ∈ [0, 380] µm).
+- **D2 Vật liệu:** hằng số theo Sharma, Raissi, Guo 2026 (Procedia CIRP 138): ρ = 4122 kg/m³, c = 831 J/kg·K, k = 35 W/m·K. Không dùng phụ thuộc nhiệt độ ở giai đoạn này.
+- **D3 Đối lưu và bức xạ:** h = 25 W/m²·K và ε = 0.2 (giữ như cấu hình hiện tại theo quyết định của người nghiên cứu). Ghi chú: các bài đã tải lên dùng ε = 0.4 (Sharma 2026), ε = 0.7 (Han 2025) và h = 40 (Han 2025). Đây là giới hạn cần nêu trong báo cáo.
+- **D4 Nhiệt đáy:** T = 298 K (Dirichlet), như Sharma 2026 và Ransenigo Hình 5. Ban đầu T = 298 K.
+- **D5 Biên bên:** cách nhiệt (∂T/∂n = 0).
+- **D6 Chuẩn hóa loss:** thống nhất theo θ_peak/t_c. Cụ thể hóa các hệ số trong bước triển khai, có kiểm thử đơn vị trước khi chạy.
+- **D7 Learning rate:** 10⁻³, giảm tuyến tính về 10⁻⁴ trong 25% vòng cuối.
+- **D8 Tiêu chí dừng giai đoạn 1:** không có mốc đạt/không đạt. Mọi lượt được báo cáo đầy đủ theo mục 27.27(đầu ra) mà không chọn lượt theo kích thước mục tiêu (27.4).
+
+Đầu ra mỗi lượt: cân bằng năng lượng (E_in, E_out theo biên, E_stored, rel_error), nhiệt cực đại trên lưới, nhiệt bề mặt, nhiệt tại 50 µm dưới tâm, profile trên mặt, vũng tại T_sol (rộng, sâu), và so sánh với Rosenthal ở vùng xa.
