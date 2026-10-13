@@ -594,3 +594,9 @@ Quan sát nền: lượt CPU 4000 vòng (2000 vòng biên trên trước, rồi 
 (d) Thử ngắn trên CPU (600 vòng, lấy mẫu nhỏ) đã chạy để kiểm tra mã: cả hai tùy chọn chạy được, hạng biên trên trong vết laser hiện lớn hơn khi cân bằng (0.05 so với 0.0066), nghĩa là sai số trong vết laser không còn bị che. Đây không phải kết quả.
 
 (e) Tiêu chí đánh giá (mục 27.4 không đổi): một hướng được coi là có ích nếu, sau diagnose trên lượt GPU, (i) nhiệt cực đại trên lưới vượt T_sol = 1877 K, (ii) xuất hiện vũng nóng chảy (rộng và sâu lớn hơn 0), (iii) hạng biên trên trong vết laser (rms/peak) và hạng PDE đều nhỏ. Kết quả so với Bảng 3 được báo cáo đầy đủ, không chọn lượt theo kích thước mục tiêu.
+
+**27.24 (kết quả CPU ngắn, ngày 2026-10-13).** Ba lượt CPU 2000 vòng, seed 0, miền thu nhỏ (n_domain 1000, n_top 400), không kẹp T, không bay hơi, T_amb 293 K:
+- Đối chứng (không tùy chọn): nhiệt cực đại 330 K, bề mặt 326 K, không vũng, sai số năng lượng 0.885, hạng PDE cuối 7·10⁻⁶, hạng biên trên cuối 0.0089.
+- `--spot-balance`: nhiệt cực đại 332 K, bề mặt 328 K, không vũng, sai số năng lượng 0.881, hạng PDE cuối 7·10⁻⁶, hạng biên trên cuối 0.102.
+- `--pde-ramp-iters 1000`: nhiệt cực đại 297 K, không vũng, sai số năng lượng 0.988, hạng PDE cuối 0.
+Kết luận: không hướng nào đạt tiêu chí 27.24(e) trong 2000 vòng CPU. Cả ba lượt vẫn nguội. Hạng biên trên của lượt cân bằng vết laser cao hơn nhiều (0.10 so với 0.009), cho thấy sai số trong vết laser không còn bị pha loãng, nhưng mạng chưa giảm được nó trong thời gian này. Chỉ số rms/peak trong vết laser của diagnose (0.443) giống nhau ở cả ba lượt, nên chưa dùng để so sánh được. Cần thử lâu hơn và kết hợp hai hướng trước khi kết luận.
