@@ -24,8 +24,11 @@ class BulkPINN(torch.nn.Module):
     Ràng buộc cứng IC và đáy: θ = z*·softplus(raw)·(1 − e^{−t*}).
     """
 
-    def __init__(self, case: BulkCase, width: int = 64, depth: int = 4):
+    def __init__(self, case: BulkCase, width: int = 64, depth: int = 4, ansatz: str = "square"):
         super().__init__()
+        # "square": θ = z·raw²·(1 − e^{−t}), đạt 0 đúng khi raw = 0 (sửa sàn nhiệt, prereg 27.28(j));
+        # "softplus": dạng cũ, giữ để đọc lại checkpoint cũ
+        self.ansatz = ansatz
         Lx, Ly, Lz, Tmax = case.domain_star
         layers = [torch.nn.Linear(4, width), torch.nn.Tanh()]
         for _ in range(depth - 1):
@@ -40,7 +43,8 @@ class BulkPINN(torch.nn.Module):
         t = xs[:, 3:4]
         scaled = 2.0 * (xs - self.lo) / (self.hi - self.lo) - 1.0
         raw = self.net(scaled)
-        return z * torch.nn.functional.softplus(raw) * (1.0 - torch.exp(-t))
+        pos = raw ** 2 if self.ansatz == "square" else torch.nn.functional.softplus(raw)
+        return z * pos * (1.0 - torch.exp(-t))
 
 
 def sample(case: BulkCase, n_domain: int, n_near: int, n_top: int, n_face: int,
@@ -101,6 +105,7 @@ def main() -> None:
     ap.add_argument("--width", type=int, default=64)
     ap.add_argument("--depth", type=int, default=4)
     ap.add_argument("--seed", type=int, default=0)
+    ap.add_argument("--ansatz", choices=["square", "softplus"], default="square")
     ap.add_argument("--w-pde", type=float, default=1.0)
     ap.add_argument("--w-top", type=float, default=1.0, help="trọng số hạng biên trên (prereg 27.28(g))")
     ap.add_argument("--w-side", type=float, default=1.0)
@@ -112,7 +117,7 @@ def main() -> None:
     torch.manual_seed(args.seed)
     dev = torch.device(args.device)
     case = BulkCase()
-    model = BulkPINN(case, width=args.width, depth=args.depth).to(dev).double()
+    model = BulkPINN(case, width=args.width, depth=args.depth, ansatz=args.ansatz).to(dev).double()
     opt = torch.optim.Adam(model.parameters(), lr=args.lr)
     gen = torch.Generator().manual_seed(args.seed)
     out = Path(args.out)
