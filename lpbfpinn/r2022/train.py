@@ -174,6 +174,8 @@ def main() -> None:
                     help="tiếp tục hóa: số vòng đầu tắt đối lưu và bức xạ (h = ε = 0)")
     ap.add_argument("--ramp-iters", type=int, default=0,
                     help="tiếp tục hóa: số vòng tăng tuyến tính h và ε lên giá trị vật lý")
+    ap.add_argument("--width", type=int, default=64, help="số nơron mỗi lớp ẩn (prereg 27.25, A3)")
+    ap.add_argument("--depth", type=int, default=4, help="số lớp ẩn (prereg 27.25, A3)")
     ap.add_argument("--adaptive-weights", action="store_true",
                     help="trọng số thích nghi theo độ lớn gradient của từng hạng (prereg 27.25, A4)")
     ap.add_argument("--adapt-every", type=int, default=100, help="cập nhật trọng số thích nghi mỗi bao nhiêu vòng")
@@ -187,7 +189,7 @@ def main() -> None:
     dev = torch.device(args.device)
     case = R2022Case(surface=args.surface, hard_delta=args.hard_delta, L_v0=args.lv0,
                      side_bc=args.side_bc)
-    model = PINN(case).to(dev).double()
+    model = PINN(case, width=args.width, depth=args.depth).to(dev).double()
     opt = torch.optim.Adam(model.parameters(), lr=args.lr)
     gen = torch.Generator().manual_seed(args.seed)
     out = Path(args.out)

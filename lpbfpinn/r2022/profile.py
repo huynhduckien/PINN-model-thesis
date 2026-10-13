@@ -56,8 +56,9 @@ def main() -> None:
     ap.add_argument("--out", default=None, help="thư mục lưu profile.json (mặc định cạnh checkpoint)")
     args = ap.parse_args()
     case = R2022Case(surface=args.surface, side_bc=args.side_bc, L_v0=args.lv0)
-    model = PINN(case).double().to(args.device)
-    model.load_state_dict(torch.load(args.ckpt, map_location=args.device, weights_only=False)["model_state_dict"])
+    ck = torch.load(args.ckpt, map_location=args.device, weights_only=False)
+    model = PINN(case, width=ck["args"].get("width", 64), depth=ck["args"].get("depth", 4)).double().to(args.device)
+    model.load_state_dict(ck["model_state_dict"])
     model.eval()
     if case.surface == "hard":
         model = HardPinned(model, case).eval()

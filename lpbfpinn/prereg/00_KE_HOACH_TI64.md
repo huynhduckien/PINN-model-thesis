@@ -634,3 +634,11 @@ Kiểm tra mã: lượt 300 vòng CPU cho w_top ≈ 574 và w_face ≈ 1032, w_p
 Tiêu chí và quy trình như 27.25(e)–(g): thử CPU ngắn 2000 vòng trước, chỉ chạy GPU nếu đạt tín hiệu sớm.
 
 **27.25 (h, kết quả CPU A4, ngày 2026-10-13).** Lượt 2000 vòng Adam với `--adaptive-weights` (seed 0, miền thu nhỏ). Trọng số cuối: w_pde = 1, w_top ≈ 153, w_face ≈ 526. Hạng PDE cuối 9.8·10⁻⁵, hạng biên trên cuối 0.0089. Diagnose: nhiệt cực đại trên lưới 449 K, bề mặt 326 K, không vũng, sai số năng lượng 0.853. Không đạt tiêu chí 27.25(e). Trọng số thích nghi làm nhiệt cực đại tăng từ ~330 K (đối chứng cùng cỡ) lên 449 K nhưng chưa đủ để vượt T_sol hay tạo vũng.
+
+**27.25 (i) Hướng A3: mạng lớn hơn (ngày 2026-10-13, quyết định của người nghiên cứu).** Tham số mới `--width` (mặc định 64) và `--depth` (mặc định 4, số lớp ẩn). A3 dùng 5 lớp ẩn × 64 nơron. Diagnose và profile đọc kiến trúc từ checkpoint, nên không cần truyền lại tham số. Mã đã kiểm tra: test 9/9 pass, huấn luyện 30 vòng và diagnose chạy được với depth 5.
+
+Lệnh GPU (seed 0, cấu hình chính, 20 000 vòng, lr 10⁻³ → 10⁻⁴ trong 5000 vòng cuối, không kẹp T, không bay hơi, T_amb 293 K, biên bên cách nhiệt, mạng 5 × 64):
+```
+python -m lpbfpinn.r2022.train --device cuda --surface flux --side-bc adiabatic --seed 0 --iters 20000 --lr 1e-3 --lr-final 1e-4 --decay-iters 5000 --depth 5 --width 64 --out results/pinn_r2022_flux_A3
+```
+Sau khi chạy, diagnose và profile trên `results/pinn_r2022_flux_A3/model.pt` như 27.22. Tiêu chí như 27.25(e), không đổi (27.4).
