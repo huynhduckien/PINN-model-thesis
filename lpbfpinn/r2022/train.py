@@ -174,6 +174,8 @@ def main() -> None:
                     help="tiếp tục hóa: số vòng đầu tắt đối lưu và bức xạ (h = ε = 0)")
     ap.add_argument("--ramp-iters", type=int, default=0,
                     help="tiếp tục hóa: số vòng tăng tuyến tính h và ε lên giá trị vật lý")
+    ap.add_argument("--lbfgs-iters", type=int, default=0,
+                    help="số bước L-BFGS sau Adam (mỗi bước tối đa 20 lần lặp), trên một tập điểm cố định (prereg 27.25, A2)")
     ap.add_argument("--out", default="results/pinn_r2022")
     args = ap.parse_args()
 
@@ -217,6 +219,26 @@ def main() -> None:
                    "elapsed_s": time.time() - t0}
             hist.append(rec)
             print(json.dumps(rec), flush=True)
+    if args.lbfgs_iters > 0:
+        # L-BFGS trên một tập điểm cố định, toàn bộ loss với trọng số cuối (prereg 27.25, A2)
+        pts_fix = sample(case, args.n_domain, args.n_near, args.n_top, args.n_face, gen, dev, n_band=args.n_band,
+                         sobol=args.sobol)
+        opt2 = torch.optim.LBFGS(model.parameters(), lr=1.0, max_iter=20, history_size=50,
+                                 line_search_fn="strong_wolfe")
+
+        def closure():
+            opt2.zero_grad()
+            t = loss_terms(model, case, pts_fix, spot_balance=args.spot_balance)
+            loss_l = args.w_pde * t["pde"] + args.w_top * t["top"] + args.w_face * t["face"]
+            loss_l.backward()
+            return loss_l
+
+        for k in range(args.lbfgs_iters):
+            loss_k = opt2.step(closure)
+            if k % max(args.lbfgs_iters // 10, 1) == 0 or k == args.lbfgs_iters - 1:
+                rec = {"lbfgs_step": k, "loss": float(loss_k), "elapsed_s": time.time() - t0}
+                hist.append(rec)
+                print(json.dumps(rec), flush=True)
     torch.save({"model_state_dict": model.state_dict(), "args": vars(args)}, out / "model.pt")
     (out / "history.json").write_text(json.dumps(hist, indent=2), encoding="utf-8")
     print(f"saved {out / 'model.pt'}", flush=True)
