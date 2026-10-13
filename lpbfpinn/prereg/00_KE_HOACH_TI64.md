@@ -851,3 +851,10 @@ Nhận xét: nhiệt cực đại giảm khi d tăng; độ rộng vũng giảm 
 - C: không chuẩn hóa (`--norm none`, mọi trọng số bằng 1). Cơ sở: Sharma 2025 và Yuan 2025 dùng trọng số thay vì chuẩn hóa. Kỳ vọng: các hạng lệch thang, có thể làm nghiệm nguội như đã thấy ở r2022.
 
 Tiêu chí, cố định trước khi chạy: (i) sai số năng lượng trong ±10%; (ii) nhiệt tại điểm xa laser (x = −750 µm, y = 380 µm, z = 600 µm, t* = 0.25) trong 298 ± 20 K; (iii) hạng PDE và biên trên không đánh đổi (tỷ số trong [0.1, 10]). Không dùng nhiệt cực đại hay kích thước vũng để chọn (27.4). Báo cáo đầy đủ bốn lượt.
+
+**27.31 (kết quả CPU 2000 vòng, dx = 20 µm, seed 0, ngày 2026-10-13).**
+- Đối chứng (IC cứng, đáy cứng, θ_ref): năng lượng +0.057 (đạt), xa laser 298.3 K (đạt), tỷ số cân bằng 0.07 (không đạt). Nhiệt cực đại 3743 K, vũng 60 × 40 µm.
+- A (IC mềm): năng lượng −0.063 (đạt), xa laser 302.2 K (đạt), tỷ số 0.30 (đạt). Nhiệt cực đại 3599 K, vũng 60 × 40 µm. **Đạt cả ba tiêu chí.**
+- B (đáy mềm): năng lượng −0.041 (đạt), xa laser 299.0 K (đạt), tỷ số 0.02 (không đạt).
+- C (không chuẩn hóa θ_ref): kết quả cuối giống hệt đối chứng (năng lượng, nhiệt, vũng). Lý do: mọi hạng dùng cùng một hệ số θ_ref nên loss chỉ bị nhân với một hằng số. Adam bất biến với phép nhân hằng số, nên quỹ đạo huấn luyện không đổi. Vậy E10 không ảnh hưởng đến kết quả khi mọi hạng cùng thang; nó chỉ đổi cách hiển thị các hạng trong nhật ký. Tỷ số cân bằng của C không đáng tin vì được tính trên hạng chưa chuẩn hóa, và không nên dùng làm bằng chứng.
+Kết luận: E8 (IC cứng) có thể thay bằng hạng IC mềm, theo đúng tiêu chí đã ghi. E9 (đáy cứng) không thay được với tiêu chí hiện tại. E10 không có tác dụng với Adam; có thể bỏ mà không đổi kết quả. Một seed, 2000 vòng CPU, dx 20 µm: chưa đủ để kết luận cuối cùng.
