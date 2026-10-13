@@ -604,3 +604,23 @@ Kết luận: không hướng nào đạt tiêu chí 27.24(e) trong 2000 vòng C
 **27.24 (kết quả GPU, hướng 2 `--pde-ramp-iters 5000`, ngày 2026-10-13).** Lượt `results/pinn_r2022_flux_pderamp` (seed 0, 20 000 vòng, không kẹp T, không bay hơi, T_amb 293 K, biên bên cách nhiệt) chạy trên GPU của người nghiên cứu. Diagnose: nhiệt cực đại trên lưới 293.5 K, bề mặt trung tâm 293.5 K, không vũng (rộng và sâu 0 µm), sai số năng lượng 0.998, E_in 0.082 J so với E_stored 1·10⁻⁴ J. Profile trên mặt trên ở ba thời điểm: 293.4–293.5 K trên toàn bề rộng 250 µm. Rms/peak trong vết laser 0.443, giống các lượt nguội khác: đây là đúng giá trị của nghiệm θ ≈ 0 (residual bằng thông lượng laser), không phải lỗi đo.
 
 Kết luận: hướng 2 riêng lẻ không đạt tiêu chí 27.24(e) trên GPU. Nghiệm nguội lặp lại ở 20 000 vòng, nên hướng này không đủ để thoát nghiệm nguội. Lượt `spotbal` (hướng 1) và kết hợp hai hướng chưa có kết quả và cần chạy tiếp.
+
+**27.25 Hướng A: giữ thông lượng laser thật, sửa cách huấn luyện (ngày 2026-10-13, quyết định của người nghiên cứu).**
+
+(a) Bối cảnh. Các lượt không kẹp T (27.22, 27.24) đều nguội: nhiệt cực đại 293–455 K, không có vũng. Lượt chỉ tối ưu biên trên học được (sai số xuống 5·10⁻⁵), nhưng khi thêm PDE thì nghiệm quay về trạng thái nguội. Giả thuyết cần kiểm tra: tối ưu Adam với lấy mẫu ngẫu nhiên không đủ để giữ đồng thời PDE và biên trên. Hướng này không thay đổi vật lý: vẫn Gaussian bề mặt, đối lưu và bức xạ, không bay hơi (27.23), không kẹp T, không L_E, T_amb 293 K, biên bên cách nhiệt.
+
+(b) Bằng chứng ủng hộ hướng. Peng & Panesar 2023 (loss lệch bậc và output transform ảnh hưởng lớn); arXiv 2506.20537 (hạng PDE thấp rồi tăng, cần trọng số cố định theo bậc độ lớn); Sharma & Guo 2025 và Piandoro 2026 dùng L-BFGS sau Adam; Zhu 2021 và Faegh 2026 cho ràng buộc cứng IC và biên (không dùng cho vết laser).
+
+(c) Các thành phần của hướng A, thử theo thứ tự:
+- A1. Adam dài hơn kết hợp hai hướng 27.24 (chia biên trước, cân bằng vết laser, tăng dần PDE).
+- A2. L-BFGS sau Adam, với tập điểm cố định (không lấy mẫu lại mỗi vòng). Số vòng L-BFGS và điều kiện dừng ghi trước khi chạy. Đây là phần cần thêm vào mã (`--lbfgs-iters`, `--fixed-points`), chưa có.
+- A3. Mạng lớn hơn (ví dụ 5 lớp × 64 nơron) nếu A1–A2 chưa đủ. Không thử cùng lúc với A1–A2.
+- A4. Trọng số thích nghi theo gradient: chỉ thử nếu A1–A3 không đạt. Không viết trong prereg này.
+
+(d) Quy trình. Mọi thử nghiệm đầu tiên chạy trên CPU ngắn (cùng cấu hình seed 0, miền thu nhỏ như 27.24(d)) để kiểm tra mã và xu hướng. Chỉ lượt đạt tín hiệu sớm mới chạy GPU đầy đủ (20 000 vòng, seed 0). Mỗi lượt GPU ghi diagnose và profile như 27.22.
+
+(e) Tiêu chí đạt (không đổi so với 27.24(e)): (i) nhiệt cực đại trong vết laser vượt T_sol = 1877 K; (ii) xuất hiện vũng nóng chảy có rộng và sâu lớn hơn 0; (iii) hạng biên trên trong vết laser và hạng PDE cùng nhỏ, không đánh đổi nhau. Kết quả so với Bảng 3 được báo cáo đầy đủ, không chọn lượt theo kích thước mục tiêu (27.4).
+
+(f) Tín hiệu sớm để chuyển từ CPU sang GPU: sau tối đa 4000 vòng Adam (hoặc sau L-BFGS nếu có), nhiệt cực đại trên lưới vượt 1000 K và hạng PDE không tăng quá 10 lần so với giá trị ban đầu. Nếu không đạt tín hiệu này, lượt không chạy GPU và được báo cáo là không đạt ở giai đoạn CPU.
+
+(g) Giới hạn đã biết. Nếu A1–A3 đều không đạt, kết luận là PINN thuần không tái tạo được thông lượng laser ở cấu hình này, và kết quả âm được báo cáo. Không dùng kẹp T hay dữ liệu mục tiêu để cứu kết quả.
