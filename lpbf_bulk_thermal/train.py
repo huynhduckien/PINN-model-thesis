@@ -38,7 +38,8 @@ def main():
     parser.add_argument("--no-lbfgs", action="store_true", help="chỉ chạy Adam")
     parser.add_argument("--adam", type=int, default=None, help="ghi đè số bước Adam của preset")
     parser.add_argument("--neg-penalty", type=float, default=0.0, help="λ phạt θ<0 trong PDE")
-    parser.add_argument("--top-weight", choices=["scaled", "unit"], default="scaled")
+    parser.add_argument("--top-weight", default="scaled",
+                        help="scaled | unit | số cụ thể (ví dụ 100)")
     parser.add_argument("--power", type=float, default=cfg.P, help="công suất laser (W)")
     parser.add_argument("--evap", type=int, choices=[0, 1], default=int(cfg.EVAPORATION),
                         help="1: bật bốc hơi trên mặt trên")

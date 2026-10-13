@@ -28,7 +28,12 @@ def loss_weights(top_mode="scaled"):
     top_mode = "scaled": mặt trên chia 1/Q*² (cân bằng độ lớn flux).
     top_mode = "unit":   mặt trên trọng số 1.
     """
-    w_top = 1.0 / cfg.Q_STAR**2 if top_mode == "scaled" else 1.0
+    if top_mode == "scaled":
+        w_top = 1.0 / cfg.Q_STAR**2
+    elif top_mode == "unit":
+        w_top = 1.0
+    else:
+        w_top = float(top_mode)   # trọng số số cụ thể, ví dụ "100"
     return [1.0, w_top, 1.0, 1.0]
 
 

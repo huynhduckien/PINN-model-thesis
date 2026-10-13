@@ -86,7 +86,10 @@ def zero_theta(x):
 
 
 def on_top(x, on_boundary):
-    return on_boundary and dde.utils.isclose(x[2], cfg.Z_TOP_S)
+    """Mặt trên, không tính các cạnh (x hoặc y ở biên): pháp tuyến ở cạnh bị tính trung bình sai."""
+    on_x_edge = dde.utils.isclose(x[0], 0.0) or dde.utils.isclose(x[0], cfg.LX_S)
+    on_y_edge = dde.utils.isclose(x[1], 0.0) or dde.utils.isclose(x[1], cfg.LY_S)
+    return on_boundary and dde.utils.isclose(x[2], cfg.Z_TOP_S) and not (on_x_edge or on_y_edge)
 
 
 def on_bottom(x, on_boundary):

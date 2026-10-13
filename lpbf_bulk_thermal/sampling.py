@@ -55,6 +55,8 @@ def laser_top_points(n, seed=3, r_max=R_ANCHOR):
     xc, yc = cfg.laser_center(t)
     r = r_max * np.sqrt(s[:, 1])
     ang = 2.0 * np.pi * s[:, 2]
-    x = np.clip(xc + r * np.cos(ang), 0.0, cfg.LX_S)
-    y = np.clip(yc + r * np.sin(ang), 0.0, cfg.LY_S)
-    return np.column_stack([x, y, np.full(n, cfg.Z_TOP_S), t])
+    x = xc + r * np.cos(ang)
+    y = yc + r * np.sin(ang)
+    # Bỏ điểm ngoài miền thay vì kẹp vào biên (điểm kẹp nằm ở cạnh, pháp tuyến sai).
+    inside = (x > 0) & (x < cfg.LX_S) & (y > 0) & (y < cfg.LY_S)
+    return np.column_stack([x[inside], y[inside], np.full(inside.sum(), cfg.Z_TOP_S), t[inside]])
