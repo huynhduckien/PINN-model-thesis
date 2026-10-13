@@ -1,8 +1,9 @@
 """Hình học, dữ liệu DeepXDE và mạng nơ-ron cho bài toán nhiệt LPBF bulk.
 
 Mạng: FNN 4 → 5×32 (tanh) → 1, input chuẩn hóa về [-1, 1] theo miền.
-Điều kiện đầu được ép cứng: θ = (1 - exp(-t*/τ*)) · softplus(f(x)), nên θ(t*=0) = 0
-(T = T0) và θ ≥ 0 (T ≥ T0).
+Điều kiện đầu được ép cứng: θ = (1 - exp(-t*/τ*)) · f(x), nên θ(t*=0) = 0 (T = T0).
+Không dùng softplus ở đầu ra: khi f âm lớn, softplus bão hòa (gradient ~ 0) và mạng bị kẹt ở
+θ ≈ 0, không học được nguồn nhiệt. Tính không âm của θ được kiểm tra bằng số.
 """
 import deepxde as dde
 import numpy as np
@@ -54,7 +55,7 @@ def build_net():
     def hard_ic(inputs, outputs):
         t = inputs[:, 3:4]
         mask = 1.0 - torch.exp(-t / cfg.TAU_IC_S)
-        return mask * torch.nn.functional.softplus(outputs)
+        return mask * outputs
 
     net = dde.nn.FNN(ARCH, "tanh", "Glorot uniform")
     net.apply_feature_transform(feature_transform)
