@@ -798,3 +798,7 @@ Tiêu chí chọn, ghi trước khi chạy: đo tỷ số L_top/L_PDE tại vòn
 Kết quả (2000 vòng Adam, w_top = 1): nhiệt cực đại 11 657 K (lưới 20 µm) và 12 844 K (lưới 10 µm), vượt xa điểm sôi 3533 K. Vũng rộng 140 µm, sâu 20 µm (một đến hai ô lưới, không đáng tin). Cân bằng năng lượng: E_in = 0.082 J, E_out_top = 0.0004 J, E_out_bottom = 0.0005 J, E_stored = 0.18 J, sai số −1.24 (−1.20 với lưới 10 µm). Năng lượng tích lũy lớn hơn năng lượng vào, nên model vi phạm bảo toàn năng lượng.
 
 Kết luận: tiêu chí cân bằng loss (27.28(g)) không đảm bảo nghiệm vật lý. Không chạy GPU với cấu hình này. Cần sửa trước: nguyên nhân có thể là hạng biên trên không ràng buộc đủ nhiệt độ bề mặt, hoặc thiếu chuẩn hóa theo thang nhiệt độ. Đối chiếu: Wu và cộng sự 2018 cho nhiệt cực đại 5439 K không bay hơi, nên 11 657 K là quá cao.
+
+**27.28 (i) Kiểm tra hướng 1: biên trên có được thỏa không (ngày 2026-10-13).** Trên model w_top = 1, đo residual biên trên (dimensional, chia cho đỉnh thông lượng): tại vết laser rms = 5.7%, xa vết laser rms = 0.9%. Tại nhiệt 8277 K, mất nhiệt đối lưu và bức xạ chỉ bằng 0.35% thông lượng đỉnh.
+
+Kết luận: biên trên không được thỏa hoàn toàn (5.7% tại vết laser), nhưng ngay cả khi thỏa tốt hơn, mất nhiệt đối lưu và bức xạ không đủ để giới hạn nhiệt bề mặt ở vài nghìn K. Nhiệt cao vì mô hình không có cơ chế giới hạn nhiệt bề mặt (bay hơi, mục 27.21 và 27.23 đã bỏ). Vì vậy hướng 1 không giải quyết được vấn đề nhiệt cực đại. Sai số năng lượng −1.2 cần kiểm tra thêm; 5.7% sai số biên không đủ giải thích hoàn toàn.
