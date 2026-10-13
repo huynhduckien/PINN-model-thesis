@@ -1,6 +1,8 @@
 """Kiểm tra PDE của PINN thuần giai đoạn 1 trên nghiệm giải tích (prereg 27.27, C6)."""
 from __future__ import annotations
 
+from dataclasses import replace
+
 import numpy as np
 import pytest
 import torch
@@ -106,3 +108,43 @@ def test_near_laser_sobol_stays_in_disk_and_domain():
     assert float(y.min()) >= 0.0 and float(y.max()) <= Ly
     assert float(z.min()) >= Lz - 2.0 - 1e-12 and float(z.max()) <= Lz + 1e-12
     assert float(t.min()) >= 0.0 and float(t.max()) <= Tm
+
+
+def test_laser150_nondim_values():
+    """Số không thứ nguyên của cấu hình 150 W, 750 mm/s (prereg 27.34)."""
+    from lpbfpinn.bulk.case import case_laser150
+    case = case_laser150()
+    np.testing.assert_allclose(case.t_c, 6.273e-4, rtol=1e-3)
+    np.testing.assert_allclose(case.t_end, 0.8e-3, rtol=1e-12)
+    Lx, Ly, Lz, Tm = case.domain_star
+    np.testing.assert_allclose([Lx, Ly, Lz], [16.0, 8.0, 5.8], rtol=1e-12)
+    np.testing.assert_allclose(Tm, 1.2756, rtol=1e-3)
+    assert case.side_loss and not BulkCase().side_loss
+
+
+def test_side_residual_sign_on_linear_profile():
+    """θ = c·x* với h = 0, ε = 0: ∂θ/∂n = ±c, nên r = +c ở mặt x = L_x và −c ở mặt x = 0 (prereg 27.34)."""
+    from lpbfpinn.bulk.operator import side_residual
+    case = BulkCase(h_c=0.0, emissivity=0.0, side_loss=True)
+    c = 0.7
+    theta = lambda p: c * p[:, 0:1]
+    Lx, Ly, Lz, Tm = case.domain_star
+    xs_hi = torch.tensor([[Lx, 0.3 * Ly, 0.5 * Lz, 0.2 * Tm]], dtype=torch.float64)
+    xs_lo = torch.tensor([[0.0, 0.3 * Ly, 0.5 * Lz, 0.2 * Tm]], dtype=torch.float64)
+    np.testing.assert_allclose(side_residual(theta, xs_hi, 0, case).detach().numpy(), [[c]], rtol=1e-12)
+    np.testing.assert_allclose(side_residual(theta, xs_lo, 0, case).detach().numpy(), [[-c]], rtol=1e-12)
+
+
+def test_side_residual_zero_at_ambient_and_y_faces():
+    """θ = 0 (T = T_amb) thỏa biên bên ở mọi mặt; θ = c·y* cho dấu đúng ở y = 0 và y = L_y."""
+    from lpbfpinn.bulk.case import case_laser150
+    from lpbfpinn.bulk.operator import side_residual
+    case = case_laser150()
+    Lx, Ly, Lz, Tm = case.domain_star
+    xs = torch.tensor([[0.4 * Lx, Ly, 0.5 * Lz, 0.3 * Tm], [0.4 * Lx, 0.0, 0.5 * Lz, 0.3 * Tm]], dtype=torch.float64)
+    r0 = side_residual(lambda p: 0.0 * p[:, 1:2], xs, 1, case).detach().numpy()
+    np.testing.assert_allclose(r0, 0.0, atol=1e-14)
+    # kiểm tra dấu: với θ = c·y* và h = 0, ε = 0, r = ±c
+    nocool = replace(case, h_c=0.0, emissivity=0.0)
+    r1 = side_residual(lambda p: 0.5 * p[:, 1:2], xs, 1, nocool).detach().numpy().ravel()
+    np.testing.assert_allclose(r1, [0.5, -0.5], rtol=1e-12)

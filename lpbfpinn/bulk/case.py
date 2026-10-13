@@ -37,6 +37,8 @@ class BulkCase:
     emissivity: float = 0.4        # Sharma 2026
     # thang nhiệt độ không thứ nguyên (C2)
     T_scale: float = 2000.0        # K
+    # biên bên: False = cách nhiệt (prereg 27.27–27.33); True = đối lưu + bức xạ như mặt trên (prereg 27.34)
+    side_loss: bool = False
     # nguồn: "surface" (Gaussian bề mặt) hoặc "volume" (Gaussian thể tích có suy giảm theo chiều sâu, Han 2025 Eq. 4)
     source: str = "surface"
     d_vol: float = 0.0             # m, chiều sâu xuyên d của Han 2025; bắt buộc khi source = "volume"
@@ -79,6 +81,39 @@ class BulkCase:
         """Kích thước miền và thời gian không thứ nguyên: (L_x*, L_y*, L_z*, t_end*)."""
         return ((self.x_max - self.x_min) / self.L_c, self.y_max / self.L_c, self.z_max / self.L_c,
                 self.t_end / self.t_c)
+
+
+def case_laser150() -> BulkCase:
+    """Cấu hình 150 W, 750 mm/s theo quyết định người dùng (prereg 27.34).
+
+    Nguồn: Gaussian bề mặt, α = 0.41 (Fresnel, ε = 0.27, Ma 2026 Eq. 13), r_b = 50 µm.
+    Vật liệu Ti-6Al-4V ở 308 K (Ma 2026 Bảng 1): ρ = 4420, c_p = 512.4 + 0.15·T − 1e-6·T² = 558.505,
+    k = 1.57 + 2.9e-2·T − 7e-6·T² = 9.837952. Không nhiệt ẩn, không bay hơi (chỉ kiểm tra T_max ≤ T_v).
+    Mặt trên và mặt bên: đối lưu h = 25, bức xạ ε = α_r = 0.4 (Ma 2026 Bảng 1). Đáy T = 308 K (Dirichlet, mềm như mặc định).
+    Miền 800 × 400 × 290 µm, đường quét x: 100 → 700 µm tại y = 200 µm, t_end = 0.8 ms.
+    """
+    return BulkCase(
+        power=150.0,
+        absorptivity=0.41,
+        speed=0.75,                # m/s
+        r_b=50e-6,
+        x_start=100e-6,
+        x_end=700e-6,
+        y_tip=200e-6,
+        x_min=0.0,
+        x_max=800e-6,
+        y_max=400e-6,
+        z_max=290e-6,
+        rho=4420.0,
+        cp=558.505,
+        k=9.837952,
+        h_c=25.0,
+        emissivity=0.4,
+        T_amb=308.0,
+        T_sol=1878.0,
+        T_vap=3315.0,
+        side_loss=True,
+    )
 
 
 def case_2019() -> BulkCase:

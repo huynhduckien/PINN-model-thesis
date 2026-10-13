@@ -15,7 +15,7 @@ from pathlib import Path
 import numpy as np
 import torch
 
-from .case import BulkCase
+from .case import BulkCase, case_laser150
 from .operator import loss_star
 from .train import BulkPINN
 
@@ -59,7 +59,7 @@ def run(model: BulkPINN, case: BulkCase, dx: float, n_t: int, device) -> dict:
     y_tip_star = case.y_tip / case.L_c
     T_sol = case.T_sol
 
-    mp_width, mp_depth, T_max, T_surf_max = [], [], [], []
+    mp_width, mp_depth, T_max, T_min, T_surf_max = [], [], [], [], []
     top_loss_int = []
     bottom_flux_int = []
     stored_end = None
@@ -94,6 +94,7 @@ def run(model: BulkPINN, case: BulkCase, dx: float, n_t: int, device) -> dict:
             pts3 = np.column_stack([grid3, np.full(len(grid3), ts)])
             T3 = case.T_amb + case.T_scale * _theta(model, pts3, device)
             T_max.append(float(T3.max()))
+            T_min.append(float(T3.min()))
             if k == n_t - 1:
                 f3 = 0.5 * (1.0 + np.tanh((T3 - case.T_vap) / case.w_vap)) if case.latent else 0.0
                 latent_end = float(case.rho * case.L_v * np.mean(f3) * (case.x_max - case.x_min) * case.y_max * case.z_max) if case.latent else 0.0
@@ -112,6 +113,13 @@ def run(model: BulkPINN, case: BulkCase, dx: float, n_t: int, device) -> dict:
     E_in = case.absorptivity * case.power * (case.t_end - case.ramp_length / (2 * case.speed))
     E_stored = stored_end if stored_end is not None else float("nan")
     rel = (E_in - E_out_top - E_out_bottom - E_stored) / E_in if E_in else float("nan")
+    energy = {
+        "E_in_J": E_in, "E_out_top_J": E_out_top, "E_out_bottom_J": E_out_bottom,
+        "E_stored_J": E_stored, "rel_error": rel,
+    }
+    if case.side_loss:
+        # chưa tích phân mất nhiệt qua mặt bên, nên cân bằng năng lượng không khép kín (prereg 27.34)
+        energy = {"E_in_J": E_in, "note": "không khép kín: chưa tính mất nhiệt qua mặt bên"}
 
     return {
         "melt_pool": {
@@ -120,12 +128,9 @@ def run(model: BulkPINN, case: BulkCase, dx: float, n_t: int, device) -> dict:
             "t_s": t_s.tolist(),
         },
         "temperature": {
-            "T_max_grid_K": max(T_max), "T_surface_max_K": max(T_surf_max),
+            "T_max_grid_K": max(T_max), "T_min_grid_K": min(T_min), "T_surface_max_K": max(T_surf_max),
         },
-        "energy": {
-            "E_in_J": E_in, "E_out_top_J": E_out_top, "E_out_bottom_J": E_out_bottom,
-            "E_stored_J": E_stored, "rel_error": rel,
-        },
+        "energy": energy,
         "grid": {"dx_um": dx * 1e6, "n_t": n_t},
         "note": "Chẩn đoán, không có ngưỡng đạt/không đạt (prereg 27.27(h)).",
     }
@@ -140,8 +145,11 @@ def main() -> None:
     ap.add_argument("--n-t", type=int, default=30)
     args = ap.parse_args()
     ck = torch.load(args.ckpt, map_location=args.device, weights_only=False)
-    case = BulkCase(latent=bool(ck["args"].get("latent", False)), w_vap=float(ck["args"].get("w_vap", 100.0)),
-                    source=ck["args"].get("source", "surface"), d_vol=float(ck["args"].get("d_vol", 0.0)))
+    if ck["args"].get("case") == "laser150":
+        case = case_laser150()
+    else:
+        case = BulkCase(latent=bool(ck["args"].get("latent", False)), w_vap=float(ck["args"].get("w_vap", 100.0)),
+                        source=ck["args"].get("source", "surface"), d_vol=float(ck["args"].get("d_vol", 0.0)))
     model = BulkPINN(case, width=ck["args"].get("width", 64), depth=ck["args"].get("depth", 4),
                      ansatz=ck["args"].get("ansatz", "softplus"),
                      ic_hard=ck["args"].get("ic", "hard") == "hard",

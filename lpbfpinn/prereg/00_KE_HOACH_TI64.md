@@ -895,3 +895,64 @@ Kết luận: E8 (IC cứng) có thể thay bằng hạng IC mềm, theo đúng 
 (k) Giới hạn đã biết: không bay hơi, không dòng chảy, không đối chiếu với FEM hay thực nghiệm. Bài 2019 chỉ so với COMSOL nhưng không công bố số liệu, nên chưa có mốc so sánh định lượng.
 (m) Ghi chú: mục 27.32(e) ghi là Sobol quanh vết laser, nhưng mã mặc định của lệnh bulk dùng ngẫu nhiên đều. Mục 27.33 đúng với mã khi chạy `--case ts2019 --near sobol`.
 (l) Việc tiếp theo: chạy đủ 35 000 vòng trên CPU (ước tính 0.13 s/vòng, khoảng 80 phút, chưa chạy) hoặc GPU; so trường nhiệt tại t = 1, 2, 3 s với Fig. 4–5 của bài 2019 bằng định tính.
+
+**27.34 Cấu hình 150 W, 750 mm/s, bulk, biên bên đối lưu + bức xạ, chạy thử ngắn (ngày 2026-10-13, người nghiên cứu quyết định từng mục).** Đây là cấu hình mới, không thay thế 27.32 hay 27.33. Chọn bằng `python -m lpbfpinn.bulk.train --case laser150`. Mục đích: kiểm tra mã và cấu hình giai đoạn 1 theo yêu cầu người dùng, trước khi có lượt chạy đầy đủ. Đây không phải mốc đạt/không đạt (27.27(h)).
+
+(a) Phương trình và vật liệu: ρc ∂T/∂t = ∇·(k∇T) + q, không nhiệt ẩn, không bay hơi, hằng số tại T_ref = 308 K. Ti-6Al-4V theo Ma 2026 Bảng 1: ρ = 4420, c = 558.505 (= 512.4 + 0.15·308 − 1·10⁻⁶·308²), k = 9.837952 (= 1.57 + 2.9·10⁻²·308 − 7·10⁻⁶·308²). Đây là **khác với 27.32–27.33** (Sharma 2026: ρ = 4122, c = 831, k = 35), theo quyết định của người dùng.
+
+(b) Nguồn: Gaussian bề mặt, P = 150 W, r_b = 50 µm (bán kính 1/e²), hấp thụ α = 0.41 (Fresnel với ε = 0.27 theo Ma 2026 Eq. 13; Fig. 2 cho ~0.41 khi tia gần pháp tuyến). Đoạn khởi động 10 µm như 27.32. Vị trí tâm: x_c(t) = 100 µm + 0.75 m/s·t, y_c = 200 µm, t ∈ [0, 0.8 ms]; đường quét 100 → 700 µm, lề 2r ở hai đầu miền (quyết định của người dùng). Không có nguồn thể tích.
+
+(c) Biên, theo quyết định của người dùng:
+  - Mặt trên z = L_z: −k∂T/∂z = q − h(T − T_amb) − α_r σ(T⁴ − T_amb⁴), h = 25 W/m²·K (Ma 2026 Bảng 1), α_r = 0.4 (Ma 2026 Bảng 1 ghi "surface radiation coefficient"; dùng làm hệ số bức xạ, không dùng ε = 0.3 trong bảng vì bảng ghi nhãn đó là hệ số phản xạ).
+  - Bốn mặt bên x = 0, x = 800 µm, y = 0, y = 400 µm: đối lưu và bức xạ với cùng h và α_r, pháp tuyến ngoài (hàm `side_residual` trong `operator.py`). Đây là **thay đổi so với 27.27–27.33**, nơi mặt bên cách nhiệt.
+  - Đáy z = 0: Dirichlet T = T_amb = 308 K, dạng hạng mất mềm (`--bottom soft`, mặc định của mã), như 27.32. Người dùng chọn Dirichlet để khớp Faegh 2026 Fig. 2; dạng cứng (`--bottom hard`) đã thử và kém hơn ở 27.31, nên không dùng ở đây.
+  - Điều kiện đầu T = 308 K, hạng mất mềm (`--ic soft`, w_IC = 10⁻⁴, như 27.32).
+
+(d) Miền: x ∈ [0, 800] µm, y ∈ [0, 400] µm, z ∈ [0, 290] µm (260 µm substrate + 30 µm bột, bỏ lớp bột và khí; bulk, theo quyết định của người dùng). Mặt trên z = 290 µm tương ứng với mặt phẳng substrate của Ma 2026, vì mô hình không có lớp bột.
+
+(e) Bảng không thứ nguyên (L_c = r_b, θ = (T − T_amb)/T_scale, T_scale = 2000 K như mặc định, t_c = L_c²ρc/k):
+
+| Đại lượng | Giá trị |
+|---|---|
+| t_c | 6.273·10⁻⁴ s |
+| t_end* | 1.2753 |
+| L_x*, L_y*, L_z* | 16, 8, 5.8 |
+| x_start*, x_end*, y_tip* | 2, 14, 4 |
+| v* | 9.4097 |
+| Bi_h = hL_c/k | 1.27·10⁻⁴ |
+| Q* đỉnh (thông lượng laser / k·T_scale/L_c) | 39.80 |
+| θ_T_sol = (1878 − 308)/2000 | 0.785 |
+| θ_T_v = (3315 − 308)/2000 | 1.5035 (chỉ để kiểm tra T_max) |
+
+Ghi chú: ở công suất này, mất nhiệt đối lưu và bức xạ rất nhỏ so với nguồn (ở 2000 K, bức xạ ~3.6·10⁵ W/m², đỉnh laser ~1.6·10¹⁰ W/m²). Biên trên và biên bên được đưa vào như yêu cầu, nhưng dự kiến ảnh hưởng yếu tới kết quả. Đây là dự đoán, cần kiểm chứng bằng cách so sánh với lượt không có mất nhiệt nếu cần.
+
+(f) Mạng và lấy mẫu: như 27.32 (mạng 4 × 32 swish, dạng nghiệm trực tiếp `plain`, chuẩn hóa đầu vào min–max theo miền, residual không chia θ_ref). Điểm huấn luyện: `--near sobol --z-bias` (Faegh 2026 mục 2.3), mặc định số điểm của mã (miền 4000, quanh laser 2000, mặt trên 1000, mỗi mặt bên và đáy 500, lấy lại mỗi vòng).
+
+(g) Lượt chạy thử: Adam lr 2·10⁻⁴, **2000 vòng**, không L-BFGS, CPU (không có GPU trong môi trường này). Lượt đầy đủ (35 000 vòng + L-BFGS 100 bước, 3 seed, như 27.32(k)) chưa được đăng ký, sẽ đăng ký sau khi lượt thử được xem xét.
+
+(h) Đại lượng so sánh, định nghĩa trước khi chạy:
+  - Đẳng nhiệt melt pool: T ≥ T_sol = 1878 K trên mặt trên.
+  - Thời điểm đọc: laser ở giữa track, x_c = 400 µm, t = 0.4 ms (không lấy giá trị cực đại theo thời gian, vì giá trị này bị ảnh hưởng bởi đoạn khởi động và đoạn kết thúc).
+  - W = độ rộng cực đại theo y của vùng T ≥ T_sol trên mặt tại thời điểm đọc.
+  - D = độ sâu của vùng T ≥ T_sol dọc theo z tại cột x = x_c, y = y_tip = 200 µm (định nghĩa của ta, như 27.32(i)).
+  - Lưới đánh giá dx = 5 µm (`diagnose --dx 5e-6`). Lưới 20 µm của mặc định quá thô, vì W ≈ 115 µm chỉ có khoảng 6 điểm lưới.
+  - Mục tiêu chính: **bảng 4 của Ma 2026** (mô phỏng CFD cho 150 W, 750 mm/s): W = 114.8 µm, D = 68.7 µm.
+  - Tham khảo thứ hai: **bảng 3 của Ma 2026** (thí nghiệm): W = 123.21 µm, D = 74.72 µm.
+  - Báo cáo sai số tương đối với cả hai. Không có ngưỡng đạt/không đạt.
+
+(i) Chẩn đoán cần báo cáo: loss theo từng thành phần (PDE, biên trên, biên bên, đáy, IC) và tổng; T_max trên lưới 3D, so với T_v = 3315 K (báo cáo, không sửa nếu vượt); T_min, kỳ vọng ≈ 308 K ở xa nguồn; W và D theo mục (h). Cân bằng năng lượng **không được tính** trong lượt này, vì chưa tích phân mất nhiệt qua mặt bên (diagnose ghi rõ điều này).
+
+(j) Giới hạn đã biết: track 0.6 mm là đoạn mô phỏng (trạng thái quá độ), trong khi bảng 3 đo trên track 7 mm ổn định; bảng 4 là CFD có bột, nhiệt ẩn, k_l = 33, Marangoni, và recoil, nên lệch so với mô hình dẫn nhiệt thuần là **dự kiến**. Kết quả so với bảng 4 đo mức đơn giản hóa, không xác nhận PINN. Không bột, không bay hơi, không keyhole, không phản lực.
+
+(k) Thay đổi mã (ngày 2026-10-13): `case.py` thêm trường `side_loss` (mặc định False) và `case_laser150()`; `operator.py` thêm `side_residual`; `train.py` thêm `--case laser150` và dùng `side_residual` khi `side_loss`; `diagnose.py` đọc đúng cấu hình khi nạp checkpoint, báo T_min, và bỏ cân bằng năng lượng khi có biên bên; `tests/test_bulk.py` thêm 3 kiểm thử (giá trị không thứ nguyên; dấu của biên bên; biên bên bằng 0 tại T_amb và trên mặt y). Cấu hình mặc định `bulk` và `ts2019` không đổi.
+
+(l) Việc tiếp theo: chạy thử 2000 vòng CPU, chẩn đoán dx = 5 µm, so với (h), ghi kết quả vào mục 27.34(m).
+
+(m) Kết quả lượt thử 2000 vòng CPU, seed 0, `--near sobol --z-bias`, dx = 5 µm, n_t = 30 (ngày 2026-10-13; `runs/L150_smoke2k/`, không commit vì nằm trong `runs/`). Không có ngưỡng đạt/không đạt; ghi nguyên số liệu.
+  - Loss: vòng 0 là 17.23 (biên trên 17.21, PDE 6·10⁻⁶); vòng 680 là 15.53; vòng 1999 là 4.45 (PDE 1.48, biên trên 2.96, đáy 0.007, IC 0.029, biên bên 0.0046). Thành phần biên trên giảm chậm, PDE tăng ở cuối và dao động mạnh. Chưa hội tụ.
+  - Nhiệt độ: **T_max = 14 965 K** trên lưới 3D (vượt xa T_v = 3315 K) và **T_min = −2138 K** (dưới T_amb, kể cả dưới 0 K). Đây là lỗi vật lý, không phải kết quả. Nguyên nhân chính là mạng chưa hội tụ, và dạng nghiệm `plain` với IC và đáy mềm không ngăn được θ âm hoặc quá lớn.
+  - Vũng nóng chảy tại x_c = 400 µm (t = 0.41 ms, lưới đầu ra gần 0.4 ms): **W = 125 µm**, **D = 20 µm**. So với bảng 4 (114.8, 68.7): W lệch +8.9%, D lệch −71%. So với bảng 3 (123.21, 74.72): W lệch +1.5%, D lệch −73%.
+  - Độ sâu D trên lưới 5 µm chỉ nhận các giá trị 15, 20, 25 µm, nên độ phân giải không đủ để so sánh chính xác ở mức 70 µm; dù vậy sai khác lớn gấp nhiều lần sai số lưới.
+  - Cân bằng năng lượng: không khép kín (mục (i)); E_in = 0.0488 J chỉ để tham khảo.
+  - Diễn giải của ta (không phải kết luận): lượt 2000 vòng không đủ để đánh giá cấu hình. Nhiệt độ âm và vượt T_v cho thấy cần huấn luyện dài hơn và/hoặc sửa thang nhiệt độ, hoặc ràng buộc dương cho θ. Các lựa chọn này cần đăng ký trước khi thử, không sửa tiêu chí sau khi đã thấy số liệu.
+  - Nguyên nhân dự kiến của khó khăn (vật lý, đã kiểm tra bằng số): Péclet v·r_b/(2α) ≈ 4.7, nên lớp nhiệt trước nguồn có độ dày cỡ α/v ≈ 5 µm, mỏng hơn r_b = 50 µm 10 lần; đạo hàm ∂θ/∂z* ở mặt trên đạt cỡ Q* ≈ 40, nên thành phần biên trên chiếm gần hết loss. Đây là lý do lượt thử hội tụ chậm; chưa thử cách khắc phục.

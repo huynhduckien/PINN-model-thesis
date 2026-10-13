@@ -94,3 +94,16 @@ def face_residual(theta_fn, xs: torch.Tensor, axis: int) -> torch.Tensor:
     xs = xs.clone().requires_grad_(True)
     th = theta_fn(xs)
     return _grad(th, xs)[:, axis:axis + 1]
+
+
+def side_residual(theta_fn, xs: torch.Tensor, axis: int, case: BulkCase) -> torch.Tensor:
+    """Biên bên có đối lưu và bức xạ (prereg 27.34): ∂θ/∂n + Loss* = 0 với n là pháp tuyến ngoài.
+
+    Mặt cao (x = L_x hoặc y = L_y) có n = +e, mặt thấp (x = 0 hoặc y = 0) có n = −e, nên
+    ∂θ/∂n = s·∂θ/∂x_axis với s = +1 ở mặt cao, −1 ở mặt thấp. Cùng dấu với top_residual.
+    """
+    xs = xs.clone().requires_grad_(True)
+    th = theta_fn(xs)
+    L = case.domain_star[axis]
+    s = 2.0 * (xs[:, axis:axis + 1].detach() > 0.5 * L).to(xs.dtype) - 1.0
+    return s * _grad(th, xs)[:, axis:axis + 1] + loss_star(th, case)

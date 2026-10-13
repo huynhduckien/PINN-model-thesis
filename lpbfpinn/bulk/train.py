@@ -14,8 +14,8 @@ from pathlib import Path
 
 import torch
 
-from .case import BulkCase, case_2019
-from .operator import face_residual, pde_residual, top_residual
+from .case import BulkCase, case_2019, case_laser150
+from .operator import face_residual, pde_residual, side_residual, top_residual
 
 
 class BulkPINN(torch.nn.Module):
@@ -145,8 +145,13 @@ def loss_terms(model: BulkPINN, case: BulkCase, pts: dict[str, torch.Tensor],
     ref = case.theta_ref if norm == "theta_ref" else 1.0
     r_pde = pde_residual(model, pts["dom"], case) / ref
     r_top = top_residual(model, pts["top"], case) / ref
-    r_fx = face_residual(model, pts["fx"], axis=0) / ref
-    r_fy = face_residual(model, pts["fy"], axis=1) / ref
+    if case.side_loss:
+        # biên bên đối lưu + bức xạ (prereg 27.34)
+        r_fx = side_residual(model, pts["fx"], 0, case) / ref
+        r_fy = side_residual(model, pts["fy"], 1, case) / ref
+    else:
+        r_fx = face_residual(model, pts["fx"], axis=0) / ref
+        r_fy = face_residual(model, pts["fy"], axis=1) / ref
     # đáy Dirichlet θ = 0 là hạng mất mềm khi ansatz = faegh (Faegh 2026 Eq. 17)
     need_bot = model.ansatz == "faegh" or not model.bottom_hard
     if need_bot:
@@ -181,8 +186,9 @@ def main() -> None:
     ap.add_argument("--z-bias", action="store_true", help="dồn điểm miền lên trên theo Faegh 2026 Eq. 10–11")
     ap.add_argument("--near", choices=["uniform", "sobol"], default="uniform",
                     help="điểm quanh laser: ngẫu nhiên đều (mặc định, prereg 27.32) hoặc Sobol trong đĩa")
-    ap.add_argument("--case", choices=["bulk", "ts2019"], default="bulk",
-                    help="bulk = cấu hình prereg 27.32 (mặc định); ts2019 = bài 2019, theo quyết định người dùng")
+    ap.add_argument("--case", choices=["bulk", "ts2019", "laser150"], default="bulk",
+                    help="bulk = cấu hình prereg 27.32 (mặc định); ts2019 = bài 2019, theo quyết định người dùng; "
+                         "laser150 = 150 W, 750 mm/s, biên bên đối lưu + bức xạ (prereg 27.34)")
     ap.add_argument("--ic", choices=["hard", "soft"], default="soft", help="IC ràng buộc cứng hay hạng mất mềm (prereg 27.31)")
     ap.add_argument("--bottom", choices=["hard", "soft"], default="soft", help="đáy ràng buộc cứng hay hạng mất mềm (prereg 27.31)")
     ap.add_argument("--norm", choices=["theta_ref", "none"], default="none", help="chuẩn hóa residual theo θ_ref hay không (prereg 27.31)")
@@ -203,7 +209,7 @@ def main() -> None:
     dev = torch.device(args.device)
     if args.source == "volume" and args.d_vol <= 0:
         raise SystemExit("--source volume cần --d-vol > 0 (chiều sâu xuyên d, chọn trước theo prereg)")
-    base = case_2019() if args.case == "ts2019" else BulkCase()
+    base = {"ts2019": case_2019, "laser150": case_laser150}.get(args.case, BulkCase)()
     case = replace(base, latent=args.latent, w_vap=args.w_vap, source=args.source, d_vol=args.d_vol)
     model = BulkPINN(case, width=args.width, depth=args.depth, ansatz=args.ansatz,
                      ic_hard=args.ic == "hard", bottom_hard=args.bottom == "hard",
