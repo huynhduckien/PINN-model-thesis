@@ -696,6 +696,14 @@ Không σ nào đạt tiêu chí sớm. Không chạy GPU. Với σ nhỏ, PDE �
 - h = 25, ε = 0.2 (từ FV): khác Yuan, Faegh, Piandoro. Cần lý do hoặc đổi.
 - Vật liệu hằng số: khác Ransenigo và Yuan (phụ thuộc T). Ghi là hạn chế.
 
-(g) Mốc đánh giá (tương tự tiêu chí 27.24(e)): M0 (kiểm tra toán) đã đạt; M1a (cân bằng năng lượng dưới 5%); M1b (nhiệt cực đại trong vết laser vượt T_sol và có vũng); M1c (độ rộng vũng tại T_sol trên mặt trong ±20% của Rosenthal, khoảng 105 µm). M1d (FEM bên ngoài) là tùy chọn, chưa cấp.
+(g) Mốc đánh giá: đã bỏ theo quyết định của người nghiên cứu (không còn M0–M2 trong prereg).
 
 (h) Việc cần làm theo thứ tự: (1) viết mốc Rosenthal vào diagnose hoặc script riêng; (2) xác nhận vật liệu (f); (3) sửa cân bằng năng lượng (M1a) rồi mới đánh giá M1b, M1c. Không thêm bột trước khi M1 đạt.
+
+(i) Đối chiếu thông số vật liệu (ngày 2026-10-13). Hình 14 của Ransenigo và cộng sự 2022 (ảnh, đọc bằng mắt, sai số khoảng ±5%):
+- ρ: khoảng 4440 kg/m³ ở 300 K, giảm xuống khoảng 4200 ở 1850 K và 4000 ở 2100 K. Giá trị 4106 của mã tương ứng nhiệt độ gần 1900 K, không phải nhiệt độ phòng.
+- c_p: khoảng 600 J/kg·K ở 300 K, tăng lên khoảng 800 ở 1800 K, có đỉnh khoảng 1200 quanh 1100–1300 K. Giá trị 838 của mã tương ứng nhiệt độ gần 1900 K.
+- k: khoảng 7 W/m·K ở 300 K, khoảng 16 ở 900 K, khoảng 25 ở 1300 K, khoảng 33–35 ở 1900–2000 K. Giá trị 33.1 của mã tương ứng nhiệt độ gần 1900 K.
+Kết luận: ba hằng số hiện tại là giá trị gần điểm nóng chảy. Dùng hằng số cho cả miền làm sai nhiệt độ vùng xa vết laser (k thực tế thấp hơn nhiều ở nhiệt độ phòng). Đây là hạn chế cần ghi, hoặc cần k(T), c_p(T), ρ(T) theo Hình 14.
+
+Tìm kiếm bài khác (chưa mở toàn văn, chỉ dựa trên tóm tắt tìm kiếm): (1) preprint Research Square rs-10433902 có công thức k, c_p, ρ theo nhiệt độ cho Ti-6Al-4V, cần kiểm chứng đã bình duyệt chưa; (2) Bartsch et al., Frontiers in Mechanical Engineering 2022 (fmech.2022.830104): đo độ dẫn nhiệt Ti-6Al-4V trong LPBF, khối và bột; (3) arXiv 2604.24669 (mô hình 1D, Ti-6Al-4V): bảng tham số, ρ ≈ 4090, c ≈ 1130, k ≈ 20, cần kiểm tra lại vì cột bảng không rõ ràng. Hệ số phát xạ đo được 0.36 (một nghiên cứu hiệu chuẩn IR, không phải bột LPBF). Không tìm được bảng chuẩn cho h và ε trong nung Ti-6Al-4V bằng laser.
