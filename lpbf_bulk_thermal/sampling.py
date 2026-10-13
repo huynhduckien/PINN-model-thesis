@@ -42,3 +42,19 @@ def laser_anchor_points(n, seed=2):
 
 def build_anchors(n_interior, n_laser):
     return np.vstack([interior_points(n_interior), laser_anchor_points(n_laser)])
+
+
+def laser_top_points(n, seed=3, r_max=R_ANCHOR):
+    """Điểm trên mặt trên z = Z_TOP_S, tập trung quanh đường đi của laser.
+
+    Dùng để bổ sung điều kiện biên mặt trên: nếu chỉ lấy điểm biên đều, chỉ
+    khoảng 2% điểm rơi trong bán kính 1 L_C quanh laser, nên nguồn nhiệt gần như không được học.
+    """
+    s = qmc.Sobol(d=3, scramble=True, seed=seed).random(n)
+    t = s[:, 0] * cfg.T_END_S
+    xc, yc = cfg.laser_center(t)
+    r = r_max * np.sqrt(s[:, 1])
+    ang = 2.0 * np.pi * s[:, 2]
+    x = np.clip(xc + r * np.cos(ang), 0.0, cfg.LX_S)
+    y = np.clip(yc + r * np.sin(ang), 0.0, cfg.LY_S)
+    return np.column_stack([x, y, np.full(n, cfg.Z_TOP_S), t])

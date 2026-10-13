@@ -18,6 +18,7 @@ N_INTERIOR = 2**16     # điểm nội Sobol
 N_LASER = 2**16        # điểm bám laser (Sobol)
 N_DOMAIN = 2000        # điểm uniform ngẫu nhiên thêm vào miền (DeepXDE)
 N_BOUNDARY = 20000     # điểm biên (DeepXDE lấy đều trên mặt biên)
+N_TOP_LASER = 4096     # điểm bổ sung trên mặt trên quanh laser
 
 # Trọng số loss theo thứ tự [PDE, mặt trên, mặt bên, đáy].
 # Mặt trên có flux đỉnh Q*, nên chia trọng số bình phương để các số hạng có độ lớn tương đương.
@@ -26,15 +27,30 @@ def loss_weights():
     return [1.0, 1.0 / cfg.Q_STAR**2, 1.0, 1.0]
 
 
+class TopRobinBCWithLaserPoints(dde.icbc.RobinBC):
+    """RobinBC mặt trên, bổ sung điểm Sobol tập trung quanh laser.
+
+    DeepXDE lấy điểm biên đều trên mặt biên, nên vùng dưới laser gần như không có điểm.
+    Ở đây thêm n_extra điểm cố định trên mặt trên, sinh một lần khi khởi tạo.
+    """
+
+    def __init__(self, geom, func, on_boundary, n_extra):
+        super().__init__(geom, func, on_boundary)
+        self.extra = sp.laser_top_points(n_extra).astype(dde.config.real(np))
+
+    def collocation_points(self, X):
+        return np.vstack([self.filter(X), self.extra]).astype(dde.config.real(np))
+
+
 def build_geometry():
     geom = dde.geometry.Cuboid([0.0, 0.0, 0.0], [cfg.LX_S, cfg.LY_S, cfg.Z_TOP_S])
     return dde.geometry.GeometryXTime(geom, dde.geometry.TimeDomain(0.0, cfg.T_END_S))
 
 
 def build_data(n_interior=N_INTERIOR, n_laser=N_LASER, n_domain=N_DOMAIN,
-               n_boundary=N_BOUNDARY):
+               n_boundary=N_BOUNDARY, n_top_laser=N_TOP_LASER):
     gt = build_geometry()
-    bc_top = dde.icbc.RobinBC(gt, ph.top_flux, ph.on_top)
+    bc_top = TopRobinBCWithLaserPoints(gt, ph.top_flux, ph.on_top, n_top_laser)
     bc_side = dde.icbc.RobinBC(gt, ph.side_flux, ph.on_side)
     bc_bottom = dde.icbc.DirichletBC(gt, ph.zero_theta, ph.on_bottom)
     anchors = sp.build_anchors(n_interior, n_laser)
