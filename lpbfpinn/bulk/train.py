@@ -101,6 +101,8 @@ def main() -> None:
     ap.add_argument("--width", type=int, default=64)
     ap.add_argument("--depth", type=int, default=4)
     ap.add_argument("--seed", type=int, default=0)
+    ap.add_argument("--lbfgs-iters", type=int, default=0,
+                    help="số bước L-BFGS sau Adam (mỗi bước tối đa 20 lần lặp), trên tập điểm cố định")
     ap.add_argument("--out", default="results/bulk_pinn")
     args = ap.parse_args()
 
@@ -133,6 +135,25 @@ def main() -> None:
                    "lr": opt.param_groups[0]["lr"], "elapsed_s": time.time() - t0}
             hist.append(rec)
             print(json.dumps(rec), flush=True)
+    if args.lbfgs_iters > 0:
+        # L-BFGS trên một tập điểm cố định, cùng hàm loss với Adam
+        pts_fix = sample(case, args.n_domain, args.n_near, args.n_top, args.n_face, gen, dev)
+        opt2 = torch.optim.LBFGS(model.parameters(), lr=1.0, max_iter=20, history_size=50,
+                                 line_search_fn="strong_wolfe")
+
+        def closure():
+            opt2.zero_grad()
+            t = loss_terms(model, case, pts_fix)
+            loss_l = t["pde"] + t["top"] + t["face"]
+            loss_l.backward()
+            return loss_l
+
+        for k in range(args.lbfgs_iters):
+            loss_k = opt2.step(closure)
+            if k % max(args.lbfgs_iters // 10, 1) == 0 or k == args.lbfgs_iters - 1:
+                rec = {"lbfgs_step": k, "loss": float(loss_k), "elapsed_s": time.time() - t0}
+                hist.append(rec)
+                print(json.dumps(rec), flush=True)
     torch.save({"model_state_dict": model.state_dict(), "args": vars(args)}, out / "model.pt")
     (out / "history.json").write_text(json.dumps(hist, indent=2), encoding="utf-8")
     print(f"saved {out / 'model.pt'}", flush=True)

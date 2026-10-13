@@ -780,3 +780,9 @@ Tìm kiếm bài khác (chưa mở toàn văn, chỉ dựa trên tóm tắt tìm
 (d) Kiểm tra trước GPU (C6): chỉ test PDE trên nghiệm giải tích θ = z*²t*, kết quả r = z*² − 2t*. Pass.
 
 (e) Chưa làm: diagnose (năng lượng, vũng nóng chảy), huấn luyện thử, và so sánh với Rosenthal. Sẽ bổ sung sau khi bạn xác nhận kế hoạch chạy GPU.
+
+**27.28 (f) Huấn luyện Adam rồi L-BFGS cho PINN thuần (ngày 2026-10-13, đề xuất của người nghiên cứu).** Thêm `--lbfgs-iters N` vào `lpbfpinn/bulk/train.py` (mặc định 0). Sau Adam (lr 10⁻³ → 10⁻⁴ theo D7, 20 000 vòng), chạy N bước L-BFGS (tối đa 20 lần lặp mỗi bước, strong Wolfe) trên một tập điểm cố định, cùng hàm loss. Cơ sở: Sharma và cộng sự 2026 dùng Adam rồi L-BFGS cho cùng bài toán Ti6Al4V; các thử nghiệm trên cấu hình r2022 (27.25 A2) cho thấy L-BFGS dừng sớm nếu lấy mẫu không cố định, nên dùng tập điểm cố định.
+
+Kiểm tra CPU: 300 vòng Adam + 5 bước L-BFGS chạy được, loss từ 4.53 xuống 3.01 qua 5 bước. Đây chỉ là kiểm tra mã.
+
+Lệnh GPU (chưa chạy): `python -m lpbfpinn.bulk.train --device cuda --iters 20000 --lbfgs-iters 100 --out results/bulk_pinn_adam_lbfgs_s0`. Tiêu chí: như 27.27(h), không có mốc đạt/không đạt.
