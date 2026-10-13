@@ -624,3 +624,5 @@ Kết luận: hướng 2 riêng lẻ không đạt tiêu chí 27.24(e) trên GPU
 (f) Tín hiệu sớm để chuyển từ CPU sang GPU: sau tối đa 4000 vòng Adam (hoặc sau L-BFGS nếu có), nhiệt cực đại trên lưới vượt 1000 K và hạng PDE không tăng quá 10 lần so với giá trị ban đầu. Nếu không đạt tín hiệu này, lượt không chạy GPU và được báo cáo là không đạt ở giai đoạn CPU.
 
 (g) Giới hạn đã biết. Nếu A1–A3 đều không đạt, kết luận là PINN thuần không tái tạo được thông lượng laser ở cấu hình này, và kết quả âm được báo cáo. Không dùng kẹp T hay dữ liệu mục tiêu để cứu kết quả.
+
+**27.25 (kết quả CPU A2, ngày 2026-10-13).** Lượt 2000 vòng Adam (không hướng 27.24, seed 0, miền thu nhỏ) rồi 50 bước L-BFGS trên 1000 điểm cố định. Adam kết thúc với hạng PDE 6.5·10⁻⁶ và hạng biên trên 0.0089. L-BFGS không tiến triển: loss 0.010334 ở bước đầu và giữ nguyên ở các bước sau, tức là đường tìm kiếm không giảm được loss. Diagnose: nhiệt cực đại 295.9 K, bề mặt 295.5 K, không vũng, sai số năng lượng 0.991. Không đạt tiêu chí 27.25(e). Kết quả cho thấy L-BFGS trên tập điểm cố định không thoát được nghiệm nguội trong cấu hình này.
