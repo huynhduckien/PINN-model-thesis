@@ -526,3 +526,33 @@ Hệ quả: trong vết laser trên mặt, θ = θ_b tuyệt đối (sau khởi 
 (f) Kết quả đạt/không đạt của cấu hình chính (mục 27.16–27.18, các số liệu trước khi đổi T_amb sang 293 K và trước khi bỏ L_E): vũng quá rộng (~157–169 µm so với 84.4 ± 12.6 µm) và quá nông (~29 µm so với 68.0 ± 10.0 µm). Các lượt thông lượng có bay hơi (27.19, 27.19b) không học được điều kiện laser: loss biên dừng ở ~0.0066–0.0074, nghiệm nguội. Không có dữ liệu nhiệt độ thực nghiệm để kiểm chứng trường nhiệt độ. Các số này chưa tái chạy với T_amb = 293 K; cần chạy lại để có số mới.
 
 (g) Không đổi tiêu chí chấp nhận (27.4).
+
+**27.21 Kiểm tra ba bài đã tải lên làm quy chuẩn PINN, bỏ bay hơi (ngày 2026-10-13, quyết định của người nghiên cứu).**
+
+Ba bài: Yuan và cộng sự 2025 (IJAMT, PINN 3D L-DED, đa đường, dữ liệu hồng ngoại; gọi là bài A), Faegh và cộng sự 2026 (Additive Manufacturing, PINN cho đường quét bất kỳ, gọi là bài B), Zhu, Liu, Yan 2021 (Comput. Mech., PINN với ràng buộc cứng Dirichlet bằng hàm Heaviside, gọi là bài C).
+
+(a) Ràng buộc cứng kẹp T:
+- Bài C đề xuất ràng buộc cứng Dirichlet bằng hàm Heaviside: u = u_bc(1 − H) + uH (Eq. 17–19), với H = 1 − cos(dπ/ε) khi d < ε, và H = 1 khi d ≥ ε (Eq. 16). Bài chỉ kiểm chứng trên bài toán 1D đông đặc có nghiệm giải tích (Fig. 4), cho thấy ràng buộc cứng học nhanh hơn và chính xác hơn ràng buộc mềm. Công thức in trong Eq. 16 không liên tục tại d = ε (H → 2⁻ rồi nhảy về 1); dạng ½(1 − cos) của chúng ta là dạng liên tục từ 0 đến 1, nên phần ½ là cần thiết và không phải sai khác tùy ý. Nhãn: **[có bằng chứng]** cho ràng buộc cứng Dirichlet trên biên của miền.
+- Bài B dùng ràng buộc cứng cho điều kiện ban đầu (Eq. 18–19: T = T_PINN(t > 0) + T_0(t = 0)). Biên đáy T = T_amb (Eq. 7) và các biên bên là ràng buộc mềm (L_BC, Eq. 17). Nhãn: **[có bằng chứng]** cho ràng buộc cứng IC; biên đáy là mềm trong bài B.
+- Bài A dùng ràng buộc mềm cho IC và biên (Eq. 4, trọng số w_ic = 10/12, w_bc = 1/12). Bài A không có ràng buộc cứng.
+- Không bài nào trong ba bài kẹp nhiệt độ bề mặt trong vết laser (T = T_b trong vùng laser). **[suy diễn]**. Vì vậy ràng buộc cứng kẹp T trong vết laser (mục 27.11) không có bằng chứng từ ba bài.
+- Kết luận: ràng buộc cứng IC và đáy có bằng chứng (bài B, C). Ràng buộc cứng kẹp T trong vết laser không có bằng chứng; **chờ quyết định của người nghiên cứu** (xem (d)).
+
+(b) Bay hơi: bỏ.
+- Bài A: không đưa bay hơi vào mô hình. Bài B: Table/đoạn cuối phần 2.1 nói "the latent heat of fusion and vaporization ... are not considered in the current study", và phần kết luận ghi bay hơi thuộc phạm vi tương lai (keyhole). Bài C: giả thiết "the loss of metal material due to vaporization ... negligible" (mục 2.1), và phần thảo luận: "the evaporation phenomenon ... not crucial for the applications considered". Không bài nào có công thức bay hơi Cook hay áp suất phản lực.
+- Ghi chú: bài mục tiêu Ransenigo và cộng sự 2022 nêu nhiệt ẩn bay hơi 900 J/g và trích dẫn áp suất phản lực (Wu và cộng sự 2018). Đó là bằng chứng cho bài toán mục tiêu, không nằm trong ba bài này. Quyết định bỏ bay hơi nghĩa là bỏ cơ chế đó khỏi mô hình R2022; L_v = 9.0·10⁵ J/kg vẫn lưu trong `R2022Case` nhưng không còn được dùng.
+- Thay đổi mã: `R2022Case.material()` đặt `phi_evap = 0.0`, nên hạng bay hơi Cook trong `top_outflux` bằng 0. Hệ số `phi_scale` vẫn nằm trong mã nhưng không còn tác dụng (tiếp tục hóa 27.19b trở thành không có hiệu ứng bay hơi).
+
+(c) Các mục khác (đối chiếu với ba bài):
+- Biên trên: Gaussian + đối lưu + bức xạ. Bài B (Eq. 2–3) và bài A (Eq. 2b, nguồn thể tích Gaussian ellipsoid) đều có đối lưu và bức xạ. Bài C dùng thông lượng laser và biên không thông lượng cho các biên khác.
+- Biên bên: bài B dùng đối lưu + bức xạ (Robin) cho bốn mặt; bài C dùng không thông lượng (adiabatic) cho các mặt không có laser (mục 4.2); bài A không nêu. Mặc định cách nhiệt của chúng ta có bằng chứng từ bài C; Robin có bằng chứng từ bài B.
+- Đáy: bài B Dirichlet T = T_amb (Eq. 7, Table 1: 298 K); bài A Table 2: T_0 = 293.15 K. Bằng chứng cho 293 K có trong bài A.
+- Lấy mẫu: bài B dùng Sobol với mật độ theo z dày hơn gần mặt trên (Eq. 9–11), và lấy mẫu quanh laser theo phân bố Gaussian (Fig. 4a). Đây là bằng chứng cho mục 27.15.
+- Adam và learning rate: bài B dùng ADAM, lr 10e-4 (Table 3; ghi như vậy trong bảng), 5 lớp × 32 nơron, tanh, 100 000 epoch (mục 3.3.1, trong đó bài nói 100k epoch là điểm hội tụ). Bài A dùng Adam, 6 lớp × 50 nơron, 30 000 vòng (Table 4). Bài C dùng Adam, khoảng 25 000 vòng (Fig. 4). Không bài nào dùng lịch giảm learning rate tuyến tính. Nhãn: **20 000 vòng và giảm lr tuyến tính là [suy diễn]**; số vòng nằm trong khoảng 25 000–100 000 của các bài.
+- Trường bột Moser, κ và g: không có trong ba bài. Bài B dùng khối đặc Inconel không có bột. **[suy diễn]**.
+- Nhiệt ẩn nóng chảy: bài C có (Eq. 3, L = 290 kJ/kg cho nhôm/IN625); bài B nêu bỏ qua trong nghiên cứu hiện tại; bài A không có. Mô hình R2022 chưa có nhiệt ẩn: hạn chế đã biết.
+- Kiểm chứng định lượng vũng nóng chảy: bài B so sánh định tính với thực nghiệm (Fig. 14, "consistent qualitative trends"); bài C có độ dài vũng so với thực nghiệm (782 ± 21 µm), còn độ rộng và độ sâu không có số đo thực nghiệm (Table 4, "–"). Bài A so với FEM, không có dữ liệu nhiệt độ thực nghiệm đo được bên trong. Không bài nào kiểm chứng định lượng cả độ rộng và độ sâu vũng cùng lúc.
+
+(d) Quyết định cần người nghiên cứu xác nhận (không thay đổi trong mục này):
+- Kẹp T trong vết laser (27.11, cấu hình chính hiện tại): không có bằng chứng từ ba bài. Nếu bỏ, cấu hình chính chuyển về thông lượng Gaussian + không bay hơi, đã biết là không học được (nghiệm nguội, 27.19 và 27.19b, trước khi bỏ bay hơi).
+- Bay hơi bỏ theo (b) làm L_v không còn được dùng trong R2022; bài mục tiêu Ransenigo có L_v (Bảng 5) và trích dẫn Wu 2018. Cần xác nhận việc bỏ bay hơi khỏi bài toán mục tiêu có phù hợp không.
