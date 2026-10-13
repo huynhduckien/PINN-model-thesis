@@ -162,27 +162,3 @@ class HardPinned(torch.nn.Module):
     def forward(self, xs: torch.Tensor) -> torch.Tensor:
         H = hard_weight(spot_distance(xs, self.case), self.case.hard_delta)
         return theta_bc(xs, self.case) * (1.0 - H) + self.model(xs) * H
-
-
-
-def energy_penalty(theta_fn, case: R2022Case, pts: dict) -> torch.Tensor:
-    """L_E (prereg 27.13): bình phương sai lệch cân bằng năng lượng toàn cục, ước lượng bằng Monte Carlo.
-
-    pts: "top" (mặt trên, đều x, y, t), "bot" (đáy z = 0, đều x, y, t), "end" (miền tại t = t_end).
-    Không dùng thông lượng mặt bên (nhỏ, prereg 27.13).
-    """
-    A = (case.x_max - case.x_min) * case.y_max
-    V = A * case.z_max
-    E_in = case.absorptivity * case.power * (case.t_end - case.ramp_length / (2 * case.speed))
-    th_top = theta_fn(pts["top"])
-    F_top = loss_star(th_top, case).mean() * case.flux_scale * A * case.t_end
-    xb = pts["bot"].clone().requires_grad_(True)
-    thb = theta_fn(xb)
-    dz = torch.autograd.grad(thb.sum(), xb, create_graph=True)[0][:, 2:3]
-    flux_b = kappa(xb[:, 2:3], case) * dz * case.flux_scale
-    F_bot = flux_b.mean() * A * case.t_end
-    th_end = theta_fn(pts["end"])
-    g = heat_capacity(pts["end"][:, 2:3], case)
-    E_st = (case.rho * case.cp * g * case.T_scale * th_end).mean() * V
-    rel = (E_in - F_top - F_bot - E_st) / E_in
-    return rel**2

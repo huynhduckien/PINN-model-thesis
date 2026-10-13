@@ -494,3 +494,35 @@ Hệ quả: trong vết laser trên mặt, θ = θ_b tuyệt đối (sau khởi 
 **27.19b Tiếp tục hóa cho bay hơi (ngày 2026-10-12, quyết định của người nghiên cứu).** Để thoát nghiệm nguội, giai đoạn đầu (1500 vòng) chỉ có thông lượng laser, không đối lưu, bức xạ hay bay hơi. Sau đó tăng tuyến tính (1500 vòng) hệ số đối lưu, bức xạ và bay hơi (φ nhân với frac). Cuối cùng 1000 vòng với vật lý đầy đủ. Chạy cho cả hai L_v, so sánh nhiệt độ mặt, vũng và sai số năng lượng. Không đổi tiêu chí (27.4).
 
 **27.19c Cân bằng biên thông lượng với PDE (ngày 2026-10-12, quyết định của người nghiên cứu).** Ở tiếp tục hóa, loss biên thông lượng vẫn ở mức nghiệm nguội (~0.0066) ngay cả khi không có mất nhiệt, nên hạng biên bị lấn át bởi PDE. Thử tăng trọng số hạng biên trên (w_top) lên 1 và 100 với L_v = 9·10⁵, không tiếp tục hóa, 3000 vòng CPU. Tiêu chí kỹ thuật: loss biên thông lượng phải xuống dưới mức nghiệm nguội. Không đổi tiêu chí chấp nhận (27.4).
+
+**27.20 Xác nhận tham số, bỏ L_E, và kiểm tra cấu hình theo bài báo (ngày 2026-10-13, quyết định của người nghiên cứu).**
+
+(a) Tham số R2022 đã xác nhận: L_v = 900 J/g = 9.0·10⁵ J/kg (Bảng 5 của Ransenigo và cộng sự 2022); L_f = 338.8 J/g (Bảng 5); T_sol = 1877 K, T_liq = 1933 K, T_b = 3533 K (Bảng 5). Nhiệt độ môi trường T_amb = 293 K theo quyết định của người nghiên cứu (bài báo dùng 298 K ở đáy, Hình 5). Giá trị L_v của Cook (9.83·10⁶ J/kg) không dùng trong R2022; mã R2022 không tham chiếu giá trị này (`--lv0` chỉ còn mặc định 9.0·10⁵). Mã FV và `config.py` giữ nguyên, không dùng cho kết luận.
+
+(b) Bỏ L_E: xóa hàm `energy_penalty`, `sample_energy`, các tham số `--w-energy` và `--n-energy`, và nhánh trong vòng huấn luyện. Mục 27.13 (L_E) được thay thế bởi quyết định này; không còn trong mã. Các lượt có L_E trước đây giữ làm lịch sử.
+
+(c) Bỏ áp suất phản lực (recoil): không có trong mô hình R2022 và không có trong tài liệu này. Bài Ransenigo và cộng sự 2022 nêu áp suất phản lực bay hơi có trích dẫn Wu và cộng sự 2018, nhưng mô hình không đưa vào. Cũng không có nguồn thể tích hình nón (đã gỡ ở 27.12).
+
+(d) Kiểm tra cấu hình theo các bài báo đã tải lên. Nhãn: **[có bằng chứng]** = bài báo đã tải lên có nêu; **[suy diễn]** = do thiết kế của chúng ta, bài báo không nêu.
+
+| Mục cấu hình | Nhãn | Bằng chứng / ghi chú |
+|---|---|---|
+| Ràng buộc cứng IC và đáy (θ = z·softplus·(1−e^{−t})) | [suy diễn] | Zhu và cộng sự 2021 dùng ràng buộc cứng Dirichlet (hàm Heaviside) nói chung; dạng cụ thể của chúng ta là thiết kế riêng. |
+| Ràng buộc cứng bề mặt trong vết laser θ = θ_b (27.11) | [suy diễn] | Không có bài nào đã tải lên dùng kẹp nhiệt độ bề mặt trong vết laser. Zhu và cộng sự dùng ràng buộc cứng cho biên Dirichlet nhưng không cho bề mặt laser. Kết quả đạt chính xác (sai số dư ~10⁻¹² K) là do cấu trúc, không phải bằng chứng vật lý. |
+| Đáy Dirichlet T = T_amb | [có bằng chứng] | Ransenigo và cộng sự (Hình 5, 298 K); Faegh và cộng sự 2026 (T = T_amb); Piandoro và cộng sự 2026 (298 K); Sharma và cộng sự 2026 (298 K). Giá trị 293 K là quyết định của người nghiên cứu. |
+| Biên bên cách nhiệt (mặc định) | [có bằng chứng] một phần | Piandoro và cộng sự 2026 dùng cách nhiệt cho biên ngoài. Faegh và cộng sự 2026 dùng Robin (đối lưu, bức xạ) cho cả bốn mặt bên (chúng ta có tùy chọn Robin 27.15). |
+| Biên trên: thông lượng Gaussian + đối lưu + bức xạ | [có bằng chứng] | Faegh và cộng sự 2026 (Hình 2); Piandoro và cộng sự 2026 (h = 20, ε = 0.9). Hệ số h = 25, ε = 0.2 của chúng ta lấy từ FV/Charles, không từ bài đã tải lên. |
+| Bay hơi Cook trên mặt trên | [suy diễn] | Cook không có trong các bài đã tải lên. Faegh và cộng sự 2026 bỏ bay hơi ("conduction-mode only"); Sharma và cộng sự 2026 không xét bay hơi. Ransenigo và cộng sự nêu bay hơi/áp suất phản lực nhưng không công thức Cook. |
+| Trường nhiệt dẫn có bột (Moser, κ, g) | [suy diễn] | Phương trình dẫn nhiệt tổng quát có trong các bài; hệ số bột Moser không có trong bài đã tải lên. Dùng như FV. |
+| Nhiệt ẩn nóng chảy 338.8 J/g | [có bằng chứng] (ở FV) | Bảng 5 của Ransenigo và cộng sự 2022. PINN R2022 không có nhiệt ẩn (không có thuật ngữ chuyển pha). Piandoro và cộng sự 2026 và Zhou và cộng sự 2026 có đưa nhiệt ẩn vào; Sharma và cộng sự 2026 bỏ qua. Đây là hạn chế đã biết. |
+| Nhiệt ẩn bay hơi 900 J/g | [có bằng chứng] | Bảng 5 của Ransenigo và cộng sự 2022. |
+| Adam, learning rate, lịch giảm | [có bằng chứng] một phần | Sharma và cộng sự 2026: Adam lr 2·10⁻⁴ rồi L-BFGS. Faegh và cộng sự 2026: bảng cấu hình ADAM lr 10⁻³, 5 lớp × 32 nơron, tanh. Piandoro và cộng sự 2026: L-BFGS. Số 20 000 vòng và lịch giảm tuyến tính **[suy diễn]**, không có trong bài đã tải lên. Cấu hình chúng ta: 4 × 64, tanh, lr giảm tuyến tính. |
+| Lấy mẫu Sobol và tập trung quanh laser | [có bằng chứng] (tùy chọn 27.15) | Faegh và cộng sự 2026 dùng Sobol và lấy mẫu quanh laser. Cấu hình chính hiện không dùng Sobol (27.16). |
+| Cân bằng năng lượng toàn cục (L_E) | [suy diễn] và đã bỏ | Không có trong bài đã tải lên dưới dạng hạng loss. Piandoro và cộng sự 2026 dùng nhiệt dung biểu kiến; Zhu và cộng sự 2021 có bảo toàn năng lượng trong loss. Đã bỏ theo (b). Chẩn đoán cân bằng năng lượng (energy_budget) vẫn là kiểm tra đầu ra, không phải hạng loss. |
+| Áp suất phản lực | [có bằng chứng] nhưng không dùng | Wu và cộng sự 2018 (P_R ≅ 0.54 P_s), được Ransenigo và cộng sự 2022 trích dẫn. Không đưa vào mô hình R2022 (c). |
+
+(e) FV (fv_stage0): theo yêu cầu của người nghiên cứu, không dùng trong kết luận. Mã và kết quả FV chưa xóa; xóa cần xác nhận riêng.
+
+(f) Kết quả đạt/không đạt của cấu hình chính (mục 27.16–27.18, các số liệu trước khi đổi T_amb sang 293 K và trước khi bỏ L_E): vũng quá rộng (~157–169 µm so với 84.4 ± 12.6 µm) và quá nông (~29 µm so với 68.0 ± 10.0 µm). Các lượt thông lượng có bay hơi (27.19, 27.19b) không học được điều kiện laser: loss biên dừng ở ~0.0066–0.0074, nghiệm nguội. Không có dữ liệu nhiệt độ thực nghiệm để kiểm chứng trường nhiệt độ. Các số này chưa tái chạy với T_amb = 293 K; cần chạy lại để có số mới.
+
+(g) Không đổi tiêu chí chấp nhận (27.4).

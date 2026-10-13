@@ -17,7 +17,7 @@ from pathlib import Path
 import torch
 
 from .case import R2022Case
-from .operator import HardPinned, energy_penalty, face_residual, heat_capacity, pde_residual, pinned_residual, spot_mask, top_residual, kappa
+from .operator import HardPinned, face_residual, heat_capacity, pde_residual, pinned_residual, spot_mask, top_residual, kappa
 
 
 class PINN(torch.nn.Module):
@@ -127,19 +127,6 @@ def loss_terms(model: PINN, case: R2022Case, pts: dict[str, torch.Tensor]) -> di
             "face": (r_fx ** 2).mean() + (r_fy ** 2).mean()}
 
 
-def sample_energy(case: R2022Case, n: int, gen: torch.Generator, device: torch.device) -> dict[str, torch.Tensor]:
-    """Điểm Monte Carlo cho L_E: mặt trên, đáy, và miền tại t_end (đều trên toàn miền)."""
-    Lx, Ly, Lz, Tmax = case.domain_star
-
-    def u(lo, hi):
-        return lo + (hi - lo) * torch.rand(n, 1, generator=gen, dtype=torch.float64)
-
-    top = torch.cat([u(0, Lx), u(0, Ly), torch.full((n, 1), Lz, dtype=torch.float64), u(0, Tmax)], dim=1)
-    bot = torch.cat([u(0, Lx), u(0, Ly), torch.zeros(n, 1, dtype=torch.float64), u(0, Tmax)], dim=1)
-    end = torch.cat([u(0, Lx), u(0, Ly), u(0, Lz), torch.full((n, 1), Tmax, dtype=torch.float64)], dim=1)
-    return {k: v.to(device) for k, v in {"top": top, "bot": bot, "end": end}.items()}
-
-
 def continuation_fraction(it: int, phase1: int, ramp: int) -> float:
     """Tỷ lệ của h và ε: 0 trong giai đoạn 1, tăng tuyến tính trong giai đoạn 2, 1 sau đó."""
     if it < phase1:
@@ -164,12 +151,10 @@ def main() -> None:
     ap.add_argument("--w-top", type=float, default=1.0)
     ap.add_argument("--w-face", type=float, default=1.0)
     ap.add_argument("--seed", type=int, default=0)
-    ap.add_argument("--lv0", type=float, default=9.0e5, help="L_v(0) J/kg; 9.0e5 theo Bảng 5, 9.83e6 theo Cook (kiểm tra độ nhạy)")
+    ap.add_argument("--lv0", type=float, default=9.0e5, help="L_v(0) J/kg; 9.0e5 theo Bảng 5 (mặc định)")
     ap.add_argument("--side-bc", choices=["adiabatic", "robin"], default="adiabatic", help="prereg 27.15")
     ap.add_argument("--sobol", action="store_true", help="lấy mẫu miền bằng Sobol (prereg 27.15)")
     ap.add_argument("--w-pde", type=float, default=1.0, help="trọng số hạng PDE (prereg 27.13 bổ sung)")
-    ap.add_argument("--w-energy", type=float, default=0.0, help="trọng số L_E (prereg 27.13), 0 = tắt")
-    ap.add_argument("--n-energy", type=int, default=400, help="số điểm Monte Carlo cho mỗi nhóm của L_E")
     ap.add_argument("--hard-delta", type=float, default=10e-6, help="δ của ràng buộc cứng (m), prereg 27.11")
     ap.add_argument("--surface", choices=["flux", "pinned", "hard"], default="flux",
                     help="pinned: kẹp penalty (27.9); hard: ràng buộc cứng (27.11)")
@@ -198,11 +183,6 @@ def main() -> None:
                      sobol=args.sobol)
         terms = loss_terms(model, case_it, pts)
         loss = args.w_pde * terms["pde"] + args.w_top * terms["top"] + args.w_face * terms["face"]
-        if args.w_energy > 0:
-            pts_e = sample_energy(case_it, args.n_energy, gen, dev)
-            field = HardPinned(model, case_it) if case_it.surface == "hard" else model
-            terms["energy"] = energy_penalty(field, case_it, pts_e)
-            loss = loss + args.w_energy * terms["energy"]
         if not torch.isfinite(loss):
             raise RuntimeError(f"loss không hữu hạn tại vòng {it}: {terms}")
         if args.lr_final is not None and args.decay_iters > 0:

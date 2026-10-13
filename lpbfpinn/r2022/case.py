@@ -30,7 +30,7 @@ class R2022Case:
     z_max: float = 240e-6
     z_powder: float = 180e-6        # đỉnh bulk, bột phẳng trên z > z_powder (60 µm)
     # môi trường và mất nhiệt (như FV, Charles)
-    T_amb: float = 298.0
+    T_amb: float = 293.0            # K, theo xác nhận của người nghiên cứu (bài báo dùng 298 K)
     h_c: float = 25.0
     emissivity: float = 0.2
     # vật liệu: Bảng 5 (đã xác nhận). L_v = 900 J/g = 9.0e5 J/kg (đơn vị SI, prereg mục 27.3)
