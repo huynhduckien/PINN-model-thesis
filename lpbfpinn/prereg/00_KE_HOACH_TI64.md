@@ -556,3 +556,13 @@ Ba bài: Yuan và cộng sự 2025 (IJAMT, PINN 3D L-DED, đa đường, dữ li
 (d) Quyết định cần người nghiên cứu xác nhận (không thay đổi trong mục này):
 - Kẹp T trong vết laser (27.11, cấu hình chính hiện tại): không có bằng chứng từ ba bài. Nếu bỏ, cấu hình chính chuyển về thông lượng Gaussian + không bay hơi, đã biết là không học được (nghiệm nguội, 27.19 và 27.19b, trước khi bỏ bay hơi).
 - Bay hơi bỏ theo (b) làm L_v không còn được dùng trong R2022; bài mục tiêu Ransenigo có L_v (Bảng 5) và trích dẫn Wu 2018. Cần xác nhận việc bỏ bay hơi khỏi bài toán mục tiêu có phù hợp không.
+
+**27.22 Cấu hình chính mới: bỏ kẹp T trong vết laser, chạy lại (ngày 2026-10-13, quyết định của người nghiên cứu).**
+
+(a) Cấu hình chính: thông lượng Gaussian trên mặt trên (surface = flux), không kẹp T (không dùng surface = hard, mục 27.11), không bay hơi (phi_evap = 0, mục 27.21), biên bên cách nhiệt (side_bc = adiabatic), T_amb = 293 K, không L_E, learning rate giảm tuyến tính từ 10⁻³ xuống 10⁻⁴ trong 5000 vòng cuối, 20 000 vòng, seed 0. Mã không đổi về mặc định (surface và side_bc đã mặc định là flux và adiabatic); chỉ đổi lệnh chạy.
+
+(b) Lệnh: `python -m lpbfpinn.r2022.train --device cpu --surface flux --side-bc adiabatic --seed 0 --iters 20000 --lr 1e-3 --lr-final 1e-4 --decay-iters 5000 --out results/pinn_r2022_flux_T293`.
+
+(c) Lưu ý về khác biệt với lượt chính cũ (pinn_r2022_hard_lrdecay): lượt cũ dùng kẹp T trong vết laser và T_amb = 298 K, có bay hơi. Giá trị lr cuối và số vòng giảm của lượt cũ không được ghi trong repo, nên các giá trị 10⁻³ → 10⁻⁴ và 5000 vòng là lựa chọn mới, không phải lặp lại từ lượt cũ.
+
+(d) Chạy trên CPU (4 nhân, không có GPU trong môi trường này), khoảng 0.14 s/vòng. Kết quả và kiểm tra: diag.json, profile, và so sánh với mục tiêu Bảng 3 (vũng rộng 84.4 ± 12.6 µm, sâu 68.0 ± 10.0 µm). Tiêu chí chấp nhận không đổi (mục 27.4).
