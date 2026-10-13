@@ -814,3 +814,5 @@ Hệ quả: tất cả các số đã đo trên model w_top = 1 (nhiệt cực �
 - w_top = 10: cân bằng loss đạt (tỷ số 0.42) nhưng sai số năng lượng −54%.
 - w_top = 100: không đạt cân bằng (tỷ số 0.06), sai số năng lượng −296%, vũng sâu 480 µm (bất thường).
 Theo tiêu chí 27.28(g), chọn w_top = 1. Vấn đề nhiệt cực đại vẫn còn và được giải thích bởi việc không có bay hơi (27.28(i)).
+
+**27.28 (l) Kiểm tra độ sâu vũng với lưới 10 µm (model w_top = 1, dạng raw², ngày 2026-10-13).** Lưới 10 µm: nhiệt cực đại 13 577 K, vũng rộng 120 µm, sâu 20 µm, sai số năng lượng −0.5%. Lưới 20 µm: rộng 100 µm, sâu 20 µm, sai số năng lượng −2.7%. Độ sâu 20 µm giữ nguyên ở cả hai lưới và ở mọi thời điểm từ đầu lượt, nên đây là kết quả của model, không phải lỗi lưới. Độ rộng phụ thuộc lưới (100–120 µm). So với mục tiêu Bảng 3 (rộng 84.4 ± 12.6 µm, sâu 68.0 ± 10.0 µm), độ sâu lệch khoảng 3 lần; độ rộng vượt mục tiêu khoảng 20–40%. Cân bằng năng lượng tốt ở lưới mịn.
