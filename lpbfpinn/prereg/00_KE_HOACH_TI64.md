@@ -860,3 +860,17 @@ Tiêu chí, cố định trước khi chạy: (i) sai số năng lượng trong 
 Kết luận: E8 (IC cứng) có thể thay bằng hạng IC mềm, theo đúng tiêu chí đã ghi. E9 (đáy cứng) không thay được với tiêu chí hiện tại. E10 không có tác dụng với Adam; có thể bỏ mà không đổi kết quả. Một seed, 2000 vòng CPU, dx 20 µm: chưa đủ để kết luận cuối cùng.
 
 **27.31 (đính chính nhãn bằng chứng, ngày 2026-10-13).** Dạng nghiệm raw², θ = z·raw²·(1 − e^{−t}) với IC mềm, là suy diễn của ta, không có trong bài đã tải lên. Kết luận ở trên phụ thuộc vào dạng này: các dạng thay thế đã thử (Zhu, Faegh) cho kết quả xấu hơn trong cùng điều kiện, nhưng chưa thử hết các biến thể khác. Vì vậy cấu hình tốt nhất chỉ là có điều kiện, không phải cấu hình đã được chứng minh. Ghi nhãn "suy diễn" cho dạng nghiệm trong mọi báo cáo.
+
+**27.32 Cấu hình cuối cùng cho PINN dẫn nhiệt thuần giai đoạn 1 (ngày 2026-10-13, người nghiên cứu ủy quyền quyết định).** Đây là cấu hình mặc định của `lpbfpinn/bulk/train.py` sau khi sửa.
+
+(a) Phương trình và vật liệu: ρc ∂T/∂t = ∇·(k∇T) + q, ρ = 4122, c = 831, k = 35 (Sharma 2026). Không nhiệt ẩn, không bay hơi.
+(b) Nguồn: Gaussian bề mặt, αP = 120 W, r = 50 µm, v = 1.75 m/s, đoạn khởi động 10 µm (lựa chọn từ FV, ghi nhãn). Nguồn thể tích không dùng (d không có giá trị trong nguồn).
+(c) Biên: ban đầu T = 298 K và đáy T = 298 K, cả hai là hạng mất mềm (Sharma 2026; Faegh 2026). Mặt trên −k∂T/∂z = q − h(T − 298) − εσ(T⁴ − 298⁴), h = 20 W/m²·K (Yuan 2025, Faegh 2026, Piandoro 2026), ε = 0.4 (Sharma 2026). Mặt bên cách nhiệt (Zhu 2021, Piandoro 2026).
+(d) Mạng: 4 lớp × 32 nơron, swish (Sharma 2026). Dạng nghiệm trực tiếp, không nhân thừa số.
+(e) Lấy mẫu: Sobol quanh vết laser và trong miền (Faegh 2026 mục 2.3).
+(f) Loss: L = L_PDE + L_BC + 10⁻⁴·L_IC, không chuẩn hóa θ_ref (Sharma 2025 Eq. 29). Trọng số tuyệt đối theo đơn vị không thứ nguyên.
+(g) Tối ưu: Adam lr 2·10⁻⁴, 35 000 vòng (Sharma 2026), sau đó L-BFGS 100 bước (số bước là lựa chọn của ta).
+(h) Miền: x ∈ [−750, 750], y ∈ [0, 380], z ∈ [0, 600] µm (lựa chọn của ta từ FV, kiểm tra độ nhạy bằng miền gấp đôi). Đường quét x: −550 đến 650 µm, y = 190 µm.
+(i) Chẩn đoán: nhiệt cực đại, vũng tại T_sol trên mặt và độ sâu tại tâm laser (định nghĩa của ta), sai số năng lượng, nhiệt tại điểm xa laser. Không có ngưỡng đạt/không đạt (27.27(h)).
+(j) Giới hạn đã biết: không bay hơi, không phản lực, không dòng chảy. Nhiệt cực đại cao được báo cáo như giới hạn, không sửa.
+(k) Việc tiếp theo: chạy CPU ngắn để kiểm tra mã; GPU 3 seed, dx 10 µm; thử độ nhạy miền gấp đôi.

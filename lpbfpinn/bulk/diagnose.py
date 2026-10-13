@@ -145,7 +145,8 @@ def main() -> None:
     model = BulkPINN(case, width=ck["args"].get("width", 64), depth=ck["args"].get("depth", 4),
                      ansatz=ck["args"].get("ansatz", "softplus"),
                      ic_hard=ck["args"].get("ic", "hard") == "hard",
-                     bottom_hard=ck["args"].get("bottom", "hard") == "hard").double().to(args.device)
+                     bottom_hard=ck["args"].get("bottom", "hard") == "hard",
+                     activation=ck["args"].get("activation", "tanh")).double().to(args.device)
     model.load_state_dict(ck["model_state_dict"])
     model.eval()
     res = run(model, case, args.dx, args.n_t, args.device)

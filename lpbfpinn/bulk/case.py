@@ -33,7 +33,7 @@ class BulkCase:
     # môi trường và mất nhiệt trên mặt trên (D3, D4)
     T_amb: float = 298.0           # K, cũng là nhiệt đáy (D4)
     T_sol: float = 1877.0          # K, Ransenigo Bảng 5
-    h_c: float = 25.0              # W/m²·K
+    h_c: float = 20.0              # W/m²·K, Yuan 2025, Faegh 2026, Piandoro 2026 (prereg 27.32)
     emissivity: float = 0.4        # Sharma 2026
     # thang nhiệt độ không thứ nguyên (C2)
     T_scale: float = 2000.0        # K

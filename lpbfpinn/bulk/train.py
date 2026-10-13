@@ -26,7 +26,7 @@ class BulkPINN(torch.nn.Module):
 
     def __init__(self, case: BulkCase, width: int = 64, depth: int = 4, ansatz: str = "square",
                  delta_z_star: float = 10e-6 / 50e-6, delta_t_star: float = 0.05,
-                 ic_hard: bool = True, bottom_hard: bool = True):
+                 ic_hard: bool = True, bottom_hard: bool = True, activation: str = "tanh"):
         super().__init__()
         # ic_hard / bottom_hard: thử bỏ ràng buộc cứng (prereg 27.31); mặc định là cấu hình hiện tại
         self.ic_hard = ic_hard
@@ -39,9 +39,10 @@ class BulkPINN(torch.nn.Module):
         # "softplus": dạng cũ, giữ để đọc lại checkpoint cũ
         self.ansatz = ansatz
         Lx, Ly, Lz, Tmax = case.domain_star
-        layers = [torch.nn.Linear(4, width), torch.nn.Tanh()]
+        act = torch.nn.SiLU if activation == "swish" else torch.nn.Tanh  # swish = SiLU (Sharma 2026 Eq. 12)
+        layers = [torch.nn.Linear(4, width), act()]
         for _ in range(depth - 1):
-            layers += [torch.nn.Linear(width, width), torch.nn.Tanh()]
+            layers += [torch.nn.Linear(width, width), act()]
         layers += [torch.nn.Linear(width, 1)]
         self.net = torch.nn.Sequential(*layers)
         self.register_buffer("lo", torch.tensor([0.0, 0.0, 0.0, 0.0]))
@@ -52,6 +53,9 @@ class BulkPINN(torch.nn.Module):
         t = xs[:, 3:4]
         scaled = 2.0 * (xs - self.lo) / (self.hi - self.lo) - 1.0
         raw = self.net(scaled)
+        if self.ansatz == "plain":
+            # mạng trực tiếp; IC và đáy là hạng mất mềm (prereg 27.32)
+            return raw
         if self.ansatz == "faegh":
             # IC bằng output transform (Faegh 2026 Eq. 19); đáy là hạng mất mềm, không ràng buộc cứng (Eq. 17)
             return raw * (1.0 - torch.exp(-t))
@@ -73,7 +77,7 @@ class BulkPINN(torch.nn.Module):
 
 
 def sample(case: BulkCase, n_domain: int, n_near: int, n_top: int, n_face: int,
-           gen: torch.Generator, device: torch.device) -> dict[str, torch.Tensor]:
+           gen: torch.Generator, device: torch.device, sobol: bool = False) -> dict[str, torch.Tensor]:
     """Điểm huấn luyện: miền đều, miền quanh vết laser, mặt trên, mặt bên."""
     Lx, Ly, Lz, Tmax = case.domain_star
     v_star = case.speed * case.t_c / case.L_c
@@ -91,7 +95,13 @@ def sample(case: BulkCase, n_domain: int, n_near: int, n_top: int, n_face: int,
         z = u(n, zlo, zhi)
         return torch.cat([x, y, z, t], dim=1)
 
-    dom = torch.cat([u(n_domain, 0, Lx), u(n_domain, 0, Ly), u(n_domain, 0, Lz), u(n_domain, 0, Tmax)], dim=1)
+    if sobol:
+        # Sobol có xáo trộn, cùng cách với Faegh 2026 mục 2.3 (prereg 27.32)
+        sd = int(torch.randint(0, 2**31 - 1, (1,), generator=gen))
+        sob = torch.quasirandom.SobolEngine(4, scramble=True, seed=sd).draw(n_domain).double()
+        dom = torch.stack([Lx * sob[:, 0], Ly * sob[:, 1], Lz * sob[:, 2], Tmax * sob[:, 3]], dim=1)
+    else:
+        dom = torch.cat([u(n_domain, 0, Lx), u(n_domain, 0, Ly), u(n_domain, 0, Lz), u(n_domain, 0, Tmax)], dim=1)
     dom = torch.cat([dom, near_laser(n_near, Lz - 2.0, Lz)])
     top = torch.cat([u(n_top, 0, Lx), u(n_top, 0, Ly), torch.full((n_top, 1), Lz, dtype=torch.float64),
                      u(n_top, 0, Tmax)], dim=1)
@@ -134,22 +144,24 @@ def loss_terms(model: BulkPINN, case: BulkCase, pts: dict[str, torch.Tensor],
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--device", default="cpu")
-    ap.add_argument("--iters", type=int, default=20000)
-    ap.add_argument("--lr", type=float, default=1e-3)
-    ap.add_argument("--lr-final", type=float, default=1e-4)
+    ap.add_argument("--iters", type=int, default=35000)
+    ap.add_argument("--lr", type=float, default=2e-4)
+    ap.add_argument("--lr-final", type=float, default=2e-4)
     ap.add_argument("--decay-frac", type=float, default=0.25, help="tỷ lệ vòng cuối có giảm lr tuyến tính")
     ap.add_argument("--n-domain", type=int, default=4000)
     ap.add_argument("--n-near", type=int, default=2000)
     ap.add_argument("--n-top", type=int, default=1000)
     ap.add_argument("--n-face", type=int, default=500)
-    ap.add_argument("--width", type=int, default=64)
+    ap.add_argument("--width", type=int, default=32)
     ap.add_argument("--depth", type=int, default=4)
     ap.add_argument("--seed", type=int, default=0)
-    ap.add_argument("--ansatz", choices=["square", "softplus", "zhu", "faegh"], default="square")
-    ap.add_argument("--ic", choices=["hard", "soft"], default="hard", help="IC ràng buộc cứng hay hạng mất mềm (prereg 27.31)")
-    ap.add_argument("--bottom", choices=["hard", "soft"], default="hard", help="đáy ràng buộc cứng hay hạng mất mềm (prereg 27.31)")
-    ap.add_argument("--norm", choices=["theta_ref", "none"], default="theta_ref", help="chuẩn hóa residual theo θ_ref hay không (prereg 27.31)")
-    ap.add_argument("--w-ic", type=float, default=1.0)
+    ap.add_argument("--ansatz", choices=["plain", "square", "softplus", "zhu", "faegh"], default="plain")
+    ap.add_argument("--activation", choices=["tanh", "swish"], default="swish")
+    ap.add_argument("--sobol", action="store_true", default=True)
+    ap.add_argument("--ic", choices=["hard", "soft"], default="soft", help="IC ràng buộc cứng hay hạng mất mềm (prereg 27.31)")
+    ap.add_argument("--bottom", choices=["hard", "soft"], default="soft", help="đáy ràng buộc cứng hay hạng mất mềm (prereg 27.31)")
+    ap.add_argument("--norm", choices=["theta_ref", "none"], default="none", help="chuẩn hóa residual theo θ_ref hay không (prereg 27.31)")
+    ap.add_argument("--w-ic", type=float, default=1e-4)
     ap.add_argument("--latent", action="store_true", help="sink nhiệt hóa hơi làm nhiệt dung biểu kiến (prereg 27.29)")
     ap.add_argument("--source", choices=["surface", "volume"], default="surface")
     ap.add_argument("--d-vol", type=float, default=0.0, help="chiều sâu xuyên d (m) khi --source volume")
@@ -157,7 +169,7 @@ def main() -> None:
     ap.add_argument("--w-pde", type=float, default=1.0)
     ap.add_argument("--w-top", type=float, default=1.0, help="trọng số hạng biên trên (prereg 27.28(g))")
     ap.add_argument("--w-side", type=float, default=1.0)
-    ap.add_argument("--lbfgs-iters", type=int, default=0,
+    ap.add_argument("--lbfgs-iters", type=int, default=100,
                     help="số bước L-BFGS sau Adam (mỗi bước tối đa 20 lần lặp), trên tập điểm cố định")
     ap.add_argument("--out", default="results/bulk_pinn")
     args = ap.parse_args()
@@ -168,7 +180,8 @@ def main() -> None:
         raise SystemExit("--source volume cần --d-vol > 0 (chiều sâu xuyên d, chọn trước theo prereg)")
     case = BulkCase(latent=args.latent, w_vap=args.w_vap, source=args.source, d_vol=args.d_vol)
     model = BulkPINN(case, width=args.width, depth=args.depth, ansatz=args.ansatz,
-                     ic_hard=args.ic == "hard", bottom_hard=args.bottom == "hard").to(dev).double()
+                     ic_hard=args.ic == "hard", bottom_hard=args.bottom == "hard",
+                     activation=args.activation).to(dev).double()
     opt = torch.optim.Adam(model.parameters(), lr=args.lr)
     gen = torch.Generator().manual_seed(args.seed)
     out = Path(args.out)
@@ -177,7 +190,7 @@ def main() -> None:
     hist = []
     t0 = time.time()
     for it in range(args.iters):
-        pts = sample(case, args.n_domain, args.n_near, args.n_top, args.n_face, gen, dev)
+        pts = sample(case, args.n_domain, args.n_near, args.n_top, args.n_face, gen, dev, sobol=args.sobol)
         terms = loss_terms(model, case, pts, norm=args.norm)
         loss = (args.w_pde * terms["pde"] + args.w_top * terms["top"] + args.w_side * terms["face"]
                 + terms["bot"] + args.w_ic * terms["ic"])
@@ -197,7 +210,7 @@ def main() -> None:
             print(json.dumps(rec), flush=True)
     if args.lbfgs_iters > 0:
         # L-BFGS trên một tập điểm cố định, cùng hàm loss với Adam
-        pts_fix = sample(case, args.n_domain, args.n_near, args.n_top, args.n_face, gen, dev)
+        pts_fix = sample(case, args.n_domain, args.n_near, args.n_top, args.n_face, gen, dev, sobol=args.sobol)
         opt2 = torch.optim.LBFGS(model.parameters(), lr=1.0, max_iter=20, history_size=50,
                                  line_search_fn="strong_wolfe")
 
