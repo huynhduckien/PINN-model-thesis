@@ -37,14 +37,27 @@ def loss_star(theta: torch.Tensor, case: BulkCase) -> torch.Tensor:
     return q / case.flux_scale
 
 
-def pde_residual(theta_fn, xs: torch.Tensor) -> torch.Tensor:
-    """r = ∂θ/∂t* − ∇*²θ. Bằng 0 khi thỏa PDE dẫn nhiệt không bột."""
+def heat_cap_star(th: torch.Tensor, case: BulkCase) -> torch.Tensor:
+    """g(θ) = 1 + (L_v/c_p)·f'(T), với f(T) = ½(1 + tanh((T − T_vap)/w)) là phần đã hóa hơi (prereg 27.29).
+
+    Khi latent = False, g = 1 (PDE không đổi so với 27.28).
+    """
+    if not case.latent:
+        return torch.ones_like(th)
+    T = case.T_amb + case.T_scale * th
+    sech2 = 1.0 / torch.cosh((T - case.T_vap) / case.w_vap) ** 2
+    dfdT = 0.5 * sech2 / case.w_vap
+    return 1.0 + (case.L_v / case.cp) * dfdT
+
+
+def pde_residual(theta_fn, xs: torch.Tensor, case: BulkCase) -> torch.Tensor:
+    """r = g(θ)·∂θ/∂t* − ∇*²θ. Bằng 0 khi thỏa PDE dẫn nhiệt (có hoặc không sink nhiệt hóa hơi)."""
     xs = xs.clone().requires_grad_(True)
     th = theta_fn(xs)
     g1 = _grad(th, xs)
     th_t = g1[:, 3:4]
     lap = (_grad(g1[:, 0:1], xs)[:, 0:1] + _grad(g1[:, 1:2], xs)[:, 1:2] + _grad(g1[:, 2:3], xs)[:, 2:3])
-    return th_t - lap
+    return heat_cap_star(th, case) * th_t - lap
 
 
 def top_residual(theta_fn, xs: torch.Tensor, case: BulkCase) -> torch.Tensor:

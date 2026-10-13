@@ -95,7 +95,9 @@ def run(model: BulkPINN, case: BulkCase, dx: float, n_t: int, device) -> dict:
             T3 = case.T_amb + case.T_scale * _theta(model, pts3, device)
             T_max.append(float(T3.max()))
             if k == n_t - 1:
-                stored_end = float(case.rho * case.cp * np.mean(T3 - case.T_amb) * (case.x_max - case.x_min)
+                f3 = 0.5 * (1.0 + np.tanh((T3 - case.T_vap) / case.w_vap)) if case.latent else 0.0
+                latent_end = float(case.rho * case.L_v * np.mean(f3) * (case.x_max - case.x_min) * case.y_max * case.z_max) if case.latent else 0.0
+                stored_end = latent_end + float(case.rho * case.cp * np.mean(T3 - case.T_amb) * (case.x_max - case.x_min)
                                    * case.y_max * case.z_max)
         # dòng mất nhiệt trên mặt trên và qua đáy (W/m²), lấy trung bình trên lưới
         q_loss = loss_star(torch.tensor(th_top, dtype=torch.float64), case).numpy() * case.flux_scale
@@ -138,7 +140,7 @@ def main() -> None:
     ap.add_argument("--n-t", type=int, default=30)
     args = ap.parse_args()
     ck = torch.load(args.ckpt, map_location=args.device, weights_only=False)
-    case = BulkCase()
+    case = BulkCase(latent=bool(ck["args"].get("latent", False)))
     model = BulkPINN(case, width=ck["args"].get("width", 64), depth=ck["args"].get("depth", 4),
                      ansatz=ck["args"].get("ansatz", "softplus")).double().to(args.device)
     model.load_state_dict(ck["model_state_dict"])

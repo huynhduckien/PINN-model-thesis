@@ -20,7 +20,18 @@ def test_pde_residual_closed_form():
     case = BulkCase()
     xs = _pts(case)
     theta = lambda p: p[:, 2:3] ** 2 * p[:, 3:4]
-    r = pde_residual(theta, xs).detach().numpy()
+    r = pde_residual(theta, xs, case).detach().numpy()
     z_star = xs[:, 2:3].numpy()
     t_star = xs[:, 3:4].numpy()
     np.testing.assert_allclose(r, z_star**2 - 2.0 * t_star, rtol=1e-10, atol=1e-12)
+
+
+def test_latent_sink_integrates_to_latent_heat():
+    """∫(g − 1) dT qua vùng hóa hơi bằng L_v/c_p (năng lượng ẩn đúng), prereg 27.29."""
+    from lpbfpinn.bulk.operator import heat_cap_star
+    case = BulkCase(latent=True)
+    T = np.linspace(case.T_vap - 3000.0, case.T_vap + 3000.0, 600001)
+    th = torch.tensor((T - case.T_amb) / case.T_scale, dtype=torch.float64).reshape(-1, 1)
+    g = heat_cap_star(th, case).numpy().ravel()
+    integral = np.trapezoid(g - 1.0, T) if hasattr(np, "trapezoid") else np.trapz(g - 1.0, T)
+    np.testing.assert_allclose(integral, case.L_v / case.cp, rtol=1e-3)

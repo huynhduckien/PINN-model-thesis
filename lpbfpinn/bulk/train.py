@@ -101,7 +101,7 @@ def sample(case: BulkCase, n_domain: int, n_near: int, n_top: int, n_face: int,
 def loss_terms(model: BulkPINN, case: BulkCase, pts: dict[str, torch.Tensor]) -> dict[str, torch.Tensor]:
     """Ba hạng mất mềm, mỗi residual chia cho θ_ref (C1, D6)."""
     ref = case.theta_ref
-    r_pde = pde_residual(model, pts["dom"]) / ref
+    r_pde = pde_residual(model, pts["dom"], case) / ref
     r_top = top_residual(model, pts["top"], case) / ref
     r_fx = face_residual(model, pts["fx"], axis=0) / ref
     r_fy = face_residual(model, pts["fy"], axis=1) / ref
@@ -130,6 +130,7 @@ def main() -> None:
     ap.add_argument("--depth", type=int, default=4)
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--ansatz", choices=["square", "softplus", "zhu", "faegh"], default="square")
+    ap.add_argument("--latent", action="store_true", help="sink nhiệt hóa hơi làm nhiệt dung biểu kiến (prereg 27.29)")
     ap.add_argument("--w-pde", type=float, default=1.0)
     ap.add_argument("--w-top", type=float, default=1.0, help="trọng số hạng biên trên (prereg 27.28(g))")
     ap.add_argument("--w-side", type=float, default=1.0)
@@ -140,7 +141,7 @@ def main() -> None:
 
     torch.manual_seed(args.seed)
     dev = torch.device(args.device)
-    case = BulkCase()
+    case = BulkCase(latent=args.latent)
     model = BulkPINN(case, width=args.width, depth=args.depth, ansatz=args.ansatz).to(dev).double()
     opt = torch.optim.Adam(model.parameters(), lr=args.lr)
     gen = torch.Generator().manual_seed(args.seed)

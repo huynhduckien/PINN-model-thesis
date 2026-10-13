@@ -37,6 +37,11 @@ class BulkCase:
     emissivity: float = 0.4        # Sharma 2026
     # thang nhiệt độ không thứ nguyên (C2)
     T_scale: float = 2000.0        # K
+    # sink nhiệt hóa hơi làm nhiệt dung biểu kiến (prereg 27.29), tắt mặc định
+    latent: bool = False
+    L_v: float = 9.0e5             # J/kg, Ransenigo Bảng 5 (900 J/g)
+    T_vap: float = 3533.0          # K, điểm sôi Ransenigo Bảng 5
+    w_vap: float = 100.0           # K, bề rộng làm trơn của bước hóa hơi (lựa chọn của ta)
     # ràng buộc cứng IC và đáy, mặt bên cách nhiệt (D5)
 
     @property
