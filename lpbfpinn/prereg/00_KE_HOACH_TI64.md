@@ -569,7 +569,7 @@ Ba bài: Yuan và cộng sự 2025 (IJAMT, PINN 3D L-DED, đa đường, dữ li
 
 **27.22 (cập nhật, ngày 2026-10-13).** Lượt CPU 20 000 vòng đã dừng theo yêu cầu của người nghiên cứu, chưa hoàn thành; log `results/pinn_r2022_flux_T293.log` là lượt dừng sớm, không dùng làm kết quả. Lượt chính chuyển sang GPU của người nghiên cứu với cùng cấu hình: `python -m lpbfpinn.r2022.train --device cuda --surface flux --side-bc adiabatic --seed 0 --iters 20000 --lr 1e-3 --lr-final 1e-4 --decay-iters 5000 --out results/pinn_r2022_flux_T293`. Sau khi chạy xong, chạy diagnose và profile trên `results/pinn_r2022_flux_T293/model.pt`, rồi push diag.json, profile.json, history.json và log.
 
-**27.22 Giới hạn đã biết: bay hơi và áp suất phản lực (ngày 2026-10-13, quyết định của người nghiên cứu).**
+**27.23 Giới hạn đã biết: bay hơi và áp suất phản lực (ngày 2026-10-13, quyết định của người nghiên cứu).**
 
 (a) Mô hình R2022 không có bay hơi (phi_evap = 0, mục 27.21) và không có áp suất phản lực trên mặt tự do. Kết quả vũng nóng chảy sẽ lệch khỏi Bảng 3 của Ransenigo và cộng sự 2022, và lệch này được ghi là giới hạn của mô hình, không phải là kết quả thất bại của tối ưu hóa.
 
