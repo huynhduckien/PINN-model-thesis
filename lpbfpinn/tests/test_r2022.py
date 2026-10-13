@@ -144,3 +144,11 @@ def test_robin_side_residual_linear_field():
     r = float(face_residual(lin, xs, axis=0, case=case).detach())
     expected = float(kappa(xs[:, 2:3], case)) * a - float(side_loss_star(torch.zeros(1, 1, dtype=torch.float64), case))
     assert abs(r - expected) < 1e-9, (r, expected)
+
+
+def test_rosenthal_reference_pool_dimensions():
+    """Mốc M1c (prereg 27.26): Rosenthal với hằng số hiện tại cho rộng ~106 µm, sâu ~53 µm."""
+    from lpbfpinn.r2022.rosenthal import pool_dimensions
+    res = pool_dimensions(120.0, 1.75, 33.1, 4106.0, 838.0, 1877.0, 293.0)
+    assert abs(res["width_um"] - 106.0) <= 4.0, res
+    assert abs(res["depth_um"] - 53.0) <= 4.0, res

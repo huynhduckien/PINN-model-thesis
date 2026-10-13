@@ -657,3 +657,19 @@ Thử CPU so với đối chứng cùng cấu hình (2000 vòng Adam, seed 0, mi
 - σ = 1: hạng PDE cuối 1.6·10⁻⁵ (đạt tiêu chí ii), nhiệt cực đại 352 K (không đạt tiêu chí i), không vũng.
 - σ = 3: hạng PDE cuối 5.6·10⁻⁴ (không đạt tiêu chí ii), nhiệt cực đại 590 K (không đạt tiêu chí i), không vũng.
 Không σ nào đạt tiêu chí sớm. Không chạy GPU. Với σ nhỏ, PDE ổn định nhưng nghiệm vẫn nguội; với σ lớn hơn, nhiệt tăng nhưng PDE không hội tụ. Nhúng Fourier đơn thuần không giải quyết vấn đề nguội trong phạm vi σ đã quét.
+
+**27.26 Mốc kiểm tra theo giai đoạn: Rosenthal và cân bằng năng lượng trước (ngày 2026-10-13, quyết định của người nghiên cứu).**
+
+(a) Hai cổng đầu tiên cho giai đoạn 1 (PINN dẫn nhiệt thuần, Ti6Al4V không bột, nguồn Gaussian di chuyển):
+- **M1a, cân bằng năng lượng:** sai số tương đối (E_in − E_ra − E_tích)/E_in không vượt 5%, đo bởi `diagnose` (`energy.rel_error`).
+- **M1c, Rosenthal:** độ rộng vũng trên mặt tại T_sol trong khoảng ±20% của giá trị Rosenthal, tính bởi `lpbfpinn.r2022.rosenthal` với cùng P hấp thụ, v, k, ρ, cp, T_sol, T₀. Với hằng số hiện tại: rộng 106 µm, khoảng chấp nhận 85–127 µm. Độ sâu Rosenthal 53 µm được báo cáo nhưng không là cổng, vì nguồn điểm không mô tả đúng độ sâu gần vết laser.
+
+(b) Cổng M0 (kiểm tra toán) đã đạt, gồm test PDE trên nghiệm giải tích và biên Robin. M1b (không nguội: nhiệt cực đại vượt T_sol và có vũng) vẫn là điều kiện trước M1c, vì M1c chỉ có ý nghĩa khi vũng tồn tại.
+
+(c) Giới hạn của Rosenthal: nguồn điểm, bán không gian, quasi-steady, không có bay hơi hay phản lực, không có kích thước vết laser 50 µm. Nó chỉ là mốc tham chiếu cho giai đoạn dẫn nhiệt, không phải mục tiêu Bảng 3. Hằng số k = 33.1 W/m·K chưa xác nhận với Hình 14 của Ransenigo; độ rộng gần như không đổi khi k giảm xuống 7 (106 µm so với 108 µm), nên cổng M1c ít nhạy với k.
+
+(d) Đánh giá các lượt đã có theo hai cổng (không chạy thêm):
+- Kẹp T, lr giảm, GPU 20 000 vòng: năng lượng 0.437 (không đạt M1a); rộng 165 µm, ngoài khoảng 85–127 (không đạt M1c); nhiệt cực đại 3543 K (vượt T_sol, nhưng vũng sai). Đạt M1b, không đạt M1a và M1c.
+- Thông lượng không kẹp (pderamp GPU, các lượt CPU): năng lượng 0.85–0.998, nhiệt không vượt 500 K. Không đạt M1a, M1b, M1c.
+
+(e) Quy trình: giai đoạn 1 chỉ chuyển sang giai đoạn 2 (bột) khi M1a, M1b và M1c cùng đạt trên cùng một lượt chạy có seed đã ghi. Nếu không đạt, báo cáo là không đạt giai đoạn 1 và không thêm bột để che lỗi.
