@@ -86,3 +86,23 @@ def test_zbias_pushes_domain_points_up():
     pts = sample(case, 4096, 0, 0, 0, gen, torch.device("cpu"), sobol=True, z_bias=True)["dom"]
     frac_upper = (pts[:, 2] > Lz / 2).double().mean().item()
     assert frac_upper == pytest.approx(0.5**0.5, abs=0.02)
+
+
+def test_near_laser_sobol_stays_in_disk_and_domain():
+    """Điểm quanh laser lấy từ Sobol nằm trong đĩa 4 r_b quanh tâm laser tại thời điểm đó (góp ý người dùng)."""
+    from lpbfpinn.bulk.case import case_2019
+    from lpbfpinn.bulk.train import sample
+    case = case_2019()
+    Lx, Ly, Lz, Tm = case.domain_star
+    v_star = case.speed * case.t_c / case.L_c
+    x0_star = (case.x_start - case.x_min) / case.L_c
+    gen = torch.Generator().manual_seed(1)
+    n_dom, n_near = 16, 256
+    pts = sample(case, n_dom, n_near, 16, 0, gen, torch.device("cpu"), sobol=True, near_sobol=True)["dom"]
+    near = pts[n_dom:]
+    x, y, z, t = near[:, 0], near[:, 1], near[:, 2], near[:, 3]
+    dist = torch.sqrt((x - (x0_star + v_star * t)) ** 2 + (y - case.y_tip / case.L_c) ** 2)
+    assert float(dist.max()) <= 4.0 + 1e-9
+    assert float(y.min()) >= 0.0 and float(y.max()) <= Ly
+    assert float(z.min()) >= Lz - 2.0 - 1e-12 and float(z.max()) <= Lz + 1e-12
+    assert float(t.min()) >= 0.0 and float(t.max()) <= Tm

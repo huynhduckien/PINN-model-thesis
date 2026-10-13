@@ -78,10 +78,12 @@ class BulkPINN(torch.nn.Module):
 
 def sample(case: BulkCase, n_domain: int, n_near: int, n_top: int, n_face: int,
            gen: torch.Generator, device: torch.device, sobol: bool = False,
-           z_bias: bool = False) -> dict[str, torch.Tensor]:
+           z_bias: bool = False, near_sobol: bool = False) -> dict[str, torch.Tensor]:
     """Điểm huấn luyện: miền đều, miền quanh vết laser, mặt trên, mặt bên.
 
     z_bias: dồn điểm miền lên phía trên theo Faegh 2026 Eq. 10–11, z = L_z·(1 − (1 − s)²) với s ∈ [0, 1] từ Sobol.
+    near_sobol: điểm quanh laser lấy từ Sobol trong đĩa bán kính win·r_b quanh tâm laser (Faegh 2026 mục 2.3),
+    thay vì ngẫu nhiên đều trong hình vuông. Đối xứng qua y = 0 bằng cách lấy |y|, vì miền chỉ có y ≥ 0.
     """
     Lx, Ly, Lz, Tmax = case.domain_star
     v_star = case.speed * case.t_c / case.L_c
@@ -92,12 +94,25 @@ def sample(case: BulkCase, n_domain: int, n_near: int, n_top: int, n_face: int,
     def u(n, lo, hi):
         return lo + (hi - lo) * torch.rand(n, 1, generator=gen, dtype=torch.float64)
 
-    def near_laser(n, zlo, zhi):
+    def near_laser(n, zlo, zhi, s=None):
+        if s is not None:
+            # s: (n, 4) Sobol trong [0, 1)^4 → (bán kính, góc, z, t); bán kính căn bậc hai cho đĩa đều
+            t = Tmax * s[:, 3:4]
+            r = win * torch.sqrt(s[:, 0:1])
+            ang = 2.0 * math.pi * s[:, 1:2]
+            x = (x0_star + v_star * t + r * torch.cos(ang)).clamp(0.0, Lx)
+            y = (y_tip_star + r * torch.sin(ang)).abs().clamp(0.0, Ly)
+            z = zlo + (zhi - zlo) * s[:, 2:3]
+            return torch.cat([x, y, z, t], dim=1)
         t = u(n, 0.0, Tmax)
         x = (x0_star + v_star * t + u(n, -win, win)).clamp(0.0, Lx)
         y = (y_tip_star + u(n, -win, win)).clamp(0.0, Ly)
         z = u(n, zlo, zhi)
         return torch.cat([x, y, z, t], dim=1)
+
+    def sobol_near(n):
+        sd = int(torch.randint(0, 2**31 - 1, (1,), generator=gen))
+        return torch.quasirandom.SobolEngine(4, scramble=True, seed=sd).draw(n).double()
 
     if sobol:
         # Sobol có xáo trộn, cùng cách với Faegh 2026 mục 2.3 (prereg 27.32)
@@ -107,10 +122,10 @@ def sample(case: BulkCase, n_domain: int, n_near: int, n_top: int, n_face: int,
         dom = torch.stack([Lx * sob[:, 0], Ly * sob[:, 1], Lz * zs, Tmax * sob[:, 3]], dim=1)
     else:
         dom = torch.cat([u(n_domain, 0, Lx), u(n_domain, 0, Ly), u(n_domain, 0, Lz), u(n_domain, 0, Tmax)], dim=1)
-    dom = torch.cat([dom, near_laser(n_near, Lz - 2.0, Lz)])
+    dom = torch.cat([dom, near_laser(n_near, Lz - 2.0, Lz, sobol_near(n_near) if near_sobol else None)])
     top = torch.cat([u(n_top, 0, Lx), u(n_top, 0, Ly), torch.full((n_top, 1), Lz, dtype=torch.float64),
                      u(n_top, 0, Tmax)], dim=1)
-    top = torch.cat([top, near_laser(n_top, Lz, Lz)])
+    top = torch.cat([top, near_laser(n_top, Lz, Lz, sobol_near(n_top) if near_sobol else None)])
 
     def pick_end(n, length):
         return length * (torch.rand(n, 1, generator=gen, dtype=torch.float64) < 0.5).double()
@@ -164,6 +179,8 @@ def main() -> None:
     ap.add_argument("--activation", choices=["tanh", "swish"], default="swish")
     ap.add_argument("--sobol", action="store_true", default=True)
     ap.add_argument("--z-bias", action="store_true", help="dồn điểm miền lên trên theo Faegh 2026 Eq. 10–11")
+    ap.add_argument("--near", choices=["uniform", "sobol"], default="uniform",
+                    help="điểm quanh laser: ngẫu nhiên đều (mặc định, prereg 27.32) hoặc Sobol trong đĩa")
     ap.add_argument("--case", choices=["bulk", "ts2019"], default="bulk",
                     help="bulk = cấu hình prereg 27.32 (mặc định); ts2019 = bài 2019, theo quyết định người dùng")
     ap.add_argument("--ic", choices=["hard", "soft"], default="soft", help="IC ràng buộc cứng hay hạng mất mềm (prereg 27.31)")
@@ -200,7 +217,7 @@ def main() -> None:
     t0 = time.time()
     for it in range(args.iters):
         pts = sample(case, args.n_domain, args.n_near, args.n_top, args.n_face, gen, dev, sobol=args.sobol,
-                     z_bias=args.z_bias)
+                     z_bias=args.z_bias, near_sobol=args.near == "sobol")
         terms = loss_terms(model, case, pts, norm=args.norm)
         loss = (args.w_pde * terms["pde"] + args.w_top * terms["top"] + args.w_side * terms["face"]
                 + terms["bot"] + args.w_ic * terms["ic"])
@@ -221,7 +238,7 @@ def main() -> None:
     if args.lbfgs_iters > 0:
         # L-BFGS trên một tập điểm cố định, cùng hàm loss với Adam
         pts_fix = sample(case, args.n_domain, args.n_near, args.n_top, args.n_face, gen, dev, sobol=args.sobol,
-                     z_bias=args.z_bias)
+                     z_bias=args.z_bias, near_sobol=args.near == "sobol")
         opt2 = torch.optim.LBFGS(model.parameters(), lr=1.0, max_iter=20, history_size=50,
                                  line_search_fn="strong_wolfe")
 
