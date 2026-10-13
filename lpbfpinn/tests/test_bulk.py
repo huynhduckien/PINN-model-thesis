@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import numpy as np
+import pytest
 import torch
 
 from lpbfpinn.bulk.case import BulkCase
@@ -52,3 +53,36 @@ def test_volume_source_integrates_to_absorbed_power():
     dx = (xs_[1]-xs_[0]) * case.L_c; dy = (ys_[1]-ys_[0]) * case.L_c; dz = (zs_[1]-zs_[0]) * case.L_c
     total = float(qd.sum() * dx * dy * dz)
     np.testing.assert_allclose(total, case.absorptivity * case.power, rtol=0.2)
+
+
+def test_case_2019_laser_path():
+    """Tâm laser đi từ x = 20 mm (t = 0) đến x = 5 mm (t = 3 s), v = −5 mm/s (quyết định người dùng)."""
+    from lpbfpinn.bulk.case import case_2019
+    case = case_2019()
+    assert case.t_end == pytest.approx(3.0, rel=1e-12)
+    assert case.x_start + case.speed * 0.0 == pytest.approx(20e-3)
+    assert case.x_start + case.speed * case.t_end == pytest.approx(5e-3)
+
+
+def test_laser_flux_positive_with_negative_speed():
+    """Với v < 0, đoạn khởi động vẫn cho thông lượng dương tại tâm laser (không bị đảo dấu)."""
+    from lpbfpinn.bulk.case import case_2019
+    from lpbfpinn.bulk.operator import laser_flux_star
+    case = case_2019()
+    t = 0.5                                       # s, khi laser ở x = 17.5 mm
+    xs = torch.tensor([[(17.5e-3 - case.x_min) / case.L_c, 0.0, 0.0, t / case.t_c]], dtype=torch.float64)
+    q = laser_flux_star(xs, case).item()
+    assert q == pytest.approx(case.peak_flux / case.flux_scale, rel=1e-10)
+    assert q > 0
+
+
+def test_zbias_pushes_domain_points_up():
+    """Eq. 10–11 của Faegh 2026: z = L_z·(1 − (1 − s)²) đưa khoảng 71% điểm lên nửa trên (không bias: 50%)."""
+    from lpbfpinn.bulk.case import case_2019
+    from lpbfpinn.bulk.train import sample
+    case = case_2019()
+    Lz = case.domain_star[2]
+    gen = torch.Generator().manual_seed(0)
+    pts = sample(case, 4096, 0, 0, 0, gen, torch.device("cpu"), sobol=True, z_bias=True)["dom"]
+    frac_upper = (pts[:, 2] > Lz / 2).double().mean().item()
+    assert frac_upper == pytest.approx(0.5**0.5, abs=0.02)

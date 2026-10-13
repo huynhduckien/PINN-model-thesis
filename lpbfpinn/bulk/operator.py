@@ -27,7 +27,7 @@ def volume_source_star(xs: torch.Tensor, case: BulkCase) -> torch.Tensor:
     z = xs[:, 2:3] * case.L_c
     t = xs[:, 3:4] * case.t_c
     x_l = case.x_start + case.speed * t
-    ramp = torch.clamp(t / (case.ramp_length / case.speed), max=1.0)
+    ramp = torch.clamp(t / (case.ramp_length / abs(case.speed)), max=1.0)
     d = case.d_vol
     qv = (2.0 * case.absorptivity * case.power * ramp / (math.pi * case.r_b**2 * d)) * torch.exp(
         -2.0 * ((x - x_l) ** 2 + (y - case.y_tip) ** 2) / case.r_b**2) * torch.exp(-(case.z_max - z) / d)
@@ -42,7 +42,7 @@ def laser_flux_star(xs: torch.Tensor, case: BulkCase) -> torch.Tensor:
     y = xs[:, 1:2] * case.L_c
     t = xs[:, 3:4] * case.t_c
     x_l = case.x_start + case.speed * t
-    ramp = torch.clamp(t / (case.ramp_length / case.speed), max=1.0)
+    ramp = torch.clamp(t / (case.ramp_length / abs(case.speed)), max=1.0)
     q = (2.0 * case.absorptivity * case.power * ramp / (math.pi * case.r_b**2)) * torch.exp(
         -2.0 * ((x - x_l) ** 2 + (y - case.y_tip) ** 2) / case.r_b**2)
     return q / case.flux_scale

@@ -79,3 +79,29 @@ class BulkCase:
         """Kích thước miền và thời gian không thứ nguyên: (L_x*, L_y*, L_z*, t_end*)."""
         return ((self.x_max - self.x_min) / self.L_c, self.y_max / self.L_c, self.z_max / self.L_c,
                 self.t_end / self.t_c)
+
+
+def case_2019() -> BulkCase:
+    """Cấu hình theo bài 2019 (Sharma, Raissi, Guo, Procedia CIRP 138 (2026) 650–655), theo quyết định của người dùng.
+
+    Laser 500 W, α = 0.4, r_b = 1.5 mm, đi từ x = 20 mm về x = 5 mm trong 3 s (v = −5 mm/s), trên y = 0.
+    Miền 25 × 6 × 4 mm (nửa miền, y = 0 là mặt đối xứng). Ti-6Al-4V: ρ = 4122, c_p = 831, k = 35, ε = 0.4.
+    h = 10 (quyết định của người dùng; bài 2019 không cho h). Mặt bên cách nhiệt.
+    Thang nhiệt độ T_scale = 1300 K (đề xuất chuẩn hóa của người dùng).
+    """
+    return BulkCase(
+        power=500.0,
+        absorptivity=0.4,
+        speed=-5e-3,               # m/s, âm: laser đi về phía x giảm
+        r_b=1.5e-3,
+        x_start=20e-3,
+        x_end=5e-3,
+        y_tip=0.0,
+        x_min=0.0,
+        x_max=25e-3,
+        y_max=6e-3,
+        z_max=4e-3,
+        h_c=10.0,
+        emissivity=0.4,
+        T_scale=1300.0,
+    )

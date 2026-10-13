@@ -874,3 +874,23 @@ Kết luận: E8 (IC cứng) có thể thay bằng hạng IC mềm, theo đúng 
 (i) Chẩn đoán: nhiệt cực đại, vũng tại T_sol trên mặt và độ sâu tại tâm laser (định nghĩa của ta), sai số năng lượng, nhiệt tại điểm xa laser. Không có ngưỡng đạt/không đạt (27.27(h)).
 (j) Giới hạn đã biết: không bay hơi, không phản lực, không dòng chảy. Nhiệt cực đại cao được báo cáo như giới hạn, không sửa.
 (k) Việc tiếp theo: chạy CPU ngắn để kiểm tra mã; GPU 3 seed, dx 10 µm; thử độ nhạy miền gấp đôi.
+
+**27.33 Cấu hình PINN theo bài 2019 (Sharma, Raissi, Guo, Procedia CIRP 138, 2026), ngày 2026-10-13, người nghiên cứu quyết định.** Chọn bằng `python -m lpbfpinn.bulk.train --case ts2019`. Mặc định `--case bulk` không đổi, vẫn là cấu hình 27.32.
+
+(a) Phương trình và vật liệu: như 27.32, Ti-6Al-4V: ρ = 4122, c = 831, k = 35, không nhiệt ẩn, không bay hơi (bài 2019 mục 2.1).
+(b) Nguồn: Gaussian bề mặt, 500 W, α = 0.4, r_b = 1.5 mm. Tâm laser x_c(t) = 20 − 5t (mm), y_c = 0, t ∈ [0, 3] s, đi từ x = 20 mm đến x = 5 mm. Đoạn khởi động 10 µm (lựa chọn của ta, bài 2019 không có): với v = 5 mm/s chỉ kéo dài khoảng 2 ms.
+(c) Biên, theo quyết định người dùng:
+  - Mặt trên, dạng cân bằng năng lượng của Faegh 2026 Fig. 2: −k∂T/∂z = q_c + q_r − q_l, với q_c = h(T − 298), q_r = εσ(T⁴ − 298⁴), q_l = (2αP/πr²)exp(−2d²/r²) ≥ 0. Không dùng Eq. 2 của Faegh 2026 vì dấu của nó không khớp với Fig. 2.
+  - h = 10 W/m²·K (người dùng; bài 2019 không cho h, Faegh 2026 dùng 20).
+  - ε = 0.4. Mặt bên x = 0, x = 25 mm, y = 6 mm: cách nhiệt ∂T/∂n = 0. Khác với Faegh 2026 Fig. 2 và Eq. 6, là có đối lưu và bức xạ trên mặt bên.
+  - y = 0 là mặt đối xứng, ∂T/∂y = 0, trùng với mặt bên cách nhiệt trong code.
+  - Đáy T = 298 K và ban đầu T = 298 K: hạng mất mềm (IC trọng số 10⁻⁴, đáy trọng số 1). Bài 2019 ghi đáy là Dirichlet, không nói dạng cứng hay mềm; giữ mặc định của code (mềm).
+(d) Mạng: 4 lớp ẩn × 32 nơron, swish (SiLU), khởi tạo mặc định của PyTorch (Faegh 2026 dùng Xavier; chưa khớp hoàn toàn). Dạng nghiệm trực tiếp (`plain`).
+(e) Chuẩn hóa: đầu vào (x, y, z, t) đưa về [−1, 1] theo min–max miền, theo yêu cầu người dùng và Faegh 2026 Eq. 19. Đầu ra θ = (T − 298)/1300 K (đề xuất đã duyệt). Residual không chia θ_ref (`--norm none`, như 27.32).
+(f) Lấy mẫu (Faegh 2026 mục 2.3): Sobol có xáo trộn; miền 8192 điểm, dồn lên phía trên bằng z = L_z(1 − (1 − s)²) (Eq. 10–11, `--z-bias`); 512 điểm quanh vết laser, lấy ngẫu nhiên đều trong cửa sổ ±4 r_b (khác bài 2026, là Sobol); 240 điểm mỗi mặt trên, đáy và mặt bên, tính từ mật độ 1.6×10⁶ điểm/m² nhân với diện tích mặt lớn nhất (bài 2026 không ghi số điểm cho biên theo cách này). Điểm lấy lại mỗi vòng.
+(g) Loss: L = L_PDE + L_BC + L_bot + 10⁻⁴·L_IC (trọng số 1, 1e-4, 1 của bài 2019 đặt vào PDE, IC, BC). Không có trọng số riêng cho từng mặt biên.
+(h) Tối ưu: Adam lr 2·10⁻⁴, 35 000 vòng (bài 2019), sau đó L-BFGS 100 bước (số bước là lựa chọn của ta, bài 2019 không ghi).
+(i) Miền: x ∈ [0, 25] mm, y ∈ [0, 6] mm, z ∈ [0, 4] mm, t ∈ [0, 3] s (bài 2019 Fig. 1–2, Table 1).
+(j) Kiểm tra đã làm (ngày 2026-10-13): 56 bài kiểm thử đạt; đường đi laser, dấu thông lượng khi v < 0, và z-bias có kiểm thử. Chạy thử 300 vòng CPU: không NaN; loss 0.125 ở vòng 0 và dao động 0.08–0.16 ở vòng 294–299, hạng biên trên chiếm phần lớn. 300 vòng quá ngắn để kết luận về hội tụ hay độ chính xác.
+(k) Giới hạn đã biết: không bay hơi, không dòng chảy, không đối chiếu với FEM hay thực nghiệm. Bài 2019 chỉ so với COMSOL nhưng không công bố số liệu, nên chưa có mốc so sánh định lượng.
+(l) Việc tiếp theo: chạy đủ 35 000 vòng trên CPU (ước tính 0.13 s/vòng, khoảng 80 phút, chưa chạy) hoặc GPU; so trường nhiệt tại t = 1, 2, 3 s với Fig. 4–5 của bài 2019 bằng định tính.
