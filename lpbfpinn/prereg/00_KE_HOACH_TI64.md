@@ -746,3 +746,21 @@ Tìm kiếm bài khác (chưa mở toàn văn, chỉ dựa trên tóm tắt tìm
 - **D8 Tiêu chí dừng giai đoạn 1:** không có mốc đạt/không đạt. Mọi lượt được báo cáo đầy đủ theo mục 27.27(đầu ra) mà không chọn lượt theo kích thước mục tiêu (27.4).
 
 Đầu ra mỗi lượt: cân bằng năng lượng (E_in, E_out theo biên, E_stored, rel_error), nhiệt cực đại trên lưới, nhiệt bề mặt, nhiệt tại 50 µm dưới tâm, profile trên mặt, vũng tại T_sol (rộng, sâu), và so sánh với Rosenthal ở vùng xa.
+
+**27.27 Đặc tả PINN thuần giai đoạn 1 (ngày 2026-10-13, quyết định của người nghiên cứu D1–D8).**
+
+(a) Miền: x ∈ [−750, 750] µm, y ∈ [0, 380] µm (như cấu hình cũ), z ∈ [0, 600] µm (D1). Không có bột (κ = 1, g = 1).
+
+(b) Vật liệu hằng số theo Sharma và cộng sự 2026 (D2): ρ = 4122 kg/m³, c_p = 831 J/kg·K, k = 35 W/m·K. Không nhiệt ẩn, không bay hơi (cùng Sharma 2026).
+
+(c) Biên: đáy T = 298 K, Dirichlet (D4); biên bên cách nhiệt (D5); ban đầu T = 298 K. Mặt trên: k∂T/∂z = Q − [h(T − T_amb) + εσ(T⁴ − T_amb⁴]). ε = 0.4 theo Sharma 2026 (D3, phần ε). Giá trị h: Sharma 2026 không nêu (chỉ có ε). Các bài khác: Han 2025 h = 40, Yuan 2025 và Faegh 2026 h = 20, FV h = 25. **Chưa chọn h. Đề xuất h = 25 (giữ từ FV), kiểm tra độ nhạy h ∈ {20, 40} sau.**
+
+(d) Nguồn: Gaussian bề mặt, αP = 0.4 × 300 W, r_b = 50 µm, v = 1.75 m/s, đoạn khởi động 10 µm.
+
+(e) Ràng buộc cứng: IC và đáy (θ = z·softplus(NN)·(1 − e^{−t})). Mặt trên và mặt bên là hạng mất mềm.
+
+(f) Hàm loss chuẩn hóa thống nhất theo θ_peak/t_c (D6): mọi residual đưa về cùng đơn vị θ/t_c trước khi bình phương. Trọng số w_PDE = w_top = w_side = 1 ban đầu.
+
+(g) Huấn luyện: Adam, lr = 10⁻³ (D7), giảm tuyến tính về 10⁻⁴ trong 25% vòng cuối, 20 000 vòng, seed 0 (GPU). Lấy mẫu như cấu hình cơ bản.
+
+(h) Tiêu chí dừng giai đoạn 1: không có mốc đạt/không đạt (D8). Báo cáo đầy đủ các chỉ số ở mục 27.26(7), không chọn lượt theo kích thước mục tiêu (27.4).
