@@ -632,3 +632,5 @@ Kết luận: hướng 2 riêng lẻ không đạt tiêu chí 27.24(e) trên GPU
 Kiểm tra mã: lượt 300 vòng CPU cho w_top ≈ 574 và w_face ≈ 1032, w_pde = 1; loss cuối 4.68 do hạng biên trên nhân trọng số lớn. Hệ số biên bên lớn vì hạng biên bên rất nhỏ (~10⁻⁷). Đây chưa phải kết quả.
 
 Tiêu chí và quy trình như 27.25(e)–(g): thử CPU ngắn 2000 vòng trước, chỉ chạy GPU nếu đạt tín hiệu sớm.
+
+**27.25 (h, kết quả CPU A4, ngày 2026-10-13).** Lượt 2000 vòng Adam với `--adaptive-weights` (seed 0, miền thu nhỏ). Trọng số cuối: w_pde = 1, w_top ≈ 153, w_face ≈ 526. Hạng PDE cuối 9.8·10⁻⁵, hạng biên trên cuối 0.0089. Diagnose: nhiệt cực đại trên lưới 449 K, bề mặt 326 K, không vũng, sai số năng lượng 0.853. Không đạt tiêu chí 27.25(e). Trọng số thích nghi làm nhiệt cực đại tăng từ ~330 K (đối chứng cùng cỡ) lên 449 K nhưng chưa đủ để vượt T_sol hay tạo vũng.
