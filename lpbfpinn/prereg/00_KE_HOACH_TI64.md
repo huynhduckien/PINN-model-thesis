@@ -821,3 +821,11 @@ Theo tiêu chí 27.28(g), chọn w_top = 1. Vấn đề nhiệt cực đại v�
 - Dạng Zhu: hạng biên trên cuối 7.23, không khớp được thông lượng laser (tỷ số biên trên/PDE 192). Nhiệt cực đại 994 K, không có vũng. Sai số năng lượng +2.19 (sai dấu). Nhiệt tại điểm xa laser (x = −750 µm, t* = 0.25) là 367 K, cao hơn 298 K.
 - Dạng raw² (đối chứng): nhiệt cực đại 12 623 K, vũng 100 µm × 20 µm, sai số năng lượng −2.7%. Nhiệt tại điểm xa laser 300 K.
 Kết luận: dạng Zhu không khắc phục được vấn đề, và làm xấu hơn (biên trên không học được, nhiệt xa cao hơn). Giữ dạng raw² làm cấu hình hiện tại. Lý do không dùng dạng Zhu có thể là δ_z, δ_t chọn chưa phù hợp, hoặc H_z, H_t làm mạng không có gradient tốt tại biên; chưa kiểm tra thêm.
+
+**27.28 (n) Dạng Faegh (IC bằng output transform, đáy là hạng mất mềm), CPU 2000 vòng, w_top = 1 (ngày 2026-10-13).** So với raw²:
+- Nhiệt cực đại 12 516 K (raw² 12 623 K), vũng 100 × 20 µm (giống raw²).
+- Sai số năng lượng +0.26 (raw² −0.027). Năng lượng tích lũy 0.059 J so với vào 0.082 J.
+- Nhiệt xa laser ở t* = 0.25: 326 K (raw² 300 K).
+- Hạng đáy cuối 4·10⁻⁴ (đáy không được thỏa tuyệt đối vì là hạng mềm).
+- Tỷ số biên trên/PDE 3.66.
+Kết luận: dạng Faegh không cải thiện so với raw²; năng lượng và nhiệt xa laser xấu hơn. Giữ raw² làm cấu hình hiện tại.
