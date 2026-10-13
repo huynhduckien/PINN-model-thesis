@@ -36,11 +36,14 @@ def main():
     parser.add_argument("--tag", required=True)
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--no-lbfgs", action="store_true", help="chỉ chạy Adam")
+    parser.add_argument("--adam", type=int, default=None, help="ghi đè số bước Adam của preset")
     parser.add_argument("--power", type=float, default=cfg.P, help="công suất laser (W)")
     parser.add_argument("--evap", type=int, choices=[0, 1], default=int(cfg.EVAPORATION),
                         help="1: bật bốc hơi trên mặt trên")
     args = parser.parse_args()
-    p = PRESETS[args.preset]
+    p = dict(PRESETS[args.preset])
+    if args.adam is not None:
+        p["adam"] = args.adam
     cfg.set_power(args.power)
     cfg.EVAPORATION = bool(args.evap)
     loss_w = md.loss_weights()
