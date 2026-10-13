@@ -35,6 +35,7 @@ def main():
     parser.add_argument("--preset", choices=list(PRESETS), default="smoke")
     parser.add_argument("--tag", required=True)
     parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("--no-lbfgs", action="store_true", help="chỉ chạy Adam")
     args = parser.parse_args()
     p = PRESETS[args.preset]
 
@@ -52,10 +53,16 @@ def main():
     t0 = time.time()
     model.compile("adam", lr=LR, loss_weights=md.LOSS_WEIGHTS, decay=LR_DECAY)
     model.train(iterations=p["adam"], display_every=p["display_every"])
+    # Lưu sau Adam để không mất kết quả nếu L-BFGS bị kẹt.
+    os.makedirs(out_dir, exist_ok=True)
+    torch.save(net.state_dict(), os.path.join(out_dir, "model_adam.pt"))
 
-    dde.optimizers.set_LBFGS_options(maxiter=p["lbfgs"])
-    model.compile("L-BFGS", loss_weights=md.LOSS_WEIGHTS)
-    losshistory, _ = model.train()
+    if args.no_lbfgs:
+        losshistory = model.losshistory
+    else:
+        dde.optimizers.set_LBFGS_options(maxiter=p["lbfgs"])
+        model.compile("L-BFGS", loss_weights=md.LOSS_WEIGHTS)
+        losshistory, _ = model.train()
     elapsed = time.time() - t0
 
     torch.save(net.state_dict(), os.path.join(out_dir, "model.pt"))
