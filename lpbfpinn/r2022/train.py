@@ -23,10 +23,17 @@ from .operator import HardPinned, face_residual, heat_capacity, pde_residual, pi
 class PINN(torch.nn.Module):
     """FNN 4 → 64×4 → 1, tanh. Ràng buộc cứng: θ = z*·softplus(·)·(1 − e^{−t*}) (IC và đáy)."""
 
-    def __init__(self, case: R2022Case, width: int = 64, depth: int = 4):
+    def __init__(self, case: R2022Case, width: int = 64, depth: int = 4, fourier: int = 0, sigma: float = 10.0):
         super().__init__()
         Lx, Ly, Lz, Tmax = case.domain_star
-        layers = [torch.nn.Linear(4, width), torch.nn.Tanh()]
+        self.fourier = fourier
+        in_dim = 4
+        if fourier > 0:
+            # nhúng Fourier (prereg 27.25 A5): tần số ngẫu nhiên cố định, không phụ thuộc seed huấn luyện
+            g = torch.Generator().manual_seed(12345)
+            self.register_buffer("B", torch.randn(4, fourier, generator=g) * sigma)
+            in_dim = 4 + 2 * fourier
+        layers = [torch.nn.Linear(in_dim, width), torch.nn.Tanh()]
         for _ in range(depth - 1):
             layers += [torch.nn.Linear(width, width), torch.nn.Tanh()]
         layers += [torch.nn.Linear(width, 1)]
@@ -40,7 +47,11 @@ class PINN(torch.nn.Module):
         z = xs[:, 2:3]
         t = xs[:, 3:4]
         scaled = 2.0 * (xs - self.lo) / (self.hi - self.lo) - 1.0
-        raw = self.net(scaled)
+        feat = scaled
+        if self.fourier > 0:
+            proj = 2.0 * math.pi * scaled @ self.B
+            feat = torch.cat([scaled, torch.sin(proj), torch.cos(proj)], dim=1)
+        raw = self.net(feat)
         return z * torch.nn.functional.softplus(raw) * (1.0 - torch.exp(-t))
 
 
@@ -174,6 +185,8 @@ def main() -> None:
                     help="tiếp tục hóa: số vòng đầu tắt đối lưu và bức xạ (h = ε = 0)")
     ap.add_argument("--ramp-iters", type=int, default=0,
                     help="tiếp tục hóa: số vòng tăng tuyến tính h và ε lên giá trị vật lý")
+    ap.add_argument("--fourier", type=int, default=0, help="số tần số nhúng Fourier cho đầu vào; 0 = tắt (prereg 27.25, A5)")
+    ap.add_argument("--fourier-sigma", type=float, default=10.0, help="độ lệch chuẩn của tần số Fourier (đơn vị đầu vào đã chuẩn hóa [-1, 1])")
     ap.add_argument("--width", type=int, default=64, help="số nơron mỗi lớp ẩn (prereg 27.25, A3)")
     ap.add_argument("--depth", type=int, default=4, help="số lớp ẩn (prereg 27.25, A3)")
     ap.add_argument("--adaptive-weights", action="store_true",
@@ -189,7 +202,7 @@ def main() -> None:
     dev = torch.device(args.device)
     case = R2022Case(surface=args.surface, hard_delta=args.hard_delta, L_v0=args.lv0,
                      side_bc=args.side_bc)
-    model = PINN(case, width=args.width, depth=args.depth).to(dev).double()
+    model = PINN(case, width=args.width, depth=args.depth, fourier=args.fourier, sigma=args.fourier_sigma).to(dev).double()
     opt = torch.optim.Adam(model.parameters(), lr=args.lr)
     gen = torch.Generator().manual_seed(args.seed)
     out = Path(args.out)

@@ -57,7 +57,8 @@ def main() -> None:
     args = ap.parse_args()
     case = R2022Case(surface=args.surface, side_bc=args.side_bc, L_v0=args.lv0)
     ck = torch.load(args.ckpt, map_location=args.device, weights_only=False)
-    model = PINN(case, width=ck["args"].get("width", 64), depth=ck["args"].get("depth", 4)).double().to(args.device)
+    model = PINN(case, width=ck["args"].get("width", 64), depth=ck["args"].get("depth", 4),
+                 fourier=ck["args"].get("fourier", 0), sigma=ck["args"].get("fourier_sigma", 10.0)).double().to(args.device)
     model.load_state_dict(ck["model_state_dict"])
     model.eval()
     if case.surface == "hard":

@@ -642,3 +642,9 @@ Lệnh GPU (seed 0, cấu hình chính, 20 000 vòng, lr 10⁻³ → 10⁻⁴ tr
 python -m lpbfpinn.r2022.train --device cuda --surface flux --side-bc adiabatic --seed 0 --iters 20000 --lr 1e-3 --lr-final 1e-4 --decay-iters 5000 --depth 5 --width 64 --out results/pinn_r2022_flux_A3
 ```
 Sau khi chạy, diagnose và profile trên `results/pinn_r2022_flux_A3/model.pt` như 27.22. Tiêu chí như 27.25(e), không đổi (27.4).
+
+**27.25 (j) Hướng A5: nhúng Fourier cho đầu vào không gian-thời gian (ngày 2026-10-13, quyết định của người nghiên cứu; theo Farrag và cộng sự 2025, mục 4.4 về độ lệch phổ).** Cờ `--fourier N` (mặc định 0 = tắt), `--fourier-sigma σ` (mặc định 10). Đầu vào đã chuẩn hóa [−1, 1] được chiếu lên N tần số ngẫu nhiên cố định B ~ N(0, σ²) (4 × N, seed 12345, không phụ thuộc seed huấn luyện), rồi nối [x, sin(2πxB), cos(2πxB)] trước mạng tanh. Không đổi vật lý, không kẹp T, không bay hơi, không dữ liệu mục tiêu (27.4). Ràng buộc cứng IC và đáy giữ nguyên vì chỉ thay đầu vào.
+
+Mã đã kiểm tra: test 9/9 pass; huấn luyện 30 vòng với N = 32 và diagnose đều chạy được. Diagnose và profile đọc N và σ từ checkpoint.
+
+Thử CPU so với đối chứng cùng cấu hình (2000 vòng Adam, seed 0, miền thu nhỏ, cùng lệnh như lượt cơ bản 27.24(d)): N = 32, σ = 10. Tiêu chí sớm để chạy GPU: nhiệt cực đại vượt 1000 K và hạng PDE không tăng quá 10 lần so với đối chứng. Tiêu chí đạt như 27.25(e). Nếu không đạt tín hiệu sớm, không chạy GPU và báo cáo là không đạt ở giai đoạn CPU.
