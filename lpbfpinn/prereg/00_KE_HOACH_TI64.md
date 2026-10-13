@@ -764,3 +764,7 @@ Tìm kiếm bài khác (chưa mở toàn văn, chỉ dựa trên tóm tắt tìm
 (g) Huấn luyện: Adam, lr = 10⁻³ (D7), giảm tuyến tính về 10⁻⁴ trong 25% vòng cuối, 20 000 vòng, seed 0 (GPU). Lấy mẫu như cấu hình cơ bản.
 
 (h) Tiêu chí dừng giai đoạn 1: không có mốc đạt/không đạt (D8). Báo cáo đầy đủ các chỉ số ở mục 27.26(7), không chọn lượt theo kích thước mục tiêu (27.4).
+
+(i) Xác nhận h = 25 W/m²·K (ngày 2026-10-13, quyết định của người nghiên cứu). Sharma 2026 không nêu h; giá trị giữ từ FV.
+
+(j) Mã cho PINN giai đoạn 1 được thiết kế riêng, không dùng chung với code r2022 (quyết định của người nghiên cứu). Không thay đổi r2022. Các công thức và điều kiện biên phải được người nghiên cứu xác nhận trước khi viết mã.
