@@ -19,7 +19,7 @@ import sampling as sp
 R_NEAR = 1.5   # bán kính đo, đơn vị L_C (= 75 µm)
 
 
-def near_laser_top_error(net, n=2000, seed=7):
+def near_laser_top_error(net, n=2048, seed=7):
     """Trả về các chỉ số biên mặt trên trong bán kính R_NEAR quanh laser (tọa độ không thứ nguyên)."""
     P = sp.laser_top_points(n, seed=seed, r_max=R_NEAR).astype(np.float32)
     xt = torch.tensor(P, requires_grad=True)
@@ -57,6 +57,6 @@ class NearLaserMonitor(dde.callbacks.Callback):
         m = near_laser_top_error(self.model.net)
         m["step"] = int(ep)
         self.history.append(m)
-        print(f"[near-laser] step {ep:6d}  rms dθ/dz={m['rms_dtheta_dz']:.3f}  "
+        print(f"[near-laser] step {ep:6d}  rms dtheta/dz={m['rms_dtheta_dz']:.3f}  "
               f"rms target={m['rms_target']:.3f}  ratio={m['ratio_dtheta_over_target']:.3f}  "
-              f"θmax={m['theta_max_near']:.4f}", flush=True)
+              f"theta_max={m['theta_max_near']:.4f}", flush=True)

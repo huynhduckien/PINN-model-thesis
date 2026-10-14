@@ -30,7 +30,22 @@ REF_EXP_W_UM = 123.21   # bảng 3, thí nghiệm
 REF_EXP_D_UM = 74.72    # bảng 3, thí nghiệm
 
 
+def apply_run_config(tag):
+    """Đặt công suất và cờ bốc hơi theo meta.json của run, để mục tiêu biên khớp với lúc huấn luyện."""
+    here = os.path.dirname(os.path.abspath(__file__))
+    path = os.path.join(here, "outputs", tag, "meta.json")
+    if not os.path.exists(path):
+        print(f"warning: {path} not found, using default config (P={cfg.P} W)")
+        return
+    with open(path) as f:
+        meta = json.load(f)
+    cfg.set_power(meta["P"])
+    cfg.EVAPORATION = bool(meta["EVAPORATION"])
+    print(f"run config: P={cfg.P} W, evaporation={cfg.EVAPORATION}")
+
+
 def load_net(tag):
+    apply_run_config(tag)
     net = md.build_net()
     here = os.path.dirname(os.path.abspath(__file__))
     net.load_state_dict(torch.load(os.path.join(here, "outputs", tag, "model.pt"),
@@ -119,8 +134,8 @@ def main():
 
     report["near_laser_top"] = near_laser_top_error(net)
     nl = report["near_laser_top"]
-    print(f"near-laser top BC: rms dθ/dz={nl['rms_dtheta_dz']:.3f}  rms target={nl['rms_target']:.3f}  "
-          f"ratio={nl['ratio_dtheta_over_target']:.3f}  θmax={nl['theta_max_near']:.4f}")
+    print(f"near-laser top BC: rms dtheta/dz={nl['rms_dtheta_dz']:.3f}  rms target={nl['rms_target']:.3f}  "
+          f"ratio={nl['ratio_dtheta_over_target']:.3f}  theta_max={nl['theta_max_near']:.4f}")
 
     report["reference"] = dict(sim_W_um=REF_SIM_W_UM, sim_D_um=REF_SIM_D_UM,
                                exp_W_um=REF_EXP_W_UM, exp_D_um=REF_EXP_D_UM)
