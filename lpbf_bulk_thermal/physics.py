@@ -52,19 +52,20 @@ def gauss_flux_nondim(x, like):
 
 
 def pde(x, theta):
-    """θ_t* - (θ_x*x* + θ_y*y* + θ_z*z*) + λ·max(-θ, 0) = 0 trong miền.
+    """Trả về hai số hạng, mỗi số hạng có trọng số loss riêng (xem model.loss_weights):
 
-    Số hạng λ·max(-θ, 0) phạt nhiệt độ dưới T0 (θ < 0). Nó bằng 0 tại nghiệm đúng
-    (θ ≥ 0), nên không đổi nghiệm, chỉ loại các nghiệm vi phạm dấu. λ = cfg.NEG_PENALTY.
+      [0] θ_t* - (θ_x*x* + θ_y*y* + θ_z*z*)   phương trình nhiệt trong miền
+      [1] max(-θ, 0)                          phạt θ < 0 (nhiệt độ dưới T0)
+
+    Số hạng [1] bằng 0 tại mọi nghiệm không âm, nên không đổi nghiệm đúng; trọng số của nó là λ².
+    Tách riêng để trọng số PDE không làm yếu phạt.
     """
     theta_t = dde.grad.jacobian(theta, x, i=0, j=3)
     theta_xx = dde.grad.hessian(theta, x, i=0, j=0)
     theta_yy = dde.grad.hessian(theta, x, i=0, j=1)
     theta_zz = dde.grad.hessian(theta, x, i=0, j=2)
     res = theta_t - (theta_xx + theta_yy + theta_zz)
-    if cfg.NEG_PENALTY > 0:
-        res = res + cfg.NEG_PENALTY * torch.relu(-theta)
-    return res
+    return [res, torch.relu(-theta)]
 
 
 def top_flux(x, theta):

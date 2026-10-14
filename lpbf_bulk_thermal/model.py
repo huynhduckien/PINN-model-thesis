@@ -22,8 +22,9 @@ N_TOP_LASER = 4096     # điểm bổ sung trên mặt trên quanh laser
 
 # Trọng số loss theo thứ tự [PDE, mặt trên, mặt bên, đáy].
 # Mặt trên có flux đỉnh Q*, nên chia trọng số bình phương để các số hạng có độ lớn tương đương.
-def loss_weights(top_mode="scaled", pde_weight=1.0):
-    """Trọng số [PDE, mặt trên, mặt bên, đáy]. Gọi sau khi đặt công suất (cfg.set_power).
+def loss_weights(top_mode="scaled", pde_weight=1.0, neg_penalty=0.0):
+    """Trọng số [PDE, phạt θ<0, mặt trên, mặt bên, đáy]. Gọi sau khi đặt công suất (cfg.set_power).
+    Phạt θ<0 có trọng số neg_penalty² và không phụ thuộc pde_weight.
 
     top_mode = "scaled": mặt trên chia 1/Q*² (cân bằng độ lớn flux).
     top_mode = "unit":   mặt trên trọng số 1.
@@ -34,7 +35,7 @@ def loss_weights(top_mode="scaled", pde_weight=1.0):
         w_top = 1.0
     else:
         w_top = float(top_mode)   # trọng số số cụ thể, ví dụ "100"
-    return [pde_weight, w_top, 1.0, 1.0]
+    return [pde_weight, neg_penalty**2, w_top, 1.0, 1.0]
 
 
 class TopRobinBCWithLaserPoints(dde.icbc.RobinBC):

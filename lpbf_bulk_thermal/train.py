@@ -54,7 +54,7 @@ def main():
     cfg.set_power(args.power)
     cfg.EVAPORATION = bool(args.evap)
     cfg.NEG_PENALTY = args.neg_penalty
-    loss_w = md.loss_weights(args.top_weight, args.pde_weight)
+    loss_w = md.loss_weights(args.top_weight, args.pde_weight, args.neg_penalty)
 
     dde.config.set_random_seed(args.seed)
     out_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "outputs", args.tag)
