@@ -65,6 +65,8 @@ def pde(x, theta):
     theta_yy = dde.grad.hessian(theta, x, i=0, j=1)
     theta_zz = dde.grad.hessian(theta, x, i=0, j=2)
     res = theta_t - (theta_xx + theta_yy + theta_zz)
+    if cfg.NORMALIZE:
+        res = res / cfg.V_S
     return [res, torch.relu(-theta)]
 
 

@@ -42,6 +42,21 @@ def near_laser_top_error(net, n=2048, seed=7):
     )
 
 
+def pde_residual_on(net, P):
+    """Residual PDE thô (θ_t* - Δ*θ) và rms của θ_t, Δθ trên tập điểm P (N×4, float32)."""
+    x = torch.tensor(np.asarray(P, dtype=np.float32), requires_grad=True)
+    th = net(x)
+    g = torch.autograd.grad(th.sum(), x, create_graph=True)[0]
+    th_t = g[:, 3:4]
+    lap = torch.zeros_like(th_t)
+    for j in range(3):
+        gj = torch.autograd.grad(g[:, j:j + 1].sum(), x, create_graph=True)[0][:, j:j + 1]
+        lap = lap + gj
+    res = (th_t - lap).detach()
+    rms = lambda a: float(torch.sqrt((a**2).mean()))
+    return dict(n=int(len(P)), rms_residual=rms(res), rms_theta_t=rms(th_t.detach()), rms_laplacian=rms(lap.detach()))
+
+
 def pde_residual_error(net, n=4096, seed=11):
     """Residual của phương trình nhiệt θ_t* - Δ*θ tại điểm trong miền.
 
