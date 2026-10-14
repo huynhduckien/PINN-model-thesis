@@ -19,6 +19,7 @@ import torch  # noqa: E402
 
 import config as cfg  # noqa: E402
 import model as md  # noqa: E402
+from diagnostics import NearLaserMonitor, near_laser_top_error  # noqa: E402
 
 PRESETS = {
     "smoke": dict(adam=2000, lbfgs=300, n_interior=2**13, n_laser=2**13,
@@ -38,6 +39,8 @@ def main():
     parser.add_argument("--no-lbfgs", action="store_true", help="chỉ chạy Adam")
     parser.add_argument("--adam", type=int, default=None, help="ghi đè số bước Adam của preset")
     parser.add_argument("--neg-penalty", type=float, default=0.0, help="λ phạt θ<0 trong PDE")
+    parser.add_argument("--monitor-every", type=int, default=1000,
+                        help="in chỉ số biên gần laser mỗi N bước Adam (0 = tắt)")
     parser.add_argument("--top-weight", default="scaled",
                         help="scaled | unit | số cụ thể (ví dụ 100)")
     parser.add_argument("--power", type=float, default=cfg.P, help="công suất laser (W)")
@@ -65,7 +68,8 @@ def main():
 
     t0 = time.time()
     model.compile("adam", lr=LR, loss_weights=loss_w, decay=LR_DECAY)
-    model.train(iterations=p["adam"], display_every=p["display_every"])
+    monitor = NearLaserMonitor(args.monitor_every)
+    model.train(iterations=p["adam"], display_every=p["display_every"], callbacks=[monitor])
     # Lưu sau Adam để không mất kết quả nếu L-BFGS bị kẹt.
     os.makedirs(out_dir, exist_ok=True)
     torch.save(net.state_dict(), os.path.join(out_dir, "model_adam.pt"))
@@ -79,6 +83,10 @@ def main():
     elapsed = time.time() - t0
 
     torch.save(net.state_dict(), os.path.join(out_dir, "model.pt"))
+    near_end = near_laser_top_error(net)
+    with open(os.path.join(out_dir, "near_laser.json"), "w") as f:
+        json.dump(dict(final=near_end, history=monitor.history), f, indent=1)
+    print("[near-laser] final", {k: round(v, 4) if isinstance(v, float) else v for k, v in near_end.items()})
     steps = np.array(losshistory.steps)
     loss = np.array(losshistory.loss_train)
     np.savez(os.path.join(out_dir, "loss.npz"), steps=steps, loss=loss)

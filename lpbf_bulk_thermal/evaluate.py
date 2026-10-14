@@ -22,6 +22,7 @@ import torch  # noqa: E402
 
 import config as cfg  # noqa: E402
 import model as md  # noqa: E402
+from diagnostics import near_laser_top_error  # noqa: E402
 
 REF_SIM_W_UM = 114.8    # bảng 4, mô phỏng
 REF_SIM_D_UM = 68.7     # bảng 4, mô phỏng
@@ -115,6 +116,11 @@ def main():
               f"T_max<=T_V: {row['T_max_below_T_V']}")
         print(f"   melt pool: W={mp['W_um']:.1f} um  D_sub={mp['D_sub_um']:.1f} um  "
               f"D_top={mp['D_top_um']:.1f} um")
+
+    report["near_laser_top"] = near_laser_top_error(net)
+    nl = report["near_laser_top"]
+    print(f"near-laser top BC: rms dθ/dz={nl['rms_dtheta_dz']:.3f}  rms target={nl['rms_target']:.3f}  "
+          f"ratio={nl['ratio_dtheta_over_target']:.3f}  θmax={nl['theta_max_near']:.4f}")
 
     report["reference"] = dict(sim_W_um=REF_SIM_W_UM, sim_D_um=REF_SIM_D_UM,
                                exp_W_um=REF_EXP_W_UM, exp_D_um=REF_EXP_D_UM)
