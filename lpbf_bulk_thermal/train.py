@@ -91,6 +91,10 @@ def main():
     with open(os.path.join(out_dir, "near_laser.json"), "w") as f:
         json.dump(dict(final=near_end, history=monitor.history), f, indent=1)
     print("[near-laser] final", {k: round(v, 4) if isinstance(v, float) else v for k, v in near_end.items()})
+    steps = np.array(losshistory.steps)
+    loss = np.array(losshistory.loss_train)
+    np.savez(os.path.join(out_dir, "loss.npz"), steps=steps, loss=loss)
+
     # Độ lớn từng số hạng loss (thô) và residual PDE trên điểm huấn luyện so với điểm mới
     names = ["pde", "penalty", "top", "side", "bottom"]
     raw_rms = {}
@@ -104,9 +108,6 @@ def main():
     report = dict(raw_term_rms=raw_rms, pde_on_train_points=pde_train, pde_on_fresh_points={k: v for k, v in pde_fresh.items() if isinstance(v, (int, float))})
     print("[magnitude] raw rms per term:", {k: (round(v, 4) if v is not None else None) for k, v in raw_rms.items()})
     print("[magnitude] PDE rms on training points %.4f vs fresh points %.4f" % (pde_train["rms_residual"], pde_fresh["rms_residual"]))
-    steps = np.array(losshistory.steps)
-    loss = np.array(losshistory.loss_train)
-    np.savez(os.path.join(out_dir, "loss.npz"), steps=steps, loss=loss)
 
     meta = dict(
         tag=args.tag, preset=args.preset, seed=args.seed, preset_params=p,
