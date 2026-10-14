@@ -31,6 +31,16 @@
   "residual_over_target": 0.08707743460837553,
   "theta_max_near": 0.5447809100151062
  },
+ "pde_residual": {
+  "n_points": 4096,
+  "rms_residual": 1.9869807958602905,
+  "rms_theta_t": 0.2688119113445282,
+  "rms_laplacian": 2.0530471801757812,
+  "residual_over_laplacian": 0.9678203282645291,
+  "n_near_laser": 627,
+  "rms_residual_near_laser": 3.5639700889587402,
+  "rms_laplacian_near_laser": 3.6991019248962402
+ },
  "reference": {
   "sim_W_um": 114.8,
   "sim_D_um": 68.7,
