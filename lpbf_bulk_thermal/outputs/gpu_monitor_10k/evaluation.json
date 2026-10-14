@@ -1,0 +1,40 @@
+{
+ "tag": "gpu_monitor_10k",
+ "times": [
+  {
+   "t_s": 0.0004,
+   "laser_x_um": 400.0,
+   "T_max_K": 685.8602905273438,
+   "T_min_K": 308.5921630859375,
+   "T_max_below_T_V": true,
+   "W_um": 0.0,
+   "D_sub_um": 0.0,
+   "D_top_um": 0.0
+  },
+  {
+   "t_s": 0.0008,
+   "laser_x_um": 700.0,
+   "T_max_K": 759.4454345703125,
+   "T_min_K": 299.82342529296875,
+   "T_max_below_T_V": true,
+   "W_um": 0.0,
+   "D_sub_um": 0.0,
+   "D_top_um": 0.0
+  }
+ ],
+ "near_laser_top": {
+  "n_points": 2048,
+  "rms_dtheta_dz": 0.8771408796310425,
+  "rms_target": 0.8843106031417847,
+  "rms_residual": 0.09816069900989532,
+  "ratio_dtheta_over_target": 0.9918923017712673,
+  "residual_over_target": 0.11100251276095677,
+  "theta_max_near": 0.22235597670078278
+ },
+ "reference": {
+  "sim_W_um": 114.8,
+  "sim_D_um": 68.7,
+  "exp_W_um": 123.21,
+  "exp_D_um": 74.72
+ }
+}
