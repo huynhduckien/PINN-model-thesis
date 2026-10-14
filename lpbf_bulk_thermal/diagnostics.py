@@ -42,8 +42,13 @@ def near_laser_top_error(net, n=2048, seed=7):
     )
 
 
+def _loss_units(res):
+    """Residual theo đơn vị của loss: chia V* khi chuẩn hóa (khớp physics.pde)."""
+    return res / cfg.V_S if cfg.NORMALIZE else res
+
+
 def pde_residual_on(net, P):
-    """Residual PDE thô (θ_t* - Δ*θ) và rms của θ_t, Δθ trên tập điểm P (N×4, float32)."""
+    """Residual PDE (θ_t* - Δ*θ, theo đơn vị loss) và rms của θ_t, Δθ thô trên tập điểm P (N×4, float32)."""
     x = torch.tensor(np.asarray(P, dtype=np.float32), requires_grad=True)
     th = net(x)
     g = torch.autograd.grad(th.sum(), x, create_graph=True)[0]
@@ -52,7 +57,7 @@ def pde_residual_on(net, P):
     for j in range(3):
         gj = torch.autograd.grad(g[:, j:j + 1].sum(), x, create_graph=True)[0][:, j:j + 1]
         lap = lap + gj
-    res = (th_t - lap).detach()
+    res = _loss_units((th_t - lap).detach())
     rms = lambda a: float(torch.sqrt((a**2).mean()))
     return dict(n=int(len(P)), rms_residual=rms(res), rms_theta_t=rms(th_t.detach()), rms_laplacian=rms(lap.detach()))
 
@@ -84,14 +89,14 @@ def pde_residual_error(net, n=4096, seed=11):
     near_t = torch.tensor(near)
     out = dict(
         n_points=int(len(P)),
-        rms_residual=rms(res),
+        rms_residual=rms(_loss_units(res)),
         rms_theta_t=rms(th_t),
         rms_laplacian=rms(lap),
         residual_over_laplacian=rms(res) / max(rms(lap), 1e-12),
         n_near_laser=int(near.sum()),
     )
     if near.any():
-        out["rms_residual_near_laser"] = float(torch.sqrt((res[near_t]**2).mean()))
+        out["rms_residual_near_laser"] = float(torch.sqrt((_loss_units(res)[near_t]**2).mean()))
         out["rms_laplacian_near_laser"] = float(torch.sqrt((lap[near_t]**2).mean()))
     return out
 
