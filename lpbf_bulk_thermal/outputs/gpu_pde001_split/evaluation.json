@@ -1,0 +1,40 @@
+{
+ "tag": "gpu_pde001_split",
+ "times": [
+  {
+   "t_s": 0.0004,
+   "laser_x_um": 400.0,
+   "T_max_K": 2364.91455078125,
+   "T_min_K": 321.5517272949219,
+   "T_max_below_T_V": true,
+   "W_um": 54.0,
+   "D_sub_um": -14.050000000000043,
+   "D_top_um": 15.949999999999982
+  },
+  {
+   "t_s": 0.0008,
+   "laser_x_um": 700.0,
+   "T_max_K": 2309.17041015625,
+   "T_min_K": 315.56396484375,
+   "T_max_below_T_V": true,
+   "W_um": 37.99999999999999,
+   "D_sub_um": -19.850000000000023,
+   "D_top_um": 10.150000000000002
+  }
+ ],
+ "near_laser_top": {
+  "n_points": 2048,
+  "rms_dtheta_dz": 0.8793526887893677,
+  "rms_target": 0.8840466737747192,
+  "rms_residual": 0.07395941019058228,
+  "ratio_dtheta_over_target": 0.9946903425751165,
+  "residual_over_target": 0.08366007404879314,
+  "theta_max_near": 1.0282208919525146
+ },
+ "reference": {
+  "sim_W_um": 114.8,
+  "sim_D_um": 68.7,
+  "exp_W_um": 123.21,
+  "exp_D_um": 74.72
+ }
+}
