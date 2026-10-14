@@ -42,6 +42,45 @@ def near_laser_top_error(net, n=2048, seed=7):
     )
 
 
+def pde_residual_error(net, n=4096, seed=11):
+    """Residual của phương trình nhiệt θ_t* - Δ*θ tại điểm trong miền.
+
+    Lấy n/2 điểm đều trong miền (Sobol, z dày gần mặt trên) và n/2 điểm quanh laser.
+    Trả về rms residual, rms θ_t, rms Δθ, và tỷ lệ residual / rms(Δθ). Tỷ lệ gần 0 nghĩa là PDE được thỏa.
+    """
+    P_int = sp.interior_points(n // 2, seed=seed).astype(np.float32)
+    P_las = sp.laser_anchor_points(n // 2, seed=seed + 1).astype(np.float32)
+    P = np.vstack([P_int, P_las])
+    x = torch.tensor(P, requires_grad=True)
+    th = net(x)
+    g = torch.autograd.grad(th.sum(), x, create_graph=True)[0]
+    th_t = g[:, 3:4]
+    lap = torch.zeros_like(th_t)
+    for j in range(3):
+        gj = torch.autograd.grad(g[:, j:j + 1].sum(), x, create_graph=True)[0][:, j:j + 1]
+        lap = lap + gj
+    res = (th_t - lap).detach()
+    lap = lap.detach()
+    th_t = th_t.detach()
+    rms = lambda a: float(torch.sqrt((a**2).mean()))
+    # điểm gần laser: trong bán kính R_NEAR quanh tâm laser tại thời điểm của điểm
+    xc, yc = cfg.laser_center(P[:, 3])
+    near = np.hypot(P[:, 0] - xc, P[:, 1] - yc) < R_NEAR
+    near_t = torch.tensor(near)
+    out = dict(
+        n_points=int(len(P)),
+        rms_residual=rms(res),
+        rms_theta_t=rms(th_t),
+        rms_laplacian=rms(lap),
+        residual_over_laplacian=rms(res) / max(rms(lap), 1e-12),
+        n_near_laser=int(near.sum()),
+    )
+    if near.any():
+        out["rms_residual_near_laser"] = float(torch.sqrt((res[near_t]**2).mean()))
+        out["rms_laplacian_near_laser"] = float(torch.sqrt((lap[near_t]**2).mean()))
+    return out
+
+
 class NearLaserMonitor(dde.callbacks.Callback):
     """In chỉ số biên gần laser mỗi `every` bước huấn luyện Adam."""
 
