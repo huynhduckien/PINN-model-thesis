@@ -39,6 +39,7 @@ def main():
     parser.add_argument("--no-lbfgs", action="store_true", help="chỉ chạy Adam")
     parser.add_argument("--adam", type=int, default=None, help="ghi đè số bước Adam của preset")
     parser.add_argument("--neg-penalty", type=float, default=0.0, help="λ phạt θ<0 trong PDE")
+    parser.add_argument("--pde-weight", type=float, default=1.0, help="trọng số số hạng PDE")
     parser.add_argument("--monitor-every", type=int, default=1000,
                         help="in chỉ số biên gần laser mỗi N bước Adam (0 = tắt)")
     parser.add_argument("--top-weight", default="scaled",
@@ -53,7 +54,7 @@ def main():
     cfg.set_power(args.power)
     cfg.EVAPORATION = bool(args.evap)
     cfg.NEG_PENALTY = args.neg_penalty
-    loss_w = md.loss_weights(args.top_weight)
+    loss_w = md.loss_weights(args.top_weight, args.pde_weight)
 
     dde.config.set_random_seed(args.seed)
     out_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "outputs", args.tag)
@@ -93,7 +94,7 @@ def main():
 
     meta = dict(
         tag=args.tag, preset=args.preset, seed=args.seed, preset_params=p,
-        neg_penalty=cfg.NEG_PENALTY, top_weight=args.top_weight,
+        neg_penalty=cfg.NEG_PENALTY, top_weight=args.top_weight, pde_weight=args.pde_weight,
         arch=md.ARCH, lr=LR, lr_decay=LR_DECAY, loss_weights=loss_w,
         T0=cfg.T0, T_C=cfg.T_C, P=cfg.P, EVAPORATION=cfg.EVAPORATION, V=cfg.V, R_BEAM=cfg.R_BEAM, ALPHA=cfg.ALPHA,
         EMISS=cfg.EMISS, H_CONV=cfg.H_CONV, RHO=cfg.RHO, CP=cfg.CP, K=cfg.K,
