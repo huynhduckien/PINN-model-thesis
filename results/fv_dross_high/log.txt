@@ -1,0 +1,23 @@
+PROC Process(power=175.0, speed=0.39, r_b=4e-05, ramp_length=1e-05)
+{
+ "A_y150_z5": {
+  "T_max_K": 300.82904923857535,
+  "t_at_max_s": 0.003076923076923077,
+  "t_first_above_Tsol_s": null,
+  "t_above_Tsol_s": 0.0
+ },
+ "B_y30_z125": {
+  "T_max_K": 337.12092728715913,
+  "t_at_max_s": 0.003076923076923077,
+  "t_first_above_Tsol_s": null,
+  "t_above_Tsol_s": 0.0
+ },
+ "top_y110_z230": {
+  "T_max_K": 23614.75537260522,
+  "t_at_max_s": 0.0014802494802494803,
+  "t_first_above_Tsol_s": 0.0013132363132363134,
+  "t_above_Tsol_s": 0.0017643797643798458
+ }
+}
+energy rel -2.448722795116883e-14 T_min 298.0
+EXIT 0

@@ -1,0 +1,34 @@
+{
+  "B": {
+    "t_above_Tsol_s": 0.0,
+    "T_peak_K": 1283.824951171875
+  },
+  "A": {
+    "t_above_Tsol_s": 0.0,
+    "T_peak_K": 325.16522216796875
+  },
+  "delta_t_B_minus_A_s": 0.0,
+  "outer_history": [
+    {
+      "outer": 1,
+      "mean_abs_dM": 0.0,
+      "max_M": 0.0
+    },
+    {
+      "outer": 2,
+      "mean_abs_dM": 0.015882211884080316,
+      "max_M": 1.0
+    },
+    {
+      "outer": 3,
+      "mean_abs_dM": 0.0156488883479503,
+      "max_M": 1.0
+    },
+    {
+      "outer": 4,
+      "mean_abs_dM": 0.0035601823091029865,
+      "max_M": 1.0
+    }
+  ],
+  "device": "cuda:0"
+}

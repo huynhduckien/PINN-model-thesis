@@ -1,0 +1,60 @@
+{
+  "model": "charles",
+  "power_W": 175.0,
+  "bottom": "dirichlet",
+  "evap_model": "cook",
+  "accom": null,
+  "device": "cuda",
+  "tcap": 7845.0,
+  "dx_um": 10.0,
+  "powder": true,
+  "evap": true,
+  "kratio": 0.012,
+  "absorptivity": 0.5,
+  "r_b_um": 40.0,
+  "phi": 0.82,
+  "kratio_used": 0.012,
+  "grid": [
+    150,
+    38,
+    24
+  ],
+  "dt_s": 3.030257117316404e-07,
+  "nsteps": 10154,
+  "t_end_s": 0.003076923076923077,
+  "energy": {
+    "E_in_J": 0.2680956760484939,
+    "E_out_top_J": 0.25631673317090875,
+    "E_out_bottom_J": 1.7535194856206427e-05,
+    "E_stored_J": 0.01176140768269203,
+    "rel_error": 1.3761541935648833e-13
+  },
+  "probes": {
+    "A_y150_depth235": {
+      "T_max_K": 300.00000729570684,
+      "t_at_max_s": 0.003076923076923077,
+      "t_first_above_Tsol_s": null,
+      "t_above_Tsol_s": 0.0
+    },
+    "B_y30_depth115": {
+      "T_max_K": 300.00427416947315,
+      "t_at_max_s": 0.003076923076923077,
+      "t_first_above_Tsol_s": null,
+      "t_above_Tsol_s": 0.0
+    },
+    "surface": {
+      "T_max_K": 4640.153766087336,
+      "t_at_max_s": 0.0013975545825063256,
+      "t_first_above_Tsol_s": 0.0012666474750382569,
+      "t_above_Tsol_s": 0.001810578627596721
+    },
+    "depth15": {
+      "T_max_K": 1798.7040899684807,
+      "t_at_max_s": 0.0017969424705686276,
+      "t_first_above_Tsol_s": null,
+      "t_above_Tsol_s": 0.0
+    }
+  },
+  "T_min_K": 300.0,
+  "tag": "P175_a0.5_kr0.012"
+}

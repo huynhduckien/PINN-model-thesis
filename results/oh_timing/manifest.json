@@ -1,0 +1,23 @@
+{
+  "run": "overhang_3d",
+  "created_utc": "2026-10-10T11:08:33+00:00",
+  "git_head": "d3f09566ad94224a530516e2113b0c1fcd3437a8",
+  "versions": {
+    "torch": "2.14.1+cu130",
+    "deepxde": "1.15.0"
+  },
+  "config": {
+    "Ly": 0.00038,
+    "Lz": 0.00024,
+    "Z_POW": 0.00018,
+    "X_START": -0.00055,
+    "X_END": 0.00065
+  },
+  "extra": {
+    "iters": 2000,
+    "n_domain": 20000,
+    "seed": 0,
+    "history": "M=0 (vong lap ngoai chua cai)",
+    "t_end_s": 0.0015
+  }
+}

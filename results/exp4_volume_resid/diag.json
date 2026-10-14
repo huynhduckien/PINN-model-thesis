@@ -1,0 +1,53 @@
+{
+  "iters": 2000,
+  "T_c": 4000.0,
+  "L_c": 7.1e-05,
+  "t_c": 0.0005240245905740181,
+  "hard_ic": true,
+  "nonneg": true,
+  "laser": "volume",
+  "energy": {
+    "E_in_J": 0.08401088262568554,
+    "E_out_top_J": 1.2688453678291789e-05,
+    "E_out_faces_J": 0.01760131737027933,
+    "E_stored_J": 0.035804398357868195,
+    "rel_error": 0.3641489946030679
+  },
+  "pde_residual": {
+    "t=0.25*tmax": {
+      "rms_residual_over_rms_theta_t": 0.5104950666427612,
+      "mean_residual_over_rms_theta_t": -0.05538246035575867
+    },
+    "t=0.5*tmax": {
+      "rms_residual_over_rms_theta_t": 0.49514323472976685,
+      "mean_residual_over_rms_theta_t": -0.08313284069299698
+    },
+    "t=1*tmax": {
+      "rms_residual_over_rms_theta_t": 0.46017012000083923,
+      "mean_residual_over_rms_theta_t": -0.004494217690080404
+    }
+  },
+  "time_probe": {
+    "x-300um": {
+      "T_min_K": 298.0,
+      "T_max_K": 2339.59423828125,
+      "t_at_max_s": 0.00048275862068965523
+    },
+    "x0um": {
+      "T_min_K": 298.0,
+      "T_max_K": 2338.67431640625,
+      "t_at_max_s": 0.0009655172413793105
+    },
+    "x300um": {
+      "T_min_K": 298.0,
+      "T_max_K": 2115.6865234375,
+      "t_at_max_s": 0.0014482758620689659
+    },
+    "x500um": {
+      "T_min_K": 298.0,
+      "T_max_K": 2272.1083984375,
+      "t_at_max_s": 0.0017931034482758625
+    }
+  },
+  "IC_T_median_K": 298.0
+}

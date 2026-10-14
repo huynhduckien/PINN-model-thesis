@@ -1,0 +1,4 @@
+/home/user/PINN-model-thesis/lpbfpinn/r2022/train.py:198: UserWarning: Converting a tensor with requires_grad=True to a scalar may lead to unexpected behavior.
+Consider using tensor.detach() first. (Triggered internally at /__w/pytorch/pytorch/torch/csrc/autograd/generated/python_variable_methods.cpp:820.)
+  rec = {"iter": it, "frac": frac, "loss": float(loss), **{k: float(v) for k, v in terms.items()},
+{"iter": 0, "frac": 1.0, "loss": 0.5977736692909107, "pde": 0.5912354802846554, "top": 0.006531169693009488, "face": 7.019313245759631e-06, "elapsed_s": 0.6730940341949463}

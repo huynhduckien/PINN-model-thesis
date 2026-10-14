@@ -1,0 +1,4 @@
+new_base {'A_y150_depth235': 300.1, 'B_y30_depth115': 311.8, 'surface': 4635.7, 'depth15': 2770.1} rel 1.4056598505267787e-13
+old_cfg {'A_y150_depth235': 300.0, 'B_y30_depth115': 300.0, 'surface': 4391.5, 'depth15': 1737.1} rel 1.6647258454012252e-13
+new_T_only_old_alpha_kr {'A_y150_depth235': 300.0, 'B_y30_depth115': 300.0, 'surface': 4391.5, 'depth15': 1737.1} rel 1.6647258454012252e-13
+EXIT 0
